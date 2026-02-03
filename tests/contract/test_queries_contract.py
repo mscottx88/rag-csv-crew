@@ -49,7 +49,7 @@ class TestQueriesContract:
         # Submit query
         query_body: dict[str, Any] = {
             "query_text": "What are the top 10 rows?",
-            "dataset_ids": None  # Query all datasets
+            "dataset_ids": None,  # Query all datasets
         }
         response: Any = client.post("/queries", json=query_body, headers=headers)
 
@@ -67,7 +67,14 @@ class TestQueriesContract:
         assert data["query_text"] == "What are the top 10 rows?"
 
         # Verify status is valid enum value
-        valid_statuses: list[str] = ["pending", "processing", "completed", "failed", "cancelled", "timeout"]
+        valid_statuses: list[str] = [
+            "pending",
+            "processing",
+            "completed",
+            "failed",
+            "cancelled",
+            "timeout",
+        ]
         assert data["status"] in valid_statuses
 
         # Verify optional fields are present (nullable per schema)
@@ -96,10 +103,7 @@ class TestQueriesContract:
 
         # Submit query with specific dataset IDs
         dataset_id: str = str(uuid4())
-        query_body: dict[str, Any] = {
-            "query_text": "Show me the data",
-            "dataset_ids": [dataset_id]
-        }
+        query_body: dict[str, Any] = {"query_text": "Show me the data", "dataset_ids": [dataset_id]}
         response: Any = client.post("/queries", json=query_body, headers=headers)
 
         assert response.status_code == 201
@@ -150,9 +154,7 @@ class TestQueriesContract:
         Success Criteria (T055):
         - Request without token returns 401
         """
-        query_body: dict[str, Any] = {
-            "query_text": "What are the top 10 rows?"
-        }
+        query_body: dict[str, Any] = {"query_text": "What are the top 10 rows?"}
         response: Any = client.post("/queries", json=query_body)
 
         assert response.status_code == 401

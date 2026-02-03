@@ -39,7 +39,9 @@ class TestDatasetsContract:
         token: str = login_response.json()["access_token"]
 
         # Upload CSV file
-        csv_content: bytes = b"id,name,price\n1,Product A,19.99\n2,Product B,29.99\n3,Product C,39.99\n"
+        csv_content: bytes = (
+            b"id,name,price\n1,Product A,19.99\n2,Product B,29.99\n3,Product C,39.99\n"
+        )
         files: dict[str, tuple[str, BytesIO, str]] = {
             "file": ("products.csv", BytesIO(csv_content), "text/csv")
         }

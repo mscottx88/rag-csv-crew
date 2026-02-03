@@ -92,7 +92,7 @@ def submit_query(
         # Generate HTML response
         response_generator: ResponseGenerator = ResponseGenerator()
         response_data: dict[str, Any] = response_generator.generate_html_response(
-            query_text=query_create.query_text, query_results=query_results, query_id=query_id
+            query_text=query_create.query_text, query_results=query_results, _query_id=query_id
         )
 
         # Calculate execution time
@@ -128,6 +128,77 @@ def submit_query(
     # Return query object
     query_obj: dict[str, Any] = history_service.get_query_by_id(query_id, current_username)
     return Query(**query_obj)
+
+
+@router.get("/examples", response_model=dict[str, Any])
+def get_example_queries(
+    _current_username: Annotated[str, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Get example queries to help users understand capabilities.
+
+    Returns:
+        Dictionary with examples array
+
+    Examples per FR-017:
+    - Generic questions that work with any dataset
+    - Categorized by complexity (basic, aggregation, filtering, cross_dataset)
+
+    Note: _current_username parameter is required for authentication but not used in function body.
+    """
+    examples: list[dict[str, str]] = [
+        {
+            "question": "What are the top 10 rows?",
+            "description": "Shows the first 10 rows of your data",
+            "category": "basic",
+        },
+        {
+            "question": "How many total records are there?",
+            "description": "Counts all rows in the dataset",
+            "category": "basic",
+        },
+        {
+            "question": "What columns are available?",
+            "description": "Lists all column names in the dataset",
+            "category": "basic",
+        },
+        {
+            "question": "What is the average value?",
+            "description": "Calculates average for numeric columns",
+            "category": "aggregation",
+        },
+        {
+            "question": "Show me the highest values",
+            "description": "Finds maximum values across columns",
+            "category": "aggregation",
+        },
+        {
+            "question": "Group the data by category",
+            "description": "Groups and counts data by categorical columns",
+            "category": "aggregation",
+        },
+        {
+            "question": "Filter records where value is greater than 100",
+            "description": "Applies filters to numeric columns",
+            "category": "filtering",
+        },
+        {
+            "question": "Show only recent records",
+            "description": "Filters by date columns if available",
+            "category": "filtering",
+        },
+        {
+            "question": "Which categories have the most entries?",
+            "description": "Finds most common values in categorical columns",
+            "category": "filtering",
+        },
+        {
+            "question": "Combine data from related files",
+            "description": "Joins data across multiple uploaded datasets",
+            "category": "cross_dataset",
+        },
+    ]
+
+    return {"examples": examples}
 
 
 @router.get("/{query_id}", response_model=QueryWithResponse)
@@ -200,7 +271,9 @@ def get_query_history(
 
 
 @router.post("/{query_id}/cancel", response_model=Query)
-def cancel_query(query_id: UUID, current_username: Annotated[str, Depends(get_current_user)]) -> Query:
+def cancel_query(
+    query_id: UUID, current_username: Annotated[str, Depends(get_current_user)]
+) -> Query:
     """Cancel a running query.
 
     Args:
@@ -234,9 +307,7 @@ def cancel_query(query_id: UUID, current_username: Annotated[str, Depends(get_cu
         history_service.update_query_status(query_id, current_username, "cancelled")
 
         # Return updated query
-        updated_query: dict[str, Any] = history_service.get_query_by_id(
-            query_id, current_username
-        )
+        updated_query: dict[str, Any] = history_service.get_query_by_id(query_id, current_username)
         return Query(**updated_query)
 
     except HTTPException:
@@ -245,74 +316,3 @@ def cancel_query(query_id: UUID, current_username: Annotated[str, Depends(get_cu
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Query {query_id} not found"
         ) from exc
-
-
-@router.get("/examples", response_model=dict[str, Any])
-def get_example_queries(
-    _current_username: Annotated[str, Depends(get_current_user)],
-) -> dict[str, Any]:
-    """Get example queries to help users understand capabilities.
-
-    Returns:
-        Dictionary with examples array
-
-    Examples per FR-017:
-    - Generic questions that work with any dataset
-    - Categorized by complexity (basic, aggregation, filtering, cross_dataset)
-
-    Note: _current_username parameter is required for authentication but not used in function body.
-    """
-    examples: list[dict[str, str]] = [
-        {
-            "question": "What are the top 10 rows?",
-            "description": "Shows the first 10 rows of your data",
-            "category": "basic",
-        },
-        {
-            "question": "How many total records are there?",
-            "description": "Counts all rows in the dataset",
-            "category": "basic",
-        },
-        {
-            "question": "What columns are available?",
-            "description": "Lists all column names in the dataset",
-            "category": "basic",
-        },
-        {
-            "question": "What is the average value?",
-            "description": "Calculates average for numeric columns",
-            "category": "aggregation",
-        },
-        {
-            "question": "Show me the highest values",
-            "description": "Finds maximum values across columns",
-            "category": "aggregation",
-        },
-        {
-            "question": "Group the data by category",
-            "description": "Groups and counts data by categorical columns",
-            "category": "aggregation",
-        },
-        {
-            "question": "Filter records where value is greater than 100",
-            "description": "Applies filters to numeric columns",
-            "category": "filtering",
-        },
-        {
-            "question": "Show only recent records",
-            "description": "Filters by date columns if available",
-            "category": "filtering",
-        },
-        {
-            "question": "Which categories have the most entries?",
-            "description": "Finds most common values in categorical columns",
-            "category": "filtering",
-        },
-        {
-            "question": "Combine data from related files",
-            "description": "Joins data across multiple uploaded datasets",
-            "category": "cross_dataset",
-        },
-    ]
-
-    return {"examples": examples}

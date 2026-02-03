@@ -50,23 +50,7 @@ def get_current_username(credentials: HTTPAuthorizationCredentials = Depends(bea
     Raises:
         HTTPException: 401 if token is invalid
     """
-    import os
-
-    secret_key: str | None = os.getenv("JWT_SECRET")
-    algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
-
-    if not secret_key:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="JWT configuration missing",
-        )
-
-    username: str = get_current_user(
-        credentials=credentials,
-        secret_key=secret_key,
-        algorithm=algorithm,
-    )
-
+    username: str = get_current_user(credentials=credentials)
     return username
 
 

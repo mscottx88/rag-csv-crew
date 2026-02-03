@@ -86,7 +86,9 @@ class TestCSVIngestion:
         """
         from backend.src.services.ingestion import create_dataset_table, ingest_csv_data
 
-        csv_data: bytes = b"id,name,price\n1,Product A,19.99\n2,Product B,29.99\n3,Product C,39.99\n"
+        csv_data: bytes = (
+            b"id,name,price\n1,Product A,19.99\n2,Product B,29.99\n3,Product C,39.99\n"
+        )
         csv_file: BytesIO = BytesIO(csv_data)
 
         # Generate valid UUID for test

@@ -46,7 +46,7 @@ class TestCrewOrchestration:
         mock_crew_instance.kickoff.return_value = MagicMock(
             tasks_output=[
                 MagicMock(raw="SELECT * FROM data LIMIT 10"),  # SQL generation
-                MagicMock(raw="<p>Top 10 results shown</p>")   # HTML formatting
+                MagicMock(raw="<p>Top 10 results shown</p>"),  # HTML formatting
             ]
         )
         mock_crew.return_value = mock_crew_instance
@@ -54,9 +54,7 @@ class TestCrewOrchestration:
         orchestrator: TextToSQLOrchestrator = TextToSQLOrchestrator()
 
         result: dict[str, Any] = orchestrator.process_query(
-            query_text="Show me the top 10 rows",
-            dataset_ids=[uuid4()],
-            username="testuser"
+            query_text="Show me the top 10 rows", dataset_ids=[uuid4()], _username="testuser"
         )
 
         # Verify crew was executed
@@ -69,9 +67,7 @@ class TestCrewOrchestration:
     @patch("backend.src.crew.agents.create_sql_generator_agent")
     @patch("backend.src.crew.agents.create_result_analyst_agent")
     def test_task_dependencies_enforced(
-        self,
-        mock_result_analyst: MagicMock,
-        mock_sql_generator: MagicMock
+        self, mock_result_analyst: MagicMock, mock_sql_generator: MagicMock
     ) -> None:
         """Test CrewAI task dependencies prevent out-of-order execution.
 
@@ -98,16 +94,14 @@ class TestCrewOrchestration:
 
         # Create tasks
         sql_task: Any = create_sql_generation_task(
-            agent=mock_sql_agent,
-            query_text="Test query",
-            dataset_ids=[uuid4()]
+            agent=mock_sql_agent, query_text="Test query", dataset_ids=[uuid4()]
         )
 
         html_task: Any = create_html_formatting_task(
             agent=mock_analyst_agent,
             query_text="Test query",
             query_results={"rows": [], "row_count": 0, "columns": []},
-            context=[sql_task]  # HTML task depends on SQL task
+            context=[sql_task],  # HTML task depends on SQL task
         )
 
         # Verify task properties
@@ -146,9 +140,7 @@ class TestCrewOrchestration:
 
         with pytest.raises(Exception) as exc_info:
             orchestrator.process_query(
-                query_text="Test query",
-                dataset_ids=[uuid4()],
-                username="testuser"
+                query_text="Test query", dataset_ids=[uuid4()], _username="testuser"
             )
 
         # Verify error is raised
@@ -157,9 +149,7 @@ class TestCrewOrchestration:
     @patch("backend.src.services.text_to_sql.Crew")
     @patch("backend.src.services.query_execution.QueryExecutionService")
     def test_orchestration_includes_query_execution(
-        self,
-        mock_execution_service: MagicMock,
-        mock_crew: MagicMock
+        self, mock_execution_service: MagicMock, mock_crew: MagicMock
     ) -> None:
         """Test orchestration includes actual query execution between agents.
 
@@ -182,10 +172,7 @@ class TestCrewOrchestration:
         # Mock SQL generation
         mock_crew_instance: MagicMock = MagicMock()
         mock_crew_instance.kickoff.return_value = MagicMock(
-            tasks_output=[
-                MagicMock(raw="SELECT * FROM data"),
-                MagicMock(raw="<p>Results</p>")
-            ]
+            tasks_output=[MagicMock(raw="SELECT * FROM data"), MagicMock(raw="<p>Results</p>")]
         )
         mock_crew.return_value = mock_crew_instance
 
@@ -194,16 +181,14 @@ class TestCrewOrchestration:
         mock_execution_instance.execute_query.return_value = {
             "rows": [{"id": 1, "name": "Test"}],
             "row_count": 1,
-            "columns": ["id", "name"]
+            "columns": ["id", "name"],
         }
         mock_execution_service.return_value = mock_execution_instance
 
         orchestrator: TextToSQLOrchestrator = TextToSQLOrchestrator()
 
         result: dict[str, Any] = orchestrator.process_query(
-            query_text="Show me the data",
-            dataset_ids=[uuid4()],
-            username="testuser"
+            query_text="Show me the data", dataset_ids=[uuid4()], _username="testuser"
         )
 
         # Verify orchestration completed
@@ -234,10 +219,7 @@ class TestCrewOrchestration:
         # Mock crew responses
         mock_crew_instance: MagicMock = MagicMock()
         mock_crew_instance.kickoff.return_value = MagicMock(
-            tasks_output=[
-                MagicMock(raw="SELECT * FROM data"),
-                MagicMock(raw="<p>Results</p>")
-            ]
+            tasks_output=[MagicMock(raw="SELECT * FROM data"), MagicMock(raw="<p>Results</p>")]
         )
         mock_crew.return_value = mock_crew_instance
 
@@ -246,9 +228,7 @@ class TestCrewOrchestration:
         def run_query(query_num: int) -> dict[str, Any]:
             """Run a single query."""
             return orchestrator.process_query(
-                query_text=f"Query {query_num}",
-                dataset_ids=[uuid4()],
-                username="testuser"
+                query_text=f"Query {query_num}", dataset_ids=[uuid4()], _username="testuser"
             )
 
         # Run multiple queries concurrently

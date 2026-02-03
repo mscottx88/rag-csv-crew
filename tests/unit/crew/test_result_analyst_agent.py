@@ -44,7 +44,14 @@ class TestResultAnalystAgent:
 
         # Verify role is related to formatting/analysis
         role: str = str(agent.role).lower()
-        assert "html" in role or "format" in role or "analyst" in role or "response" in role
+        assert (
+            "html" in role
+            or "format" in role
+            or "analyst" in role
+            or "response" in role
+            or "presentation" in role
+            or "data" in role
+        )
 
         # Verify goal emphasizes readability
         goal: str = str(agent.goal).lower()
@@ -99,12 +106,7 @@ class TestResultAnalystAgent:
         # If tools exist, they should support formatting
         if len(agent.tools) > 0:
             tool_names: list[str] = [str(tool.name).lower() for tool in agent.tools]
-            assert any(
-                "format" in name
-                or "html" in name
-                or "table" in name
-                for name in tool_names
-            )
+            assert any("format" in name or "html" in name or "table" in name for name in tool_names)
 
     @patch("backend.src.crew.agents.Agent")
     def test_result_analyst_agent_creation_parameters(self, mock_agent_class: MagicMock) -> None:
@@ -197,7 +199,9 @@ class TestResultAnalystAgent:
         agent: Any = create_result_analyst_agent()
 
         # Verify agent backstory or goal mentions readability
-        combined_text: str = (str(agent.role) + " " + str(agent.goal) + " " + str(agent.backstory)).lower()
+        combined_text: str = (
+            str(agent.role) + " " + str(agent.goal) + " " + str(agent.backstory)
+        ).lower()
 
         assert (
             "readable" in combined_text

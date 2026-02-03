@@ -44,18 +44,17 @@ class QueryHistoryService:
         query_id: UUID = uuid4()
         user_schema: str = f"{username}_schema"
 
-        with self.pool.connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(f"SET search_path TO {user_schema}, public")
+        with self.pool.connection() as conn, conn.cursor() as cur:
+            cur.execute(f"SET search_path TO {user_schema}, public")
 
-                cur.execute(
-                    """
+            cur.execute(
+                """
                     INSERT INTO queries (id, query_text, status, submitted_at)
                     VALUES (%s, %s, %s, %s)
                     """,
-                    (query_id, query_text, status, datetime.now(UTC)),
-                )
-                conn.commit()
+                (query_id, query_text, status, datetime.now(UTC)),
+            )
+            conn.commit()
 
         return query_id
 
@@ -81,12 +80,11 @@ class QueryHistoryService:
         user_schema: str = f"{username}_schema"
         completed_at: datetime | None = datetime.now(UTC) if status == "completed" else None
 
-        with self.pool.connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(f"SET search_path TO {user_schema}, public")
+        with self.pool.connection() as conn, conn.cursor() as cur:
+            cur.execute(f"SET search_path TO {user_schema}, public")
 
-                cur.execute(
-                    """
+            cur.execute(
+                """
                     UPDATE queries
                     SET status = %s,
                         completed_at = %s,
@@ -95,16 +93,16 @@ class QueryHistoryService:
                         execution_time_ms = %s
                     WHERE id = %s
                     """,
-                    (
-                        status,
-                        completed_at,
-                        generated_sql,
-                        result_count,
-                        execution_time_ms,
-                        query_id,
-                    ),
-                )
-                conn.commit()
+                (
+                    status,
+                    completed_at,
+                    generated_sql,
+                    result_count,
+                    execution_time_ms,
+                    query_id,
+                ),
+            )
+            conn.commit()
 
     def get_query_by_id(self, query_id: UUID, username: str) -> dict[str, Any]:
         """Retrieve query by ID.
@@ -121,34 +119,33 @@ class QueryHistoryService:
         """
         user_schema: str = f"{username}_schema"
 
-        with self.pool.connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(f"SET search_path TO {user_schema}, public")
+        with self.pool.connection() as conn, conn.cursor() as cur:
+            cur.execute(f"SET search_path TO {user_schema}, public")
 
-                cur.execute(
-                    """
+            cur.execute(
+                """
                     SELECT id, query_text, submitted_at, completed_at, status,
                            generated_sql, result_count, execution_time_ms
                     FROM queries
                     WHERE id = %s
                     """,
-                    (query_id,),
-                )
-                row: tuple[Any, ...] | None = cur.fetchone()
+                (query_id,),
+            )
+            row: tuple[Any, ...] | None = cur.fetchone()
 
-                if not row:
-                    raise Exception(f"Query {query_id} not found")
+            if not row:
+                raise Exception(f"Query {query_id} not found")
 
-                return {
-                    "id": row[0],
-                    "query_text": row[1],
-                    "submitted_at": row[2],
-                    "completed_at": row[3],
-                    "status": row[4],
-                    "generated_sql": row[5],
-                    "result_count": row[6],
-                    "execution_time_ms": row[7],
-                }
+            return {
+                "id": row[0],
+                "query_text": row[1],
+                "submitted_at": row[2],
+                "completed_at": row[3],
+                "status": row[4],
+                "generated_sql": row[5],
+                "result_count": row[6],
+                "execution_time_ms": row[7],
+            }
 
     def store_response(
         self,
@@ -175,27 +172,26 @@ class QueryHistoryService:
         response_id: UUID = uuid4()
         user_schema: str = f"{username}_schema"
 
-        with self.pool.connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(f"SET search_path TO {user_schema}, public")
+        with self.pool.connection() as conn, conn.cursor() as cur:
+            cur.execute(f"SET search_path TO {user_schema}, public")
 
-                cur.execute(
-                    """
+            cur.execute(
+                """
                     INSERT INTO responses (
                         id, query_id, html_content, plain_text, confidence_score, generated_at
                     )
                     VALUES (%s, %s, %s, %s, %s, %s)
                     """,
-                    (
-                        response_id,
-                        query_id,
-                        html_content,
-                        plain_text,
-                        confidence_score,
-                        datetime.now(UTC),
-                    ),
-                )
-                conn.commit()
+                (
+                    response_id,
+                    query_id,
+                    html_content,
+                    plain_text,
+                    confidence_score,
+                    datetime.now(UTC),
+                ),
+            )
+            conn.commit()
 
         return response_id
 
@@ -214,31 +210,30 @@ class QueryHistoryService:
         """
         user_schema: str = f"{username}_schema"
 
-        with self.pool.connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(f"SET search_path TO {user_schema}, public")
+        with self.pool.connection() as conn, conn.cursor() as cur:
+            cur.execute(f"SET search_path TO {user_schema}, public")
 
-                cur.execute(
-                    """
+            cur.execute(
+                """
                     SELECT id, query_id, html_content, plain_text, confidence_score, generated_at
                     FROM responses
                     WHERE query_id = %s
                     """,
-                    (query_id,),
-                )
-                row: tuple[Any, ...] | None = cur.fetchone()
+                (query_id,),
+            )
+            row: tuple[Any, ...] | None = cur.fetchone()
 
-                if not row:
-                    raise Exception(f"Response for query {query_id} not found")
+            if not row:
+                raise Exception(f"Response for query {query_id} not found")
 
-                return {
-                    "id": row[0],
-                    "query_id": row[1],
-                    "html_content": row[2],
-                    "plain_text": row[3],
-                    "confidence_score": row[4],
-                    "generated_at": row[5],
-                }
+            return {
+                "id": row[0],
+                "query_id": row[1],
+                "html_content": row[2],
+                "plain_text": row[3],
+                "confidence_score": row[4],
+                "generated_at": row[5],
+            }
 
     def get_query_with_response(self, query_id: UUID, username: str) -> dict[str, Any]:
         """Retrieve query with embedded response (QueryWithResponse model).
@@ -278,23 +273,20 @@ class QueryHistoryService:
         user_schema: str = f"{username}_schema"
         offset: int = (page - 1) * page_size
 
-        with self.pool.connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(f"SET search_path TO {user_schema}, public")
+        with self.pool.connection() as conn, conn.cursor() as cur:
+            cur.execute(f"SET search_path TO {user_schema}, public")
 
-                # Build query with optional status filter
-                where_clause: str = "WHERE status = %s" if status else ""
-                params: tuple[Any, ...] = (
-                    (status, page_size, offset) if status else (page_size, offset)
-                )
+            # Build query with optional status filter
+            where_clause: str = "WHERE status = %s" if status else ""
+            params: tuple[Any, ...] = (status, page_size, offset) if status else (page_size, offset)
 
-                # Get total count
-                count_query: str = f"SELECT COUNT(*) FROM queries {where_clause}"
-                cur.execute(count_query, (status,) if status else ())
-                total_count: int = cur.fetchone()[0]  # type: ignore[index]
+            # Get total count
+            count_query: str = f"SELECT COUNT(*) FROM queries {where_clause}"
+            cur.execute(count_query, (status,) if status else ())
+            total_count: int = cur.fetchone()[0]  # type: ignore[index]
 
-                # Get paginated queries
-                query_sql: str = f"""
+            # Get paginated queries
+            query_sql: str = f"""
                     SELECT id, query_text, submitted_at, completed_at, status,
                            generated_sql, result_count, execution_time_ms
                     FROM queries
@@ -302,29 +294,29 @@ class QueryHistoryService:
                     ORDER BY submitted_at DESC
                     LIMIT %s OFFSET %s
                 """
-                cur.execute(query_sql, params)
-                rows: list[tuple[Any, ...]] = cur.fetchall()
+            cur.execute(query_sql, params)
+            rows: list[tuple[Any, ...]] = cur.fetchall()
 
-                queries: list[dict[str, Any]] = [
-                    {
-                        "id": row[0],
-                        "query_text": row[1],
-                        "submitted_at": row[2],
-                        "completed_at": row[3],
-                        "status": row[4],
-                        "generated_sql": row[5],
-                        "result_count": row[6],
-                        "execution_time_ms": row[7],
-                    }
-                    for row in rows
-                ]
-
-                return {
-                    "queries": queries,
-                    "total_count": total_count,
-                    "page": page,
-                    "page_size": page_size,
+            queries: list[dict[str, Any]] = [
+                {
+                    "id": row[0],
+                    "query_text": row[1],
+                    "submitted_at": row[2],
+                    "completed_at": row[3],
+                    "status": row[4],
+                    "generated_sql": row[5],
+                    "result_count": row[6],
+                    "execution_time_ms": row[7],
                 }
+                for row in rows
+            ]
+
+            return {
+                "queries": queries,
+                "total_count": total_count,
+                "page": page,
+                "page_size": page_size,
+            }
 
     def delete_query(self, query_id: UUID, username: str) -> None:
         """Delete query (and cascade delete response).
@@ -335,9 +327,8 @@ class QueryHistoryService:
         """
         user_schema: str = f"{username}_schema"
 
-        with self.pool.connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(f"SET search_path TO {user_schema}, public")
+        with self.pool.connection() as conn, conn.cursor() as cur:
+            cur.execute(f"SET search_path TO {user_schema}, public")
 
-                cur.execute("DELETE FROM queries WHERE id = %s", (query_id,))
-                conn.commit()
+            cur.execute("DELETE FROM queries WHERE id = %s", (query_id,))
+            conn.commit()

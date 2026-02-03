@@ -47,9 +47,7 @@ def get_jwt_config() -> tuple[str, str, int]:
     """
     secret_key: str | None = os.getenv("JWT_SECRET")
     if not secret_key:
-        raise RuntimeError(
-            "JWT_SECRET environment variable not set. Required for authentication."
-        )
+        raise RuntimeError("JWT_SECRET environment variable not set. Required for authentication.")
 
     algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
     expire_minutes_str: str = os.getenv("JWT_EXPIRE_MINUTES", "1440")  # 24 hours
@@ -218,15 +216,7 @@ def get_current_user_profile(
     """
     # Extract and validate username from token
     try:
-        secret_key: str
-        algorithm: str
-        secret_key, algorithm, _ = get_jwt_config()
-
-        username: str = get_current_user(
-            credentials=credentials,
-            secret_key=secret_key,
-            algorithm=algorithm,
-        )
+        username: str = get_current_user(credentials=credentials)
     except HTTPException:
         # Re-raise HTTP exceptions (401 Unauthorized)
         raise

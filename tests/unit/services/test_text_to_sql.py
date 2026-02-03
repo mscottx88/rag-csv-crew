@@ -52,9 +52,7 @@ class TestTextToSQLService:
         dataset_ids: list[UUID] = [uuid4()]
 
         result: dict[str, Any] = service.generate_sql(
-            query_text=user_query,
-            dataset_ids=dataset_ids,
-            username="testuser"
+            query_text=user_query, dataset_ids=dataset_ids, _username="testuser"
         )
 
         # Verify SQL was generated
@@ -106,7 +104,7 @@ class TestTextToSQLService:
         result: dict[str, Any] = service.generate_sql(
             query_text="Which customers have the highest order totals?",
             dataset_ids=dataset_ids,
-            username="testuser"
+            _username="testuser",
         )
 
         assert "sql" in result
@@ -140,9 +138,7 @@ class TestTextToSQLService:
 
         with pytest.raises(Exception) as exc_info:
             service.generate_sql(
-                query_text="Show me the data",
-                dataset_ids=[uuid4()],
-                username="testuser"
+                query_text="Show me the data", dataset_ids=[uuid4()], _username="testuser"
             )
 
         # Verify error is raised
@@ -172,13 +168,11 @@ class TestTextToSQLService:
         with patch.object(service, "generate_sql") as mock_generate:
             mock_generate.return_value = {
                 "sql": "SELECT * FROM data WHERE query = %s",
-                "params": [malicious_query]
+                "params": [malicious_query],
             }
 
             result: dict[str, Any] = service.generate_sql(
-                query_text=malicious_query,
-                dataset_ids=[uuid4()],
-                username="testuser"
+                query_text=malicious_query, dataset_ids=[uuid4()], _username="testuser"
             )
 
             # Verify parameterized query pattern

@@ -46,9 +46,7 @@ class TestQueryHistory:
         username: str = "testuser"
 
         query_id: UUID = service.store_query(
-            query_text=query_text,
-            username=username,
-            status="pending"
+            query_text=query_text, username=username, status="pending"
         )
 
         # Verify query ID is valid UUID
@@ -83,9 +81,7 @@ class TestQueryHistory:
 
         # Create query
         query_id: UUID = service.store_query(
-            query_text="Test query",
-            username=username,
-            status="pending"
+            query_text="Test query", username=username, status="pending"
         )
 
         # Update to processing
@@ -101,7 +97,7 @@ class TestQueryHistory:
             "completed",
             generated_sql="SELECT * FROM data",
             result_count=42,
-            execution_time_ms=1250
+            execution_time_ms=1250,
         )
         query = service.get_query_by_id(query_id, username)
         assert query["status"] == "completed"
@@ -134,9 +130,7 @@ class TestQueryHistory:
 
         # Create query first
         query_id: UUID = service.store_query(
-            query_text="Test query",
-            username=username,
-            status="pending"
+            query_text="Test query", username=username, status="pending"
         )
 
         # Store response
@@ -149,7 +143,7 @@ class TestQueryHistory:
             username=username,
             html_content=html_content,
             plain_text=plain_text,
-            confidence_score=confidence_score
+            confidence_score=confidence_score,
         )
 
         # Verify response ID is valid UUID
@@ -187,9 +181,7 @@ class TestQueryHistory:
 
         # Create query
         query_id: UUID = service.store_query(
-            query_text="Test query with response",
-            username=username,
-            status="completed"
+            query_text="Test query with response", username=username, status="completed"
         )
 
         # Store response
@@ -198,7 +190,7 @@ class TestQueryHistory:
             username=username,
             html_content="<p>Result</p>",
             plain_text="Result",
-            confidence_score=0.9
+            confidence_score=0.9,
         )
 
         # Get query with response
@@ -235,18 +227,12 @@ class TestQueryHistory:
         query_ids: list[UUID] = []
         for i in range(15):
             query_id: UUID = service.store_query(
-                query_text=f"Query {i}",
-                username=username,
-                status="completed"
+                query_text=f"Query {i}", username=username, status="completed"
             )
             query_ids.append(query_id)
 
         # Get first page
-        history: dict[str, Any] = service.get_query_history(
-            username=username,
-            page=1,
-            page_size=10
-        )
+        history: dict[str, Any] = service.get_query_history(username=username, page=1, page_size=10)
 
         assert "queries" in history
         assert "total_count" in history
@@ -290,10 +276,7 @@ class TestQueryHistory:
 
         # Filter by completed status
         history: dict[str, Any] = service.get_query_history(
-            username=username,
-            page=1,
-            page_size=50,
-            status="completed"
+            username=username, page=1, page_size=50, status="completed"
         )
 
         # Verify all returned queries have completed status
@@ -321,9 +304,7 @@ class TestQueryHistory:
 
         # Create query for user A
         query_id_a: UUID = service.store_query(
-            query_text="User A query",
-            username="usera",
-            status="completed"
+            query_text="User A query", username="usera", status="completed"
         )
 
         # Try to access user A's query as user B
@@ -332,9 +313,7 @@ class TestQueryHistory:
 
         # Verify user B's history doesn't include user A's queries
         history_b: dict[str, Any] = service.get_query_history(
-            username="userb",
-            page=1,
-            page_size=50
+            username="userb", page=1, page_size=50
         )
 
         query_ids_b: list[UUID] = [q["id"] for q in history_b["queries"]]
@@ -367,7 +346,7 @@ class TestQueryHistory:
             username=username,
             html_content="<p>Test</p>",
             plain_text="Test",
-            confidence_score=0.9
+            confidence_score=0.9,
         )
 
         # Delete query

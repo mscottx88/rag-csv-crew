@@ -64,7 +64,9 @@ class TestAuthContract:
 
         # Verify access_token is valid JWT format (3 base64 sections separated by dots)
         token: str = data["access_token"]
-        jwt_pattern: re.Pattern[str] = re.compile(r"^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$")
+        jwt_pattern: re.Pattern[str] = re.compile(
+            r"^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$"
+        )
         assert jwt_pattern.match(token), f"Token does not match JWT format: {token}"
 
     def test_login_invalid_username_format(self, client: TestClient) -> None:
@@ -105,9 +107,9 @@ class TestAuthContract:
 
             # Verify error response has detail field
             data: dict[str, Any] = response.json()
-            assert "detail" in data or "error" in data or "errors" in data, (
-                f"Error response missing detail/error/errors field for username '{invalid_username}'"
-            )
+            assert (
+                "detail" in data or "error" in data or "errors" in data
+            ), f"Error response missing detail/error/errors field for username '{invalid_username}'"
 
     def test_login_creates_user_schema_on_first_login(self, client: TestClient) -> None:
         """Test POST /auth/login creates user schema on first login.
@@ -140,7 +142,9 @@ class TestAuthContract:
         assert "access_token" in data2
 
         # Both tokens should be valid JWTs
-        jwt_pattern: re.Pattern[str] = re.compile(r"^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$")
+        jwt_pattern: re.Pattern[str] = re.compile(
+            r"^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$"
+        )
         assert jwt_pattern.match(data1["access_token"])
         assert jwt_pattern.match(data2["access_token"])
 
@@ -163,9 +167,10 @@ class TestAuthContract:
         response: Any = client.post("/auth/login", json=request_body)
 
         # Accept either 400 (bad request) or 422 (validation error)
-        assert response.status_code in [400, 422], (
-            f"Expected 400 or 422 for missing username, got {response.status_code}"
-        )
+        assert response.status_code in [
+            400,
+            422,
+        ], f"Expected 400 or 422 for missing username, got {response.status_code}"
 
         # Verify error response
         data: dict[str, Any] = response.json()
@@ -278,8 +283,7 @@ class TestAuthContract:
 
             # Verify 401 status
             assert response.status_code == 401, (
-                f"Expected 401 for invalid token '{invalid_token}', "
-                f"got {response.status_code}"
+                f"Expected 401 for invalid token '{invalid_token}', " f"got {response.status_code}"
             )
 
     def test_get_current_user_with_expired_token(self, client: TestClient) -> None:

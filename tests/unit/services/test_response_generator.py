@@ -65,16 +65,14 @@ class TestResponseGenerator:
         query_results: dict[str, Any] = {
             "rows": [
                 {"product": "Product A", "revenue": 1000},
-                {"product": "Product B", "revenue": 800}
+                {"product": "Product B", "revenue": 800},
             ],
             "row_count": 2,
-            "columns": ["product", "revenue"]
+            "columns": ["product", "revenue"],
         }
 
         result: dict[str, Any] = generator.generate_html_response(
-            query_text=query_text,
-            query_results=query_results,
-            query_id=uuid4()
+            query_text=query_text, query_results=query_results, _query_id=uuid4()
         )
 
         # Verify HTML was generated
@@ -130,8 +128,12 @@ class TestResponseGenerator:
         generator: ResponseGenerator = ResponseGenerator()
         result: dict[str, Any] = generator.generate_html_response(
             query_text="Show me sales data",
-            query_results={"rows": [{"id": 1, "amount": 100}], "row_count": 1, "columns": ["id", "amount"]},
-            query_id=uuid4()
+            query_results={
+                "rows": [{"id": 1, "amount": 100}],
+                "row_count": 1,
+                "columns": ["id", "amount"],
+            },
+            _query_id=uuid4(),
         )
 
         html: str = result["html_content"]
@@ -168,8 +170,12 @@ class TestResponseGenerator:
         generator: ResponseGenerator = ResponseGenerator()
         result: dict[str, Any] = generator.generate_html_response(
             query_text="What's the total revenue?",
-            query_results={"rows": [{"total": 1234.56, "count": 42}], "row_count": 1, "columns": ["total", "count"]},
-            query_id=uuid4()
+            query_results={
+                "rows": [{"total": 1234.56, "count": 42}],
+                "row_count": 1,
+                "columns": ["total", "count"],
+            },
+            _query_id=uuid4(),
         )
 
         # Verify both HTML and plain text are generated
@@ -206,7 +212,7 @@ class TestResponseGenerator:
         result: dict[str, Any] = generator.generate_html_response(
             query_text="Show me sales from year 3000",
             query_results={"rows": [], "row_count": 0, "columns": []},
-            query_id=uuid4()
+            _query_id=uuid4(),
         )
 
         assert "html_content" in result
@@ -243,7 +249,7 @@ class TestResponseGenerator:
             generator.generate_html_response(
                 query_text="Test query",
                 query_results={"rows": [], "row_count": 0, "columns": []},
-                query_id=uuid4()
+                _query_id=uuid4(),
             )
 
     @patch("backend.src.services.response_generator.Crew")
@@ -265,16 +271,14 @@ class TestResponseGenerator:
         from backend.src.services.response_generator import ResponseGenerator
 
         mock_crew_instance: MagicMock = MagicMock()
-        mock_crew_instance.kickoff.return_value = MagicMock(
-            result="<p>The average is 42</p>"
-        )
+        mock_crew_instance.kickoff.return_value = MagicMock(result="<p>The average is 42</p>")
         mock_crew.return_value = mock_crew_instance
 
         generator: ResponseGenerator = ResponseGenerator()
         result: dict[str, Any] = generator.generate_html_response(
             query_text="What's the average?",
             query_results={"rows": [{"avg": 42}], "row_count": 1, "columns": ["avg"]},
-            query_id=uuid4()
+            _query_id=uuid4(),
         )
 
         # Verify confidence score if present
