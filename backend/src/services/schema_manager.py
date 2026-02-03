@@ -14,7 +14,7 @@ Constitutional Requirements:
 
 from datetime import UTC, datetime
 
-from psycopg import Connection
+from psycopg import Connection, errors
 
 
 def ensure_user_schema_exists(conn: Connection[tuple[str, ...]], username: str) -> None:
@@ -53,15 +53,32 @@ def ensure_user_schema_exists(conn: Connection[tuple[str, ...]], username: str) 
     schema_name: str = f"{username}_schema"
 
     with conn.cursor() as cur:
-        # Create user record if not exists (idempotent)
-        cur.execute(
-            """
-            INSERT INTO public.users (username, schema_name, created_at)
-            VALUES (%s, %s, NOW())
-            ON CONFLICT (username) DO NOTHING
-            """,
-            (username, schema_name),
-        )
+        # Create user record if not exists (idempotent, thread-safe)
+        # Handle both username and schema_name uniqueness constraints
+        try:
+            cur.execute(
+                """
+                INSERT INTO public.users (username, schema_name, created_at)
+                VALUES (%s, %s, NOW())
+                """,
+                (username, schema_name),
+            )
+        except errors.UniqueViolation:
+            # User already exists - rollback failed INSERT and verify schema_name matches
+            conn.rollback()
+
+            # Re-check if user exists with correct schema_name
+            cur.execute(
+                "SELECT schema_name FROM public.users WHERE username = %s",
+                (username,),
+            )
+            row: tuple[str, ...] | None = cur.fetchone()
+            if row and row[0] != schema_name:
+                raise ValueError(
+                    f"User '{username}' already exists with different schema name: "
+                    f"expected '{schema_name}', found '{row[0]}'"
+                )
+            # Same username and schema_name - idempotent, continue
 
         # Create user schema if not exists (idempotent)
         cur.execute(f"CREATE SCHEMA IF NOT EXISTS {schema_name}")

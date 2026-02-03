@@ -92,17 +92,17 @@ class User(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-class UserLogin(BaseModel):
+class UserLogin(UserBase):
     """Login request for username-only authentication.
 
     Per FR-021 and spec clarifications: No password required.
     This is a demo/prototype environment not for production use.
 
-    Attributes:
-        username: Username to authenticate (3-50 characters)
-    """
+    Inherits username validation from UserBase (^[a-z][a-z0-9_]{2,49}$).
 
-    username: str = Field(..., min_length=3, max_length=50)
+    Attributes:
+        username: Username to authenticate (3-50 characters, validated format)
+    """
 
 
 class AuthToken(BaseModel):

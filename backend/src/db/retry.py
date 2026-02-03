@@ -58,7 +58,7 @@ def retry_with_backoff(
     attempt: int = 0
     delay: float = initial_delay
 
-    while attempt < max_retries:
+    while True:
         try:
             attempt += 1
             result: T = operation()
@@ -69,8 +69,23 @@ def retry_with_backoff(
             return result
 
         except OperationalError as e:
+            # Log the failure
+            logger.warning(
+                "Operation failed, checking retry policy",
+                extra={
+                    "attempt": attempt,
+                    "max_retries": max_retries,
+                    "error": str(e),
+                },
+            )
+
+            # Check if we've exhausted all attempts
             if attempt >= max_retries:
-                # Final attempt failed - log and re-raise
+                # Apply final backoff delay before giving up (per FR-023)
+                if max_retries > 0:
+                    time.sleep(delay)
+
+                # Log final failure and re-raise
                 logger.error(
                     "Operation failed after all retry attempts",
                     extra={
@@ -82,18 +97,7 @@ def retry_with_backoff(
                 )
                 raise
 
-            # Retry with backoff
-            logger.warning(
-                "Operation failed, retrying with exponential backoff",
-                extra={
-                    "attempt": attempt,
-                    "max_retries": max_retries,
-                    "delay_seconds": delay,
-                    "error": str(e),
-                },
-            )
-
-            # User notification per FR-023
+            # Retry with backoff - user notification per FR-023
             print(f"Reconnecting... (attempt {attempt + 1}/{max_retries})")
 
             # Exponential backoff delay
@@ -112,9 +116,6 @@ def retry_with_backoff(
                 exc_info=True,
             )
             raise
-
-    # Should never reach here due to raises in loop
-    raise RuntimeError("Unexpected exit from retry loop")
 
 
 def retry_connection(

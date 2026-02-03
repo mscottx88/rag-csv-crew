@@ -21,6 +21,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from backend.src.api.auth import router as auth_router
+from backend.src.api.datasets import router as datasets_router
 from backend.src.api.health import router as health_router
 from backend.src.models.config import AppConfig
 from backend.src.utils.logging import (
@@ -201,6 +203,8 @@ def create_app() -> FastAPI:
     fastapi_app.add_exception_handler(Exception, generic_exception_handler)
 
     # Register API routers
+    fastapi_app.include_router(auth_router, prefix="", tags=["auth"])
+    fastapi_app.include_router(datasets_router, prefix="", tags=["datasets"])
     fastapi_app.include_router(health_router, prefix="", tags=["health"])
 
     # Log application startup

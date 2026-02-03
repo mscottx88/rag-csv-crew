@@ -210,6 +210,7 @@ class TestSystemSchema:
                         INSERT INTO public.query_log (username, query_text, status)
                         VALUES ('bob', 'test query', 'pending')
                     """)
+                conn.commit()  # Trigger foreign key constraint check
 
     def test_query_log_status_constraint(self, connection_pool: ConnectionPool) -> None:
         """Test query_log.status CHECK constraint.

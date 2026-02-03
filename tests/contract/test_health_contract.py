@@ -165,14 +165,16 @@ class TestHealthEndpointContract:
 
         # Check for timestamp field
         if "timestamp" in data:
+            from datetime import UTC
+
             timestamp_str: str = data["timestamp"]
 
             # Parse ISO 8601 timestamp
             try:
                 timestamp: datetime = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
 
-                # Verify timestamp is recent
-                now: datetime = datetime.now()
+                # Verify timestamp is recent (use UTC to match timestamp timezone)
+                now: datetime = datetime.now(UTC)
                 time_diff: float = abs((now - timestamp).total_seconds())
                 assert time_diff < 60  # Within last minute
             except ValueError:

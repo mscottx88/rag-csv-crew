@@ -1,0 +1,440 @@
+"""Dataset management endpoints for CSV upload and listing.
+
+Implements POST /datasets for CSV file upload per openapi.yaml.
+Follows FR-013, FR-014, FR-015, FR-022.
+
+Constitutional Requirements:
+- Thread-based operations only (no async/await)
+- All variables have explicit type annotations
+- All functions have return type annotations
+- All route handlers use def (NOT async def)
+"""
+
+from io import BytesIO, StringIO
+from typing import Any
+
+from fastapi import APIRouter, Depends, File, HTTPException, status, UploadFile
+from fastapi.responses import JSONResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from psycopg import Connection
+
+from backend.src.api.dependencies import get_current_user
+from backend.src.db.connection import get_global_pool
+from backend.src.models.dataset import Dataset
+from backend.src.services.ingestion import (
+    check_filename_conflict,
+    create_dataset_table,
+    detect_csv_format,
+    detect_csv_schema,
+    ingest_csv_data,
+    store_dataset_metadata,
+)
+from backend.src.utils.logging import get_structured_logger, log_event
+
+# Initialize router and logger
+router: APIRouter = APIRouter(prefix="/datasets", tags=["Datasets"])
+logger = get_structured_logger(__name__)
+
+# Security scheme for Bearer token
+bearer_scheme: HTTPBearer = HTTPBearer()
+
+
+def get_current_username(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)) -> str:
+    """Extract username from JWT token.
+
+    Args:
+        credentials: HTTPAuthorizationCredentials from bearer_scheme
+
+    Returns:
+        Username from validated token
+
+    Raises:
+        HTTPException: 401 if token is invalid
+    """
+    import os
+
+    secret_key: str | None = os.getenv("JWT_SECRET")
+    algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
+
+    if not secret_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="JWT configuration missing",
+        )
+
+    username: str = get_current_user(
+        credentials=credentials,
+        secret_key=secret_key,
+        algorithm=algorithm,
+    )
+
+    return username
+
+
+@router.post("/", response_model=Dataset, status_code=status.HTTP_201_CREATED)
+def upload_dataset(
+    file: UploadFile = File(...),
+    username: str = Depends(get_current_username),
+) -> Dataset:
+    """Upload CSV file and create dataset.
+
+    Performs:
+    1. File validation
+    2. Format detection (delimiter, encoding)
+    3. Schema inference (types, nullability)
+    4. Filename conflict check
+    5. Table creation
+    6. Data ingestion via COPY
+    7. Metadata storage
+
+    Args:
+        file: Uploaded CSV file
+        username: Current authenticated user
+
+    Returns:
+        Dataset with metadata
+
+    Raises:
+        HTTPException 400: Invalid CSV format
+        HTTPException 409: Filename conflict
+        HTTPException 500: Server error during ingestion
+
+    Per openapi.yaml POST /datasets:
+    - Request: multipart/form-data with file field
+    - Response 201: Dataset schema
+    - Response 400: Invalid CSV
+    - Response 409: Filename conflict
+    """
+    # Validate file
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No filename provided",
+        )
+
+    # Extract filename (remove .csv extension if present)
+    filename: str = file.filename
+    if filename.lower().endswith(".csv"):
+        filename_without_ext: str = filename[:-4]
+    else:
+        filename_without_ext = filename
+
+    log_event(
+        logger=logger,
+        level="info",
+        event="csv_upload_start",
+        user=username,
+        extra={"filename": filename},
+    )
+
+    # Read file content
+    try:
+        file_content: bytes = file.file.read()
+        file_size: int = len(file_content)
+
+        if file_size == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Empty file",
+            )
+    except Exception as e:
+        log_event(
+            logger=logger,
+            level="error",
+            event="file_read_failed",
+            user=username,
+            extra={"error": str(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to read file: {str(e)}",
+        ) from e
+
+    # Get database connection
+    try:
+        pool = get_global_pool()
+    except RuntimeError as e:
+        log_event(
+            logger=logger,
+            level="error",
+            event="upload_failed",
+            user=username,
+            extra={"error": "Database pool not initialized"},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database connection unavailable",
+        ) from e
+
+    with pool.connection() as conn:
+        conn: Connection[tuple[str, ...]]
+
+        # Check filename conflict
+        try:
+            conflict_info: dict[str, Any] = check_filename_conflict(
+                conn, username, filename_without_ext
+            )
+
+            if conflict_info["conflict"]:
+                log_event(
+                    logger=logger,
+                    level="warning",
+                    event="filename_conflict",
+                    user=username,
+                    extra={"filename": filename_without_ext},
+                )
+                # Return FilenameConflictResponse per openapi.yaml
+                return JSONResponse(
+                    status_code=status.HTTP_409_CONFLICT,
+                    content={
+                        "error": "filename_conflict",
+                        "message": f"Filename '{filename_without_ext}' already exists",
+                        "existing_dataset_id": "00000000-0000-0000-0000-000000000000",  # Placeholder UUID
+                        "suggested_filename": conflict_info["suggested_filename"],
+                    },
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            log_event(
+                logger=logger,
+                level="error",
+                event="conflict_check_failed",
+                user=username,
+                extra={"error": str(e)},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to check filename conflict",
+            ) from e
+
+        # Detect CSV format
+        try:
+            csv_file_bytes: BytesIO = BytesIO(file_content)
+            format_info: dict[str, Any] = detect_csv_format(csv_file_bytes)
+        except Exception as e:
+            log_event(
+                logger=logger,
+                level="error",
+                event="format_detection_failed",
+                user=username,
+                extra={"error": str(e)},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to detect CSV format: {str(e)}",
+            ) from e
+
+        # Decode CSV for schema detection
+        try:
+            encoding: str = format_info["encoding"]
+            csv_text: str = file_content.decode(encoding)
+
+            # Strip BOM if present
+            if csv_text.startswith("\ufeff"):
+                csv_text = csv_text[1:]
+
+            csv_file_string: StringIO = StringIO(csv_text)
+        except (UnicodeDecodeError, LookupError) as e:
+            log_event(
+                logger=logger,
+                level="error",
+                event="encoding_failed",
+                user=username,
+                extra={"error": str(e)},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to decode CSV: {str(e)}",
+            ) from e
+
+        # Detect schema
+        try:
+            schema: dict[str, Any] = detect_csv_schema(csv_file_string)
+
+            if not schema.get("columns"):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="CSV has no columns",
+                )
+
+            # Validate column names don't contain invalid characters
+            for col in schema["columns"]:
+                col_name: str = col["name"]
+                if not col_name or not col_name.strip():
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="CSV contains empty column names",
+                    )
+                # Check for null bytes or other problematic characters
+                if "\x00" in col_name:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="CSV contains invalid column names (null bytes)",
+                    )
+
+            column_count: int = len(schema["columns"])
+        except Exception as e:
+            log_event(
+                logger=logger,
+                level="error",
+                event="schema_detection_failed",
+                user=username,
+                extra={"error": str(e)},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to detect CSV schema: {str(e)}",
+            ) from e
+
+        # Create dataset table
+        try:
+            table_name: str = create_dataset_table(conn, username, filename_without_ext, schema)
+        except Exception as e:
+            log_event(
+                logger=logger,
+                level="error",
+                event="table_creation_failed",
+                user=username,
+                extra={"error": str(e)},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to create dataset table: {str(e)}",
+            ) from e
+
+        # Normalize schema types to match ColumnSchema pattern
+        # Valid types: text|integer|bigint|numeric|boolean|date|timestamp
+        type_mapping: dict[str, str] = {
+            "TEXT": "text",
+            "INTEGER": "integer",
+            "BIGINT": "bigint",
+            "FLOAT": "numeric",  # Map FLOAT to numeric
+            "DECIMAL": "numeric",
+            "NUMERIC": "numeric",
+            "BOOLEAN": "boolean",
+            "DATE": "date",
+            "TIMESTAMP": "timestamp",
+        }
+
+        normalized_columns: list[dict[str, Any]] = []
+        for col in schema["columns"]:
+            col_type_upper: str = col["type"].upper()
+            normalized_type: str = type_mapping.get(col_type_upper, "text")  # Default to text
+
+            normalized_col: dict[str, Any] = {
+                "name": col["name"],
+                "inferred_type": normalized_type,
+                "nullable": col.get("nullable", False),
+            }
+            normalized_columns.append(normalized_col)
+
+        # Store metadata first to get dataset_id
+        try:
+            metadata: dict[str, Any] = {
+                "filename": filename_without_ext,
+                "original_filename": filename,
+                "table_name": table_name,
+                "row_count": 0,  # Will update after ingestion
+                "column_count": column_count,
+                "file_size_bytes": file_size,
+                "schema_json": {"columns": normalized_columns},  # Keep original structure for DB
+            }
+
+            dataset_id: str = store_dataset_metadata(conn, username, metadata)
+        except Exception as e:
+            log_event(
+                logger=logger,
+                level="error",
+                event="metadata_storage_failed",
+                user=username,
+                extra={"error": str(e)},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to store dataset metadata: {str(e)}",
+            ) from e
+
+        # Ingest data
+        try:
+            csv_file_bytes.seek(0)
+            row_count: int = ingest_csv_data(conn, username, table_name, csv_file_bytes, dataset_id)
+
+            # Update row count in metadata
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"UPDATE {username}_schema.datasets SET row_count = %s WHERE id = %s",
+                    (row_count, dataset_id),
+                )
+            conn.commit()
+        except Exception as e:
+            log_event(
+                logger=logger,
+                level="error",
+                event="data_ingestion_failed",
+                user=username,
+                extra={"error": str(e)},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to ingest CSV data: {str(e)}",
+            ) from e
+
+        # Fetch complete dataset record
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT id, filename, original_filename, table_name, uploaded_at,
+                           row_count, column_count, file_size_bytes, schema_json
+                    FROM {username}_schema.datasets
+                    WHERE id = %s
+                    """,
+                    (dataset_id,),
+                )
+                row: tuple[Any, ...] | None = cur.fetchone()
+
+                if row is None:
+                    raise ValueError("Dataset not found after creation")
+
+                # Extract columns list from schema_json (stored as {"columns": [...]})
+                schema_json_db: dict[str, Any] = row[8]
+                columns_list: list[dict[str, Any]] = schema_json_db.get("columns", [])
+
+                dataset: Dataset = Dataset(
+                    id=str(row[0]),
+                    filename=row[1],
+                    original_filename=row[2],
+                    table_name=row[3],
+                    uploaded_at=row[4],
+                    row_count=row[5],
+                    column_count=row[6],
+                    file_size_bytes=row[7],
+                    schema_json=columns_list,  # Pass list of ColumnSchema dicts
+                )
+        except Exception as e:
+            log_event(
+                logger=logger,
+                level="error",
+                event="dataset_fetch_failed",
+                user=username,
+                extra={"error": str(e)},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to retrieve dataset information",
+            ) from e
+
+        log_event(
+            logger=logger,
+            level="info",
+            event="csv_upload_success",
+            user=username,
+            extra={
+                "filename": filename,
+                "dataset_id": dataset_id,
+                "row_count": row_count,
+            },
+        )
+
+        return dataset

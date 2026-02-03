@@ -112,7 +112,7 @@ class TestConnectionPool:
         assert len(errors) == 0, f"Thread safety errors: {errors}"
         assert len(results) == num_threads
 
-    def test_connection_reuse(self, connection_pool: ConnectionPool) -> None:
+    def test_connection_reuse(self, db_config: dict[str, Any]) -> None:
         """Test connections are reused from pool (not recreated).
 
         Validates:
@@ -120,20 +120,41 @@ class TestConnectionPool:
         - Pool avoids connection creation overhead
 
         Args:
-            connection_pool: Connection pool fixture
+            db_config: Database configuration fixture
+
+        Note:
+            This test uses a single-connection pool (min/max=1) to guarantee
+            connection reuse. The general connection_pool fixture has min_size=2
+            which allows round-robin distribution across multiple connections.
         """
-        pid1: int
-        pid2: int
+        # Create a single-connection pool for this test
+        pool: ConnectionPool = ConnectionPool(
+            conninfo=f"host={db_config['host']} port={db_config['port']} "
+            f"dbname={db_config['database']} user={db_config['user']} "
+            f"password={db_config['password']}",
+            min_size=1,
+            max_size=1,
+            open=True,
+        )
 
-        with connection_pool.connection() as conn1:
-            pid1 = conn1.info.backend_pid
+        try:
+            pool.wait(timeout=5.0)
 
-        # After first connection released, acquire again
-        with connection_pool.connection() as conn2:
-            pid2 = conn2.info.backend_pid
+            pid1: int
+            pid2: int
 
-        # Should reuse same backend connection
-        assert pid1 == pid2
+            with pool.connection() as conn1:
+                pid1 = conn1.info.backend_pid
+
+            # After first connection released, acquire again
+            with pool.connection() as conn2:
+                pid2 = conn2.info.backend_pid
+
+            # Should reuse same backend connection
+            assert pid1 == pid2
+
+        finally:
+            pool.close()
 
     def test_pool_exhaustion_timeout(self, connection_pool: ConnectionPool) -> None:
         """Test pool behavior when all connections are in use.

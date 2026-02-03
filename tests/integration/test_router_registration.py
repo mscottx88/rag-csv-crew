@@ -138,7 +138,7 @@ class TestRouterRegistration:
         schema: dict[str, Any] = response.json()
         assert "openapi" in schema
 
-    def test_route_path_consistency(self, _client: TestClient) -> None:
+    def test_route_path_consistency(self, client: TestClient) -> None:
         """Test all routes follow consistent path patterns.
 
         Validates:
@@ -208,7 +208,7 @@ class TestRouterRegistration:
         # Will return 401 once authentication is implemented
         assert response.status_code in [200, 401, 404]
 
-    def test_route_prefix_consistency(self, _client: TestClient) -> None:
+    def test_route_prefix_consistency(self, client: TestClient) -> None:
         """Test all API routes have consistent prefix structure.
 
         Validates:
@@ -243,7 +243,7 @@ class TestRouterRegistration:
             _tags: list[str] = [tag["name"] for tag in schema["tags"]]
             # Tags may include Authentication, Datasets, Queries, Health
 
-    def test_all_routers_included(self, _client: TestClient) -> None:
+    def test_all_routers_included(self, client: TestClient) -> None:
         """Test all router modules are included in main app.
 
         Validates:
@@ -268,7 +268,7 @@ class TestRouterRegistration:
         # At least health should be present
         assert has_health or len(routes) > 0
 
-    def test_route_dependency_injection(self, _client: TestClient) -> None:
+    def test_route_dependency_injection(self, client: TestClient) -> None:
         """Test routes use FastAPI dependency injection correctly.
 
         Validates:
@@ -279,7 +279,7 @@ class TestRouterRegistration:
         # This test verifies routes don't crash from dependency issues
         # Actual dependency testing done in unit tests
 
-        response: Response = _client.get("/health")
+        response: Response = client.get("/health")
         assert response.status_code != 500  # No internal server error
 
     def test_concurrent_route_access(self, client: TestClient) -> None:
