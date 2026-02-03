@@ -63,8 +63,6 @@ class DatasetCreate(DatasetBase):
         filename: Display name from UserBase
     """
 
-    pass
-
 
 class Dataset(DatasetBase):
     """Complete dataset model with metadata.
@@ -91,9 +89,9 @@ class Dataset(DatasetBase):
     row_count: int = Field(..., ge=0)
     column_count: int = Field(..., gt=0)
     file_size_bytes: int = Field(..., gt=0)
-    schema_json: list[ColumnSchema]
+    schema_json: list[ColumnSchema] = Field(...)  # type: ignore[assignment]
 
-    model_config: ConfigDict = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DatasetList(BaseModel):

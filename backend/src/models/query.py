@@ -83,7 +83,7 @@ class Query(BaseModel):
     result_count: int | None = Field(None, ge=0)
     execution_time_ms: int | None = Field(None, ge=0)
 
-    model_config: ConfigDict = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)
 
 
 class QueryCancel(BaseModel):
@@ -151,7 +151,7 @@ class Response(ResponseBase):
     generated_at: datetime
     data_snapshot: dict[str, Any] | None = None
 
-    model_config: ConfigDict = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)
 
 
 class QueryWithResponse(Query):

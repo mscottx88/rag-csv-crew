@@ -11,8 +11,8 @@ Constitutional Requirements:
 - All functions have return type annotations
 """
 
-import pytest
 from psycopg.pool import ConnectionPool
+import pytest
 
 
 @pytest.mark.integration
@@ -63,9 +63,7 @@ class TestUserSchema:
                 assert schemas[0][0] == "alice_schema"
                 assert schemas[1][0] == "bob_schema"
 
-    def test_user_schema_is_idempotent(
-        self, connection_pool: ConnectionPool
-    ) -> None:
+    def test_user_schema_is_idempotent(self, connection_pool: ConnectionPool) -> None:
         """Test user schema creation is idempotent.
 
         Validates:
@@ -93,9 +91,7 @@ class TestUserSchema:
                 count: tuple[int] = cur.fetchone()  # type: ignore
                 assert count[0] == 1
 
-    def test_datasets_table_in_user_schema(
-        self, connection_pool: ConnectionPool
-    ) -> None:
+    def test_datasets_table_in_user_schema(self, connection_pool: ConnectionPool) -> None:
         """Test datasets table created in user schema.
 
         Validates per data-model.md:
@@ -128,9 +124,7 @@ class TestUserSchema:
                 """)
                 columns: list[tuple[str, str, str]] = cur.fetchall()
 
-            column_dict: dict[str, tuple[str, str]] = {
-                col[0]: (col[1], col[2]) for col in columns
-            }
+            column_dict: dict[str, tuple[str, str]] = {col[0]: (col[1], col[2]) for col in columns}
 
             # Verify required columns
             assert "id" in column_dict
@@ -181,17 +175,13 @@ class TestUserSchema:
                 """)
                 columns: list[tuple[str, str, str]] = cur.fetchall()
 
-            column_dict: dict[str, tuple[str, str]] = {
-                col[0]: (col[1], col[2]) for col in columns
-            }
+            column_dict: dict[str, tuple[str, str]] = {col[0]: (col[1], col[2]) for col in columns}
 
             # Verify vector column exists
             assert "embedding" in column_dict
             assert column_dict["embedding"][1] == "vector"  # UDT name
 
-    def test_cross_references_table_structure(
-        self, connection_pool: ConnectionPool
-    ) -> None:
+    def test_cross_references_table_structure(self, connection_pool: ConnectionPool) -> None:
         """Test cross_references table for dataset relationships.
 
         Validates:
@@ -224,9 +214,7 @@ class TestUserSchema:
                 assert result is not None
                 assert result[0] == "cross_references"
 
-    def test_queries_table_in_user_schema(
-        self, connection_pool: ConnectionPool
-    ) -> None:
+    def test_queries_table_in_user_schema(self, connection_pool: ConnectionPool) -> None:
         """Test queries table for per-user query history.
 
         Validates:
@@ -266,9 +254,7 @@ class TestUserSchema:
             assert "status" in column_names
             assert "generated_sql" in column_names
 
-    def test_responses_table_in_user_schema(
-        self, connection_pool: ConnectionPool
-    ) -> None:
+    def test_responses_table_in_user_schema(self, connection_pool: ConnectionPool) -> None:
         """Test responses table for cached query responses.
 
         Validates:

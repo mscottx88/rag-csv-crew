@@ -9,12 +9,11 @@ Constitutional Requirements:
 - All functions have return type annotations
 """
 
-import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-import pytest
 from psycopg.pool import ConnectionPool
+import pytest
 
 
 @pytest.mark.integration
@@ -105,9 +104,7 @@ class TestConnectionPool:
         # Spawn 20 threads to stress test pool (max_size=10)
         num_threads: int = 20
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
-            futures: list[Any] = [
-                executor.submit(acquire_and_query, i) for i in range(num_threads)
-            ]
+            futures: list[Any] = [executor.submit(acquire_and_query, i) for i in range(num_threads)]
             for future in futures:
                 future.result()  # Wait for completion
 

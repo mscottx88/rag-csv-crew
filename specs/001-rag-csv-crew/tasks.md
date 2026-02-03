@@ -126,21 +126,21 @@
 
 #### Authentication & Schema Management Implementation
 
-- [ ] T021-IMPL [P] [IMPL] Implement username-only authentication service in backend/src/services/auth.py with JWT token generation per FR-021 → Make T021-TEST pass
-- [ ] T022-IMPL [P] [IMPL] Implement user schema manager in backend/src/services/schema_manager.py with auto-creation on first login per FR-021 → Make T022-TEST pass
-- [ ] T023-IMPL [P] [IMPL] Create authentication dependency for FastAPI routes in backend/src/api/dependencies.py (get_current_user from Bearer token) → Make T023-TEST pass
+- [X] T021-IMPL [P] [IMPL] Implement username-only authentication service in backend/src/services/auth.py with JWT token generation per FR-021 → Make T021-TEST pass
+- [X] T022-IMPL [P] [IMPL] Implement user schema manager in backend/src/services/schema_manager.py with auto-creation on first login per FR-021 → Make T022-TEST pass
+- [X] T023-IMPL [P] [IMPL] Create authentication dependency for FastAPI routes in backend/src/api/dependencies.py (get_current_user from Bearer token) → Make T023-TEST pass
 
 #### Logging & Error Handling Implementation
 
-- [ ] T024-IMPL [P] [IMPL] Setup structured logging framework in backend/src/utils/logging.py with JSON format per FR-024 → Make T024-TEST pass
-- [ ] T024.1-IMPL [P] [IMPL] Define structured logging schema with mandatory fields (timestamp, level, event, user, execution_time_ms, result_count, error, stack_trace) and event types in backend/src/utils/logging.py → Make T024.1-TEST pass
-- [ ] T025-IMPL [P] [IMPL] Create global exception handlers in backend/src/main.py (HTTPException, RequestValidationError, generic Exception) → Make T025-TEST pass
+- [X] T024-IMPL [P] [IMPL] Setup structured logging framework in backend/src/utils/logging.py with JSON format per FR-024 → Make T024-TEST pass
+- [X] T024.1-IMPL [P] [IMPL] Define structured logging schema with mandatory fields (timestamp, level, event, user, execution_time_ms, result_count, error, stack_trace) and event types in backend/src/utils/logging.py → Make T024.1-TEST pass
+- [X] T025-IMPL [P] [IMPL] Create global exception handlers in backend/src/main.py (HTTPException, RequestValidationError, generic Exception) → Make T025-TEST pass
 
 #### API Framework Implementation
 
-- [ ] T026-IMPL [IMPL] Create FastAPI app initialization in backend/src/main.py with CORS, middleware, and global exception handlers → Make T026-TEST pass
-- [ ] T027-IMPL [IMPL] Implement /health endpoint in backend/src/api/health.py with database connectivity check per openapi.yaml → Make T027-TEST pass
-- [ ] T028-IMPL [IMPL] Create API router registration in backend/src/main.py (auth, datasets, queries, health) → Make T028-TEST pass
+- [X] T026-IMPL [IMPL] Create FastAPI app initialization in backend/src/main.py with CORS, middleware, and global exception handlers → Make T026-TEST pass
+- [X] T027-IMPL [IMPL] Implement /health endpoint in backend/src/api/health.py with database connectivity check per openapi.yaml → Make T027-TEST pass
+- [X] T028-IMPL [IMPL] Create API router registration in backend/src/main.py (auth, datasets, queries, health) → Make T028-TEST pass
 
 ### Phase 2E: Quality Gate (Constitution Compliance)
 

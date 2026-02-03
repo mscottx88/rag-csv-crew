@@ -9,11 +9,11 @@ Constitutional Requirements:
 - mypy --strict compliant
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-import pytest
 from pydantic import ValidationError
+import pytest
 
 # These imports will fail initially - TDD RED phase
 from backend.src.models.user import AuthToken, User, UserBase, UserCreate, UserLogin
@@ -98,7 +98,7 @@ class TestUser:
 
     def test_user_model_with_all_fields(self) -> None:
         """Test User model with all fields populated."""
-        now: datetime = datetime.now(timezone.utc)
+        now: datetime = datetime.now(UTC)
 
         user: User = User(
             username="alice",
@@ -116,7 +116,7 @@ class TestUser:
 
     def test_user_model_optional_last_login(self) -> None:
         """Test User model allows None for last_login_at."""
-        now: datetime = datetime.now(timezone.utc)
+        now: datetime = datetime.now(UTC)
 
         user: User = User(
             username="newuser",
@@ -130,7 +130,7 @@ class TestUser:
 
     def test_user_model_default_is_active(self) -> None:
         """Test User model defaults is_active to True."""
-        now: datetime = datetime.now(timezone.utc)
+        now: datetime = datetime.now(UTC)
 
         user: User = User(
             username="activeuser",
@@ -146,7 +146,7 @@ class TestUser:
         user: User = User(
             username="test",
             schema_name="test_schema",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
         assert user.model_config.get("from_attributes") is True

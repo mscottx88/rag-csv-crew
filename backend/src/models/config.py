@@ -11,8 +11,6 @@ Constitutional Requirements:
 - pylint 10.00/10.00 compliant
 """
 
-from typing import Any
-
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -43,7 +41,7 @@ class DatabaseConfig(BaseSettings):
     pool_max_size: int = Field(default=10, ge=1)
     statement_timeout: int = Field(default=30000, ge=0)  # 30 seconds in ms
 
-    model_config: SettingsConfigDict = SettingsConfigDict(env_prefix="DB_")
+    model_config = SettingsConfigDict(env_prefix="DB_")
 
 
 class LLMConfig(BaseSettings):
@@ -68,7 +66,7 @@ class LLMConfig(BaseSettings):
     max_tokens: int = Field(default=4096, ge=1)
     temperature: float = Field(default=0.1, ge=0.0, le=2.0)
 
-    model_config: SettingsConfigDict = SettingsConfigDict(env_prefix="LLM_")
+    model_config = SettingsConfigDict(env_prefix="LLM_")
 
 
 class AppConfig(BaseSettings):
@@ -86,11 +84,11 @@ class AppConfig(BaseSettings):
         max_file_size_bytes: Maximum CSV upload size (0 = unlimited)
     """
 
-    db: DatabaseConfig = Field(default_factory=DatabaseConfig)
+    db: DatabaseConfig = Field(default_factory=DatabaseConfig)  # type: ignore[arg-type]
     llm: LLMConfig = Field(default_factory=LLMConfig)
     log_level: str = "INFO"
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
     query_timeout_seconds: int = Field(default=30, ge=1)
     max_file_size_bytes: int = Field(default=0, ge=0)  # 0 = unlimited
 
-    model_config: SettingsConfigDict = SettingsConfigDict(env_file=".env")
+    model_config = SettingsConfigDict(env_file=".env")

@@ -183,12 +183,12 @@ def create_user_schema(conn: "Connection", username: str) -> None:
         psycopg.Error: On database operation failure
     """
     schema_name: str = f"{username}_schema"
-    logger.info(f"Creating user schema: {schema_name}")
+    logger.info("Creating user schema: %s", schema_name)
 
     with conn.cursor() as cur:
         # Create user schema
         cur.execute(f"CREATE SCHEMA IF NOT EXISTS {schema_name}")
-        logger.debug(f"Created schema: {schema_name}")
+        logger.debug("Created schema: %s", schema_name)
 
         # Create datasets table
         cur.execute(f"""
@@ -209,7 +209,7 @@ def create_user_schema(conn: "Connection", username: str) -> None:
                 CONSTRAINT valid_table_name CHECK (table_name ~ '^[a-z][a-z0-9_]{{0,62}}$')
             )
         """)
-        logger.debug(f"Created {schema_name}.datasets table")
+        logger.debug("Created %s.datasets table", schema_name)
 
         # Create datasets indexes
         cur.execute(f"""
@@ -236,7 +236,7 @@ def create_user_schema(conn: "Connection", username: str) -> None:
                 UNIQUE (dataset_id, column_name)
             )
         """)
-        logger.debug(f"Created {schema_name}.column_mappings table")
+        logger.debug("Created %s.column_mappings table", schema_name)
 
         # Create column_mappings indexes
         cur.execute(f"""
@@ -255,9 +255,11 @@ def create_user_schema(conn: "Connection", username: str) -> None:
         cur.execute(f"""
             CREATE TABLE IF NOT EXISTS {schema_name}.cross_references (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                source_dataset_id UUID NOT NULL REFERENCES {schema_name}.datasets(id) ON DELETE CASCADE,
+                source_dataset_id UUID NOT NULL
+                    REFERENCES {schema_name}.datasets(id) ON DELETE CASCADE,
                 source_column VARCHAR(255) NOT NULL,
-                target_dataset_id UUID NOT NULL REFERENCES {schema_name}.datasets(id) ON DELETE CASCADE,
+                target_dataset_id UUID NOT NULL
+                    REFERENCES {schema_name}.datasets(id) ON DELETE CASCADE,
                 target_column VARCHAR(255) NOT NULL,
                 relationship_type VARCHAR(50) NOT NULL CHECK (relationship_type IN ('foreign_key', 'shared_values', 'similar_values')),
                 confidence_score FLOAT NOT NULL CHECK (confidence_score BETWEEN 0 AND 1),
@@ -266,7 +268,7 @@ def create_user_schema(conn: "Connection", username: str) -> None:
                 UNIQUE (source_dataset_id, source_column, target_dataset_id, target_column)
             )
         """)
-        logger.debug(f"Created {schema_name}.cross_references table")
+        logger.debug("Created %s.cross_references table", schema_name)
 
         # Create cross_references indexes
         cur.execute(f"""
@@ -295,7 +297,7 @@ def create_user_schema(conn: "Connection", username: str) -> None:
                 CONSTRAINT positive_result_count CHECK (result_count IS NULL OR result_count >= 0)
             )
         """)
-        logger.debug(f"Created {schema_name}.queries table")
+        logger.debug("Created %s.queries table", schema_name)
 
         # Create queries indexes
         cur.execute(f"""
@@ -323,7 +325,7 @@ def create_user_schema(conn: "Connection", username: str) -> None:
                 UNIQUE (query_id)
             )
         """)
-        logger.debug(f"Created {schema_name}.responses table")
+        logger.debug("Created %s.responses table", schema_name)
 
         # Create responses indexes
         cur.execute(f"""
@@ -337,4 +339,4 @@ def create_user_schema(conn: "Connection", username: str) -> None:
         """)
 
     conn.commit()
-    logger.info(f"User schema {schema_name} created successfully")
+    logger.info("User schema %s created successfully", schema_name)

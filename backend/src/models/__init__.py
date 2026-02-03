@@ -10,7 +10,11 @@ Models:
 - query: Query processing (Query, QueryStatus, Response, QueryWithResponse)
 """
 
-from backend.src.models.config import AppConfig, DatabaseConfig, LLMConfig
+from backend.src.models.config import (
+    AppConfig,
+    DatabaseConfig,
+    LLMConfig,
+)
 from backend.src.models.dataset import (
     ColumnSchema,
     Dataset,
@@ -26,7 +30,13 @@ from backend.src.models.query import (
     QueryWithResponse,
     Response,
 )
-from backend.src.models.user import AuthToken, User, UserBase, UserCreate, UserLogin
+from backend.src.models.user import (
+    AuthToken,
+    User,
+    UserBase,
+    UserCreate,
+    UserLogin,
+)
 
 __all__: list[str] = [
     # Configuration models

@@ -18,9 +18,7 @@ import pytest
 class TestLoggingSchema:
     """Test structured logging schema compliance for all event types."""
 
-    def test_auth_login_event_schema(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_auth_login_event_schema(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test auth_login event has correct schema.
 
         Validates schema includes:
@@ -52,9 +50,7 @@ class TestLoggingSchema:
         assert "auth_login" in record.message
         assert username in record.message or record.user == username  # type: ignore
 
-    def test_file_upload_event_schema(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_file_upload_event_schema(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test file_upload event has correct schema.
 
         Validates schema includes:
@@ -89,9 +85,7 @@ class TestLoggingSchema:
 
         assert len(caplog.records) > 0
 
-    def test_file_delete_event_schema(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_file_delete_event_schema(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test file_delete event has correct schema.
 
         Validates schema includes:
@@ -102,8 +96,9 @@ class TestLoggingSchema:
 
         Per FR-024: File operation logging
         """
-        from backend.src.utils.logging import get_structured_logger, log_event
         from uuid import uuid4
+
+        from backend.src.utils.logging import get_structured_logger, log_event
 
         logger = get_structured_logger(__name__)
 
@@ -121,9 +116,7 @@ class TestLoggingSchema:
 
         assert len(caplog.records) > 0
 
-    def test_query_submit_event_schema(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_query_submit_event_schema(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test query_submit event has correct schema.
 
         Validates schema includes:
@@ -134,8 +127,9 @@ class TestLoggingSchema:
 
         Per FR-024: Query processing logging
         """
-        from backend.src.utils.logging import get_structured_logger, log_event
         from uuid import uuid4
+
+        from backend.src.utils.logging import get_structured_logger, log_event
 
         logger = get_structured_logger(__name__)
 
@@ -156,9 +150,7 @@ class TestLoggingSchema:
 
         assert "query_submit" in record.message
 
-    def test_query_complete_event_schema(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_query_complete_event_schema(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test query_complete event has correct schema.
 
         Validates schema includes:
@@ -171,8 +163,9 @@ class TestLoggingSchema:
 
         Per FR-024: Query completion logging
         """
-        from backend.src.utils.logging import get_structured_logger, log_event
         from uuid import uuid4
+
+        from backend.src.utils.logging import get_structured_logger, log_event
 
         logger = get_structured_logger(__name__)
 
@@ -197,9 +190,7 @@ class TestLoggingSchema:
 
         assert len(caplog.records) > 0
 
-    def test_query_cancel_event_schema(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_query_cancel_event_schema(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test query_cancel event has correct schema.
 
         Validates schema includes:
@@ -210,8 +201,9 @@ class TestLoggingSchema:
 
         Per FR-024, FR-025: Query cancellation logging
         """
-        from backend.src.utils.logging import get_structured_logger, log_event
         from uuid import uuid4
+
+        from backend.src.utils.logging import get_structured_logger, log_event
 
         logger = get_structured_logger(__name__)
 
@@ -265,9 +257,7 @@ class TestLoggingSchema:
         assert record.levelname == "ERROR"
         assert "error" in record.message.lower() or "ValueError" in record.message
 
-    def test_all_events_have_timestamp(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_all_events_have_timestamp(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test all event types include timestamp.
 
         Validates:
@@ -301,9 +291,7 @@ class TestLoggingSchema:
         for record in caplog.records:
             assert record.created > 0  # Timestamp is float > 0
 
-    def test_all_events_have_user_field(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_all_events_have_user_field(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test all event types include user field when available.
 
         Validates:
@@ -357,9 +345,7 @@ class TestLoggingSchema:
 
         assert len(caplog.records) > 0
 
-    def test_schema_extensibility(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_schema_extensibility(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test schema allows additional fields beyond mandatory.
 
         Validates:

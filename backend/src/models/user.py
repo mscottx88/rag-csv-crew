@@ -50,9 +50,7 @@ class UserBase(BaseModel):
 
         # Must start with lowercase letter
         if not v[0].islower() or not v[0].isalpha():
-            raise ValueError(
-                "Username must start with a lowercase letter"
-            )
+            raise ValueError("Username must start with a lowercase letter")
 
         # Can only contain lowercase letters, digits, underscores
         for char in v:
@@ -70,8 +68,6 @@ class UserCreate(UserBase):
     Inherits username validation from UserBase.
     Used for new user registration via username-only authentication.
     """
-
-    pass
 
 
 class User(UserBase):
@@ -93,7 +89,7 @@ class User(UserBase):
     last_login_at: datetime | None = None
     is_active: bool = True
 
-    model_config: ConfigDict = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserLogin(BaseModel):

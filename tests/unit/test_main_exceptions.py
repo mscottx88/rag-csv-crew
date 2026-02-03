@@ -13,10 +13,10 @@ Constitutional Requirements:
 
 from typing import Any
 
-import pytest
-from fastapi import HTTPException, Request
+from fastapi import HTTPException
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
+import pytest
 
 
 @pytest.mark.unit
@@ -56,8 +56,9 @@ class TestExceptionHandlers:
         - Error details include field names
         - Error messages are user-friendly
         """
-        from backend.src.main import validation_exception_handler
         from pydantic import BaseModel, Field
+
+        from backend.src.main import validation_exception_handler
 
         # Create validation error
         class TestModel(BaseModel):
@@ -115,8 +116,9 @@ class TestExceptionHandlers:
 
         Per Constitutional Principle VI: Thread-based concurrency
         """
-        from backend.src.main import http_exception_handler
         from concurrent.futures import ThreadPoolExecutor
+
+        from backend.src.main import http_exception_handler
 
         # Mock request
         request: Any = type("Request", (), {"url": "http://test.com/api/test"})()
@@ -129,9 +131,7 @@ class TestExceptionHandlers:
             Args:
                 error_code: HTTP status code to use
             """
-            exc: HTTPException = HTTPException(
-                status_code=error_code, detail=f"Error {error_code}"
-            )
+            exc: HTTPException = HTTPException(status_code=error_code, detail=f"Error {error_code}")
             response: Any = http_exception_handler(request, exc)
             results.append(response.status_code)
 
@@ -140,9 +140,7 @@ class TestExceptionHandlers:
         num_threads: int = 20
 
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
-            futures: list[Any] = [
-                executor.submit(trigger_exception, code) for code in error_codes
-            ]
+            futures: list[Any] = [executor.submit(trigger_exception, code) for code in error_codes]
             for future in futures:
                 future.result()
 
@@ -157,8 +155,9 @@ class TestExceptionHandlers:
         - Error type specified (missing, invalid, etc.)
         - User-friendly error messages
         """
-        from backend.src.main import validation_exception_handler
         from pydantic import BaseModel, Field
+
+        from backend.src.main import validation_exception_handler
 
         class UserCreate(BaseModel):
             username: str = Field(..., min_length=3, max_length=50)
@@ -177,9 +176,7 @@ class TestExceptionHandlers:
             # Verify field-specific error information present
             assert response.status_code == 422
 
-    def test_exception_logging_integration(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_exception_logging_integration(self, _caplog: pytest.LogCaptureFixture) -> None:
         """Test exceptions are logged with structured logging.
 
         Validates:
@@ -190,9 +187,7 @@ class TestExceptionHandlers:
         from backend.src.main import generic_exception_handler
 
         # Mock request with URL
-        request: Any = type(
-            "Request", (), {"url": "http://test.com/api/test", "method": "GET"}
-        )()
+        request: Any = type("Request", (), {"url": "http://test.com/api/test", "method": "GET"})()
 
         # Trigger exception
         try:
@@ -235,7 +230,7 @@ class TestExceptionHandlers:
         - Response structure consistent across handler types
         - Includes error detail and status code
         """
-        from backend.src.main import http_exception_handler, generic_exception_handler
+        from backend.src.main import generic_exception_handler, http_exception_handler
 
         # Mock request
         request: Any = type("Request", (), {"url": "http://test.com/api/test"})()
@@ -260,8 +255,9 @@ class TestExceptionHandlers:
         - Errors grouped by field
         - Clear error messages for each violation
         """
-        from backend.src.main import validation_exception_handler
         from pydantic import BaseModel, Field
+
+        from backend.src.main import validation_exception_handler
 
         class DatasetCreate(BaseModel):
             filename: str = Field(..., min_length=1, max_length=255)

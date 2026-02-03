@@ -11,20 +11,15 @@ Constitutional Requirements:
 - All functions have return type annotations
 """
 
-from typing import Any
-
-import pytest
-from psycopg import Connection
 from psycopg.pool import ConnectionPool
+import pytest
 
 
 @pytest.mark.integration
 class TestDatabaseInitialization:
     """Test database initialization and migration commands."""
 
-    def test_init_command_creates_system_schema(
-        self, connection_pool: ConnectionPool
-    ) -> None:
+    def test_init_command_creates_system_schema(self, connection_pool: ConnectionPool) -> None:
         """Test init command creates public schema tables.
 
         Validates:
@@ -71,9 +66,7 @@ class TestDatabaseInitialization:
                 assert result is not None
                 assert result[0] == "query_log"
 
-    def test_init_command_is_idempotent(
-        self, connection_pool: ConnectionPool
-    ) -> None:
+    def test_init_command_is_idempotent(self, connection_pool: ConnectionPool) -> None:
         """Test init command can be run multiple times safely.
 
         Validates:
@@ -102,9 +95,7 @@ class TestDatabaseInitialization:
                 count: tuple[int] = cur.fetchone()  # type: ignore
                 assert count[0] == 1
 
-    def test_verify_command_validates_schema(
-        self, connection_pool: ConnectionPool
-    ) -> None:
+    def test_verify_command_validates_schema(self, connection_pool: ConnectionPool) -> None:
         """Test verify command checks schema integrity.
 
         Validates:
@@ -134,9 +125,7 @@ class TestDatabaseInitialization:
             is_valid = verify_database(conn)
             assert is_valid is False
 
-    def test_init_creates_required_indexes(
-        self, connection_pool: ConnectionPool
-    ) -> None:
+    def test_init_creates_required_indexes(self, connection_pool: ConnectionPool) -> None:
         """Test init command creates performance indexes.
 
         Validates:
@@ -167,9 +156,7 @@ class TestDatabaseInitialization:
                 assert len(index_names) > 0
                 assert any("username" in name or "pkey" in name for name in index_names)
 
-    def test_init_enables_pgvector_extension(
-        self, connection_pool: ConnectionPool
-    ) -> None:
+    def test_init_enables_pgvector_extension(self, connection_pool: ConnectionPool) -> None:
         """Test init command enables pgvector extension.
 
         Validates:
@@ -196,9 +183,7 @@ class TestDatabaseInitialization:
                 assert result is not None
                 assert result[0] == "vector"
 
-    def test_init_creates_constraints(
-        self, connection_pool: ConnectionPool
-    ) -> None:
+    def test_init_creates_constraints(self, connection_pool: ConnectionPool) -> None:
         """Test init command creates table constraints.
 
         Validates:

@@ -12,9 +12,8 @@ Constitutional Requirements:
 - All functions have return type annotations
 """
 
-import json
 from datetime import datetime
-from io import StringIO
+import json
 from typing import Any
 
 import pytest
@@ -48,9 +47,7 @@ class TestStructuredLogging:
                 # If record.message is not JSON, check if it's structured
                 assert "test_event" in record.message
 
-    def test_log_entry_mandatory_fields(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_log_entry_mandatory_fields(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test log entries include mandatory fields per FR-024.
 
         Validates mandatory fields:
@@ -95,9 +92,7 @@ class TestStructuredLogging:
         assert "event" in str(log_data) or event_name in record.message
         assert "user" in str(log_data) or username in record.message
 
-    def test_log_execution_time_field(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_log_execution_time_field(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test logging execution time in milliseconds.
 
         Validates:
@@ -121,9 +116,7 @@ class TestStructuredLogging:
 
         assert len(caplog.records) > 0
 
-    def test_log_result_count_field(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_log_result_count_field(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test logging result count for queries.
 
         Validates:
@@ -147,9 +140,7 @@ class TestStructuredLogging:
 
         assert len(caplog.records) > 0
 
-    def test_log_error_with_stack_trace(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_log_error_with_stack_trace(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test error logging includes stack trace per FR-024.
 
         Validates:
@@ -178,9 +169,7 @@ class TestStructuredLogging:
         # Verify error information logged
         assert "ValueError" in record.message or "Test error message" in record.message
 
-    def test_log_timestamp_format(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_log_timestamp_format(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test timestamps are in ISO 8601 format.
 
         Validates:
@@ -272,9 +261,9 @@ class TestStructuredLogging:
 
         Per Constitutional Principle VI: Thread-based concurrency
         """
-        from backend.src.utils.logging import get_structured_logger, log_event
         from concurrent.futures import ThreadPoolExecutor
-        from typing import Callable
+
+        from backend.src.utils.logging import get_structured_logger, log_event
 
         logger = get_structured_logger(__name__)
 
@@ -295,14 +284,10 @@ class TestStructuredLogging:
         # Run 20 concurrent log operations
         num_threads: int = 20
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
-            futures: list[Any] = [
-                executor.submit(log_task, i) for i in range(num_threads)
-            ]
+            futures: list[Any] = [executor.submit(log_task, i) for i in range(num_threads)]
             for future in futures:
                 future.result()
 
         # All log entries should be captured
-        thread_logs: int = sum(
-            1 for record in caplog.records if "thread_log" in record.message
-        )
+        thread_logs: int = sum(1 for record in caplog.records if "thread_log" in record.message)
         assert thread_logs == num_threads

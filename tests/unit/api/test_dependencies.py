@@ -11,11 +11,9 @@ Constitutional Requirements:
 - All functions have return type annotations
 """
 
-from typing import Any
-
-import pytest
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
+import pytest
 
 
 @pytest.mark.unit
@@ -97,7 +95,9 @@ class TestAuthenticationDependency:
             )
 
         assert exc_info.value.status_code == 401
-        assert "expired" in exc_info.value.detail.lower() or "invalid" in exc_info.value.detail.lower()
+        assert (
+            "expired" in exc_info.value.detail.lower() or "invalid" in exc_info.value.detail.lower()
+        )
 
     def test_get_current_user_with_invalid_token(self) -> None:
         """Test get_current_user raises HTTPException for malformed token.
@@ -120,10 +120,8 @@ class TestAuthenticationDependency:
         ]
 
         for invalid_token in invalid_tokens:
-            credentials: HTTPAuthorizationCredentials = (
-                HTTPAuthorizationCredentials(
-                    scheme="Bearer", credentials=invalid_token
-                )
+            credentials: HTTPAuthorizationCredentials = HTTPAuthorizationCredentials(
+                scheme="Bearer", credentials=invalid_token
             )
 
             with pytest.raises(HTTPException) as exc_info:
@@ -227,8 +225,8 @@ class TestAuthenticationDependency:
                 expire_minutes=1440,
             )
 
-            credentials: HTTPAuthorizationCredentials = (
-                HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+            credentials: HTTPAuthorizationCredentials = HTTPAuthorizationCredentials(
+                scheme="Bearer", credentials=token
             )
 
             extracted_username: str = get_current_user(

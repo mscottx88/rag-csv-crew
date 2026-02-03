@@ -11,6 +11,9 @@ Constitutional Requirements:
 - All functions have return type annotations
 """
 
+from datetime import UTC
+from typing import Any
+
 import pytest
 from psycopg.pool import ConnectionPool
 
@@ -19,9 +22,7 @@ from psycopg.pool import ConnectionPool
 class TestSchemaManager:
     """Test user schema manager for automatic schema provisioning."""
 
-    def test_create_schema_on_first_login(
-        self, connection_pool: ConnectionPool
-    ) -> None:
+    def test_create_schema_on_first_login(self, connection_pool: ConnectionPool) -> None:
         """Test schema auto-created on user's first login.
 
         Validates:
@@ -69,9 +70,7 @@ class TestSchemaManager:
 
             assert schema_result is not None
 
-    def test_schema_creation_is_idempotent(
-        self, connection_pool: ConnectionPool
-    ) -> None:
+    def test_schema_creation_is_idempotent(self, connection_pool: ConnectionPool) -> None:
         """Test schema creation can be called multiple times safely.
 
         Validates:
@@ -118,9 +117,7 @@ class TestSchemaManager:
 
             assert schema_count[0] == 1
 
-    def test_multiple_users_isolated_schemas(
-        self, connection_pool: ConnectionPool
-    ) -> None:
+    def test_multiple_users_isolated_schemas(self, connection_pool: ConnectionPool) -> None:
         """Test multiple users get separate isolated schemas.
 
         Validates:
@@ -200,9 +197,7 @@ class TestSchemaManager:
             expected_schema: str = f"{username}_schema"
             assert result[0] == expected_schema
 
-    def test_schema_includes_all_required_tables(
-        self, connection_pool: ConnectionPool
-    ) -> None:
+    def test_schema_includes_all_required_tables(self, connection_pool: ConnectionPool) -> None:
         """Test user schema includes all required tables per data-model.md.
 
         Validates:
@@ -249,9 +244,7 @@ class TestSchemaManager:
             for required_table in required_tables:
                 assert required_table in table_names
 
-    def test_update_last_login_timestamp(
-        self, connection_pool: ConnectionPool
-    ) -> None:
+    def test_update_last_login_timestamp(self, connection_pool: ConnectionPool) -> None:
         """Test last_login_at timestamp updated on schema access.
 
         Validates:
@@ -262,11 +255,12 @@ class TestSchemaManager:
         Args:
             connection_pool: Database connection pool fixture
         """
+        from datetime import datetime
+
         from backend.src.services.schema_manager import (
             ensure_user_schema_exists,
             update_last_login,
         )
-        from datetime import datetime, timezone
 
         username: str = "alice"
 
@@ -297,13 +291,11 @@ class TestSchemaManager:
 
             assert updated_login[0] is not None
             # Verify timestamp is recent (within last minute)
-            now: datetime = datetime.now(timezone.utc)
+            now: datetime = datetime.now(UTC)
             time_diff: float = (now - updated_login[0]).total_seconds()
             assert time_diff < 60  # Within last minute
 
-    def test_schema_creation_thread_safe(
-        self, connection_pool: ConnectionPool
-    ) -> None:
+    def test_schema_creation_thread_safe(self, connection_pool: ConnectionPool) -> None:
         """Test concurrent schema creation requests are thread-safe.
 
         Validates:
@@ -314,11 +306,11 @@ class TestSchemaManager:
         Args:
             connection_pool: Database connection pool fixture
         """
+        from concurrent.futures import ThreadPoolExecutor
+
         from backend.src.services.schema_manager import (
             ensure_user_schema_exists,
         )
-        from concurrent.futures import ThreadPoolExecutor
-        from typing import Callable
 
         username: str = "alice"
         errors: list[Exception] = []
@@ -334,9 +326,7 @@ class TestSchemaManager:
         # Run 10 concurrent schema creation attempts
         num_threads: int = 10
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
-            futures: list[Any] = [
-                executor.submit(create_schema_task) for _ in range(num_threads)
-            ]
+            futures: list[Any] = [executor.submit(create_schema_task) for _ in range(num_threads)]
             for future in futures:
                 future.result()
 

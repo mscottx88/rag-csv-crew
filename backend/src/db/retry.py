@@ -9,9 +9,10 @@ Constitutional Requirements:
 - All functions have return type annotations
 """
 
+from collections.abc import Callable
 import logging
 import time
-from typing import Any, Callable, TypeVar
+from typing import TypeVar
 
 from psycopg import OperationalError
 
@@ -46,7 +47,8 @@ def retry_with_backoff(
 
     Raises:
         OperationalError: If all retry attempts exhausted
-        Other exceptions: Propagated immediately without retry
+        RuntimeError: If retry loop exits unexpectedly
+        Exception: Other exceptions propagated immediately without retry
 
     Example:
         >>> def connect_to_db() -> Connection:
@@ -133,7 +135,7 @@ def retry_connection(
     Raises:
         OperationalError: If connection fails after all retries
     """
-    logger.info(f"Attempting {context} connection with retry")
+    logger.info("Attempting %s connection with retry", context)
 
     try:
         return retry_with_backoff(
@@ -143,5 +145,5 @@ def retry_connection(
             backoff_factor=2.0,
         )
     except OperationalError:
-        logger.error(f"Failed to connect to {context} after all retries")
+        logger.error("Failed to connect to %s after all retries", context)
         raise

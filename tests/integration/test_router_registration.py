@@ -14,8 +14,10 @@ Constitutional Requirements:
 
 from typing import Any
 
-import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from httpx import Response
+import pytest
 
 
 @pytest.mark.integration
@@ -31,12 +33,12 @@ class TestRouterRegistration:
         - Routes return appropriate status codes
         """
         # Test POST /auth/login exists
-        response = client.post("/auth/login", json={"username": "alice"})
+        response: Response = client.post("/auth/login", json={"username": "alice"})
         # Should not be 404 (route exists)
         assert response.status_code != 404
 
         # Test GET /auth/me exists (will be 401 without auth)
-        response = client.get("/auth/me")
+        response: Response = client.get("/auth/me")
         # Should return 401 (unauthorized) not 404 (not found)
         assert response.status_code in [401, 404]  # 404 until implemented
 
@@ -52,16 +54,16 @@ class TestRouterRegistration:
         from uuid import uuid4
 
         # Test GET /datasets (list)
-        response = client.get("/datasets")
+        response: Response = client.get("/datasets")
         assert response.status_code != 404
 
         # Test POST /datasets (create)
-        response = client.post("/datasets", files={"file": ("test.csv", b"data")})
+        response: Response = client.post("/datasets", files={"file": ("test.csv", b"data")})
         assert response.status_code != 404
 
         # Test GET /datasets/{id} (retrieve)
         test_id: str = str(uuid4())
-        response = client.get(f"/datasets/{test_id}")
+        response: Response = client.get(f"/datasets/{test_id}")
         assert response.status_code != 404
 
         # Test DELETE /datasets/{id}
@@ -81,26 +83,24 @@ class TestRouterRegistration:
         from uuid import uuid4
 
         # Test POST /queries (submit)
-        response = client.post(
-            "/queries", json={"query_text": "What are top 10 sales?"}
-        )
+        response: Response = client.post("/queries", json={"query_text": "What are top 10 sales?"})
         assert response.status_code != 404
 
         # Test GET /queries (history)
-        response = client.get("/queries")
+        response: Response = client.get("/queries")
         assert response.status_code != 404
 
         # Test GET /queries/{id} (status)
         test_id: str = str(uuid4())
-        response = client.get(f"/queries/{test_id}")
+        response: Response = client.get(f"/queries/{test_id}")
         assert response.status_code != 404
 
         # Test POST /queries/{id}/cancel
-        response = client.post(f"/queries/{test_id}/cancel")
+        response: Response = client.post(f"/queries/{test_id}/cancel")
         assert response.status_code != 404
 
         # Test GET /queries/examples
-        response = client.get("/queries/examples")
+        response: Response = client.get("/queries/examples")
         assert response.status_code != 404
 
     def test_health_route_registered(self, client: TestClient) -> None:
@@ -110,7 +110,7 @@ class TestRouterRegistration:
         - GET /health exists
         - Returns 200 or 503 (not 404)
         """
-        response = client.get("/health")
+        response: Response = client.get("/health")
 
         # Should exist (not 404)
         assert response.status_code != 404
@@ -125,20 +125,20 @@ class TestRouterRegistration:
         - /openapi.json returns schema
         """
         # Test Swagger UI
-        response = client.get("/docs")
+        response: Response = client.get("/docs")
         assert response.status_code == 200
 
         # Test ReDoc
-        response = client.get("/redoc")
+        response: Response = client.get("/redoc")
         assert response.status_code == 200
 
         # Test OpenAPI schema
-        response = client.get("/openapi.json")
+        response: Response = client.get("/openapi.json")
         assert response.status_code == 200
         schema: dict[str, Any] = response.json()
         assert "openapi" in schema
 
-    def test_route_path_consistency(self, client: TestClient) -> None:
+    def test_route_path_consistency(self, _client: TestClient) -> None:
         """Test all routes follow consistent path patterns.
 
         Validates:
@@ -148,7 +148,7 @@ class TestRouterRegistration:
         """
         from backend.src.main import create_app
 
-        app = create_app()
+        app: FastAPI = create_app()
 
         # Get all routes
         routes: list[str] = [route.path for route in app.routes]  # type: ignore
@@ -166,7 +166,7 @@ class TestRouterRegistration:
 
         for expected in expected_routes:
             # Check if route pattern exists (exact or with parameters)
-            matching: bool = any(
+            _matching: bool = any(
                 expected.replace("{dataset_id}", "{") in route
                 or expected.replace("{query_id}", "{") in route
                 or expected == route
@@ -184,11 +184,11 @@ class TestRouterRegistration:
         - Unsupported methods return 405
         """
         # Test unsupported method on /health
-        response = client.request("PATCH", "/health")
+        response: Response = client.request("PATCH", "/health")
         assert response.status_code == 405  # Method Not Allowed
 
         # Test GET is supported
-        response = client.get("/health")
+        response: Response = client.get("/health")
         assert response.status_code != 405
 
     def test_route_authentication_applied(self, client: TestClient) -> None:
@@ -200,15 +200,15 @@ class TestRouterRegistration:
         - Authentication consistent across routers
         """
         # Public route - should work without auth
-        response = client.get("/health")
+        response: Response = client.get("/health")
         assert response.status_code != 401
 
         # Protected route - should require auth
-        response = client.get("/datasets")
+        response: Response = client.get("/datasets")
         # Will return 401 once authentication is implemented
         assert response.status_code in [200, 401, 404]
 
-    def test_route_prefix_consistency(self, client: TestClient) -> None:
+    def test_route_prefix_consistency(self, _client: TestClient) -> None:
         """Test all API routes have consistent prefix structure.
 
         Validates:
@@ -218,7 +218,7 @@ class TestRouterRegistration:
         """
         from backend.src.main import create_app
 
-        app = create_app()
+        app: FastAPI = create_app()
 
         routes: list[str] = [route.path for route in app.routes]  # type: ignore
 
@@ -235,15 +235,15 @@ class TestRouterRegistration:
         - Query routes tagged "Queries"
         - Health route tagged "Health"
         """
-        response = client.get("/openapi.json")
+        response: Response = client.get("/openapi.json")
         schema: dict[str, Any] = response.json()
 
         # Verify tags defined
         if "tags" in schema:
-            tags: list[str] = [tag["name"] for tag in schema["tags"]]
+            _tags: list[str] = [tag["name"] for tag in schema["tags"]]
             # Tags may include Authentication, Datasets, Queries, Health
 
-    def test_all_routers_included(self, client: TestClient) -> None:
+    def test_all_routers_included(self, _client: TestClient) -> None:
         """Test all router modules are included in main app.
 
         Validates:
@@ -254,21 +254,21 @@ class TestRouterRegistration:
         """
         from backend.src.main import create_app
 
-        app = create_app()
+        app: FastAPI = create_app()
 
         # Get all routes
         routes: list[str] = [route.path for route in app.routes]  # type: ignore
 
         # Should have routes from all routers
-        has_auth: bool = any("/auth/" in r for r in routes)
-        has_datasets: bool = any("/datasets" in r for r in routes)
-        has_queries: bool = any("/queries" in r for r in routes)
+        _has_auth: bool = any("/auth/" in r for r in routes)
+        _has_datasets: bool = any("/datasets" in r for r in routes)
+        _has_queries: bool = any("/queries" in r for r in routes)
         has_health: bool = any("/health" in r for r in routes)
 
         # At least health should be present
         assert has_health or len(routes) > 0
 
-    def test_route_dependency_injection(self, client: TestClient) -> None:
+    def test_route_dependency_injection(self, _client: TestClient) -> None:
         """Test routes use FastAPI dependency injection correctly.
 
         Validates:
@@ -279,7 +279,7 @@ class TestRouterRegistration:
         # This test verifies routes don't crash from dependency issues
         # Actual dependency testing done in unit tests
 
-        response = client.get("/health")
+        response: Response = _client.get("/health")
         assert response.status_code != 500  # No internal server error
 
     def test_concurrent_route_access(self, client: TestClient) -> None:
@@ -302,7 +302,7 @@ class TestRouterRegistration:
             Args:
                 path: Route path to access
             """
-            response = client.get(path)
+            response: Response = client.get(path)
             results.append((path, response.status_code))
 
         routes: list[str] = [

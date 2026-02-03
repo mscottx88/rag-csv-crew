@@ -143,6 +143,21 @@ The checker uses a **pragmatic approach** to balance strictness with practicalit
 **Code Standards** (Required):
 
 - PEP 8: ALL imports at top of file (no inline imports except where absolutely necessary with justification)
+- **Test File Import Convention** (MANDATORY):
+  - ✅ **CORRECT**: All imports at the global level (top of file)
+    ```python
+    from backend.src.services.auth import generate_jwt_token
+
+    def test_configurable_expiration(self) -> None:
+        token: str = generate_jwt_token(...)
+    ```
+  - ❌ **INCORRECT**: Imports inside test functions
+    ```python
+    def test_configurable_expiration(self) -> None:
+        from backend.src.services.auth import generate_jwt_token  # NEVER DO THIS
+    ```
+  - **Rationale**: Global imports improve readability, enable static analysis, and follow PEP 8 standards
+  - **Exceptions**: ZERO - test files have NO special exemption from PEP 8 import rules
 - Docstrings: ALL public functions, classes, and modules
 - Line length: Maximum 100 characters
 - File encoding: UTF-8 with LF line endings (not CRLF)

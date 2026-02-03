@@ -11,11 +11,11 @@ Constitutional Requirements:
 - All functions have return type annotations
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import pytest
 from jose import JWTError, jwt
+import pytest
 
 
 @pytest.mark.unit
@@ -52,17 +52,15 @@ class TestAuthenticationService:
         assert len(token) > 0
 
         # Decode and verify claims
-        payload: dict[str, Any] = jwt.decode(
-            token, secret_key, algorithms=[algorithm]
-        )
+        payload: dict[str, Any] = jwt.decode(token, secret_key, algorithms=[algorithm])
 
         assert payload["sub"] == username
         assert "exp" in payload
 
         # Verify expiration is approximately 24 hours from now
         exp_timestamp: float = payload["exp"]
-        exp_datetime: datetime = datetime.fromtimestamp(exp_timestamp, tz=timezone.utc)
-        now: datetime = datetime.now(timezone.utc)
+        exp_datetime: datetime = datetime.fromtimestamp(exp_timestamp, tz=UTC)
+        now: datetime = datetime.now(UTC)
         time_diff: timedelta = exp_datetime - now
 
         # Should be close to 24 hours (within 1 minute tolerance)
@@ -127,9 +125,7 @@ class TestAuthenticationService:
 
         # Validation should raise JWTError for expired token
         with pytest.raises(JWTError):
-            validate_jwt_token(
-                token=token, secret_key=secret_key, algorithm=algorithm
-            )
+            validate_jwt_token(token=token, secret_key=secret_key, algorithm=algorithm)
 
     def test_validate_jwt_token_invalid_signature(self) -> None:
         """Test JWT token validation fails for wrong secret key.
@@ -158,9 +154,7 @@ class TestAuthenticationService:
 
         # Try to validate with different key (should fail)
         with pytest.raises(JWTError):
-            validate_jwt_token(
-                token=token, secret_key=wrong_secret, algorithm=algorithm
-            )
+            validate_jwt_token(token=token, secret_key=wrong_secret, algorithm=algorithm)
 
     def test_validate_jwt_token_malformed(self) -> None:
         """Test JWT token validation fails for malformed token.
@@ -184,9 +178,7 @@ class TestAuthenticationService:
 
         for invalid_token in invalid_tokens:
             with pytest.raises((JWTError, Exception)):
-                validate_jwt_token(
-                    token=invalid_token, secret_key=secret_key, algorithm=algorithm
-                )
+                validate_jwt_token(token=invalid_token, secret_key=secret_key, algorithm=algorithm)
 
     def test_username_extraction_from_token(self) -> None:
         """Test extracting username from valid token.
@@ -282,15 +274,11 @@ class TestAuthenticationService:
             )
 
             # Decode and check expiration
-            payload: dict[str, Any] = jwt.decode(
-                token, secret_key, algorithms=[algorithm]
-            )
+            payload: dict[str, Any] = jwt.decode(token, secret_key, algorithms=[algorithm])
 
             exp_timestamp: float = payload["exp"]
-            exp_datetime: datetime = datetime.fromtimestamp(
-                exp_timestamp, tz=timezone.utc
-            )
-            now: datetime = datetime.now(timezone.utc)
+            exp_datetime: datetime = datetime.fromtimestamp(exp_timestamp, tz=UTC)
+            now: datetime = datetime.now(UTC)
             time_diff: timedelta = exp_datetime - now
 
             expected_seconds: float = expire_minutes * 60

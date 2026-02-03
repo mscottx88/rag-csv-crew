@@ -13,9 +13,10 @@ Constitutional Requirements:
 
 from typing import Any
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from httpx import Response
+import pytest
 
 
 @pytest.mark.integration
@@ -54,9 +55,7 @@ class TestAppInitialization:
 
         # Check CORS middleware is present
         # FastAPI stores middleware in app.user_middleware
-        middleware_classes: list[str] = [
-            str(m.__class__.__name__) for m in app.user_middleware
-        ]
+        middleware_classes: list[str] = [str(m.__class__.__name__) for m in app.user_middleware]
 
         # CORSMiddleware should be registered
         has_cors: bool = any("CORS" in name for name in middleware_classes)
@@ -92,7 +91,7 @@ class TestAppInitialization:
         client: TestClient = TestClient(app)
 
         # Send preflight request
-        response = client.options(
+        response: Response = client.options(
             "/health",
             headers={
                 "Origin": "http://localhost:5173",
@@ -102,9 +101,9 @@ class TestAppInitialization:
 
         # Should allow CORS
         # Response may be 200 or 405 depending on endpoint configuration
-        assert response.status_code in [200, 405] or "access-control" in str(
-            response.headers
-        ).lower()
+        assert (
+            response.status_code in [200, 405] or "access-control" in str(response.headers).lower()
+        )
 
     def test_openapi_schema_generated(self) -> None:
         """Test OpenAPI schema is generated correctly.
@@ -120,7 +119,7 @@ class TestAppInitialization:
         client: TestClient = TestClient(app)
 
         # Access OpenAPI JSON schema
-        response = client.get("/openapi.json")
+        response: Response = client.get("/openapi.json")
 
         assert response.status_code == 200
         schema: dict[str, Any] = response.json()
@@ -209,7 +208,7 @@ class TestAppInitialization:
         client: TestClient = TestClient(app)
 
         # Make request
-        response = client.get("/health")
+        response: Response = client.get("/health")
 
         # Check if request ID present (optional feature)
         # May be in X-Request-ID header
@@ -239,8 +238,9 @@ class TestAppInitialization:
 
         Per Constitutional Principle VI: Thread-based concurrency
         """
-        from backend.src.main import create_app
         from concurrent.futures import ThreadPoolExecutor
+
+        from backend.src.main import create_app
 
         app: FastAPI = create_app()
 
@@ -249,15 +249,13 @@ class TestAppInitialization:
         def make_request() -> None:
             """Make request in thread."""
             client: TestClient = TestClient(app)
-            response = client.get("/health")
+            response: Response = client.get("/health")
             results.append(response.status_code)
 
         # Make 20 concurrent requests
         num_threads: int = 20
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
-            futures: list[Any] = [
-                executor.submit(make_request) for _ in range(num_threads)
-            ]
+            futures: list[Any] = [executor.submit(make_request) for _ in range(num_threads)]
             for future in futures:
                 future.result()
 

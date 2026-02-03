@@ -13,8 +13,8 @@ Constitutional Requirements:
 
 from typing import Any
 
-import pytest
 from pydantic import ValidationError
+import pytest
 
 # These imports will fail initially - that's expected for TDD RED phase
 from backend.src.models.config import AppConfig, DatabaseConfig, LLMConfig
@@ -163,9 +163,7 @@ class TestAppConfig:
     def test_app_config_defaults(self) -> None:
         """Test AppConfig default values and nested configs."""
         # Note: This will require environment variables or will use defaults
-        config: AppConfig = AppConfig(
-            db=DatabaseConfig(user="testuser", password="testpass")
-        )
+        config: AppConfig = AppConfig(db=DatabaseConfig(user="testuser", password="testpass"))
 
         assert config.log_level == "INFO"
         assert config.cors_origins == ["http://localhost:5173"]
@@ -240,9 +238,7 @@ class TestAppConfig:
 
     def test_app_config_env_file_loading(self) -> None:
         """Test AppConfig uses .env file for configuration."""
-        config: AppConfig = AppConfig(
-            db=DatabaseConfig(user="test", password="test")
-        )
+        config: AppConfig = AppConfig(db=DatabaseConfig(user="test", password="test"))
 
         # Verify env_file is set correctly
         assert config.model_config.get("env_file") == ".env"

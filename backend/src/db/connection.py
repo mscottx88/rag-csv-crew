@@ -6,12 +6,13 @@ per Constitution Principle VI (thread-based concurrency only).
 
 from __future__ import annotations
 
-import logging
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Generator
+import logging
+from typing import TYPE_CHECKING
 
-from psycopg.pool import ConnectionPool
 from psycopg import Connection
+from psycopg.pool import ConnectionPool  # type: ignore[import-not-found]
 from psycopg.rows import dict_row
 
 if TYPE_CHECKING:
@@ -87,9 +88,7 @@ class DatabaseConnectionPool:
         logger.info("Database connection pool closed")
 
     @contextmanager
-    def connection(
-        self, autocommit: bool = False
-    ) -> Generator[Connection, None, None]:
+    def connection(self, autocommit: bool = False) -> Generator[Connection]:
         """Acquire a connection from the pool.
 
         Usage:
@@ -108,9 +107,7 @@ class DatabaseConnectionPool:
             RuntimeError: If pool not initialized
         """
         if self._pool is None:
-            raise RuntimeError(
-                "Connection pool not initialized. Call initialize() first."
-            )
+            raise RuntimeError("Connection pool not initialized. Call initialize() first.")
 
         conn: Connection
         with self._pool.connection() as conn:
@@ -119,15 +116,15 @@ class DatabaseConnectionPool:
             try:
                 yield conn
             finally:
-                if not autocommit and not conn.closed:
-                    # Ensure transaction is either committed or rolled back
-                    if conn.info.transaction_status == 2:  # INTRANS
-                        conn.rollback()
+                if not autocommit and not conn.closed and conn.info.transaction_status == 2:
+                    # Ensure transaction is either committed or rolled back (INTRANS)
+                    conn.rollback()
 
     @contextmanager
     def cursor(
-        self, row_factory: type = dict_row
-    ) -> Generator[Connection.cursor, None, None]:
+        self,
+        row_factory: type = dict_row,  # type: ignore[assignment]
+    ) -> Generator[Connection.cursor]:  # type: ignore[valid-type]
         """Acquire a connection and cursor from the pool.
 
         Convenience method that combines connection + cursor acquisition.
@@ -146,9 +143,8 @@ class DatabaseConnectionPool:
         Raises:
             RuntimeError: If pool not initialized
         """
-        with self.connection() as conn:
-            with conn.cursor(row_factory=row_factory) as cur:
-                yield cur
+        with self.connection() as conn, conn.cursor(row_factory=row_factory) as cur:
+            yield cur
 
     def health_check(self) -> bool:
         """Check if database connection is healthy.
@@ -201,7 +197,7 @@ def initialize_global_pool(config: DatabaseConfig) -> None:
     Args:
         config: Database configuration
     """
-    global _global_pool
+    global _global_pool  # noqa: PLW0603
     if _global_pool is not None:
         logger.warning("Global pool already initialized")
         return
@@ -222,8 +218,7 @@ def get_global_pool() -> DatabaseConnectionPool:
     """
     if _global_pool is None:
         raise RuntimeError(
-            "Global connection pool not initialized. "
-            "Call initialize_global_pool() first."
+            "Global connection pool not initialized. Call initialize_global_pool() first."
         )
     return _global_pool
 
@@ -233,11 +228,11 @@ def close_global_pool() -> None:
 
     Should be called during application shutdown.
     """
-    global _global_pool
+    global _global_pool  # noqa: PLW0603
     if _global_pool is None:
         logger.warning("Global pool not initialized, nothing to close")
         return
 
     _global_pool.close()
-    _global_pool = None
+    _global_pool: DatabaseConnectionPool | None = None
     logger.info("Global database connection pool closed")

@@ -11,10 +11,8 @@ Constitutional Requirements:
 - All functions have return type annotations
 """
 
-from datetime import datetime
-
-import pytest
 from psycopg.pool import ConnectionPool
+import pytest
 
 
 @pytest.mark.integration
@@ -50,9 +48,7 @@ class TestSystemSchema:
                 """)
                 columns: list[tuple[str, str, str, str | None]] = cur.fetchall()
 
-            column_dict: dict[str, tuple[str, str]] = {
-                col[0]: (col[1], col[2]) for col in columns
-            }
+            column_dict: dict[str, tuple[str, str]] = {col[0]: (col[1], col[2]) for col in columns}
 
             # Verify username column
             assert "username" in column_dict
@@ -128,9 +124,7 @@ class TestSystemSchema:
                         VALUES ('Alice', 'Alice_schema')
                     """)
 
-    def test_query_log_table_structure(
-        self, connection_pool: ConnectionPool
-    ) -> None:
+    def test_query_log_table_structure(self, connection_pool: ConnectionPool) -> None:
         """Test public.query_log table has correct schema.
 
         Validates:
@@ -162,9 +156,7 @@ class TestSystemSchema:
                 """)
                 columns: list[tuple[str, str, str]] = cur.fetchall()
 
-            column_dict: dict[str, tuple[str, str]] = {
-                col[0]: (col[1], col[2]) for col in columns
-            }
+            column_dict: dict[str, tuple[str, str]] = {col[0]: (col[1], col[2]) for col in columns}
 
             # Verify core columns exist
             assert "id" in column_dict
@@ -219,9 +211,7 @@ class TestSystemSchema:
                         VALUES ('bob', 'test query', 'pending')
                     """)
 
-    def test_query_log_status_constraint(
-        self, connection_pool: ConnectionPool
-    ) -> None:
+    def test_query_log_status_constraint(self, connection_pool: ConnectionPool) -> None:
         """Test query_log.status CHECK constraint.
 
         Validates:

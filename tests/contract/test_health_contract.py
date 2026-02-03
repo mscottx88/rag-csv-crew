@@ -13,8 +13,9 @@ Constitutional Requirements:
 
 from typing import Any
 
-import pytest
 from fastapi.testclient import TestClient
+from httpx import Response
+import pytest
 
 
 @pytest.mark.contract
@@ -29,7 +30,7 @@ class TestHealthEndpointContract:
         - Returns 200 status code when healthy
         - Per openapi.yaml: /health GET operation
         """
-        response = client.get("/health")
+        response: Response = client.get("/health")
 
         # Should return 200 or 503 depending on health
         assert response.status_code in [200, 503]
@@ -44,7 +45,7 @@ class TestHealthEndpointContract:
 
         Per openapi.yaml: HealthResponse schema
         """
-        response = client.get("/health")
+        response: Response = client.get("/health")
 
         # Parse response
         data: dict[str, Any] = response.json()
@@ -60,9 +61,7 @@ class TestHealthEndpointContract:
             assert "connected" in data["database"]
             assert isinstance(data["database"]["connected"], bool)
 
-    def test_health_endpoint_healthy_status(
-        self, client: TestClient
-    ) -> None:
+    def test_health_endpoint_healthy_status(self, client: TestClient) -> None:
         """Test /health returns 200 when all systems operational.
 
         Validates:
@@ -70,7 +69,7 @@ class TestHealthEndpointContract:
         - status field is "healthy"
         - database.connected is true
         """
-        response = client.get("/health")
+        response: Response = client.get("/health")
 
         # If database is running, should be healthy
         if response.status_code == 200:
@@ -80,9 +79,7 @@ class TestHealthEndpointContract:
             if "database" in data:
                 assert data["database"]["connected"] is True
 
-    def test_health_endpoint_unhealthy_status(
-        self, client_no_db: TestClient
-    ) -> None:
+    def test_health_endpoint_unhealthy_status(self, client_no_db: TestClient) -> None:
         """Test /health returns 503 when systems unavailable.
 
         Validates:
@@ -93,7 +90,7 @@ class TestHealthEndpointContract:
         Args:
             client_no_db: Test client with no database connection
         """
-        response = client_no_db.get("/health")
+        response: Response = client_no_db.get("/health")
 
         # Should return 503 when database unavailable
         if response.status_code == 503:
@@ -103,9 +100,7 @@ class TestHealthEndpointContract:
             if "database" in data:
                 assert data["database"]["connected"] is False
 
-    def test_health_endpoint_no_authentication_required(
-        self, client: TestClient
-    ) -> None:
+    def test_health_endpoint_no_authentication_required(self, client: TestClient) -> None:
         """Test /health endpoint accessible without authentication.
 
         Validates:
@@ -114,15 +109,13 @@ class TestHealthEndpointContract:
         - Returns 200/503 without credentials
         """
         # Request without Authorization header
-        response = client.get("/health")
+        response: Response = client.get("/health")
 
         # Should not return 401 (unauthorized)
         assert response.status_code != 401
         assert response.status_code in [200, 503]
 
-    def test_health_endpoint_response_time(
-        self, client: TestClient
-    ) -> None:
+    def test_health_endpoint_response_time(self, client: TestClient) -> None:
         """Test /health endpoint responds quickly.
 
         Validates:
@@ -133,16 +126,14 @@ class TestHealthEndpointContract:
         import time
 
         start: float = time.time()
-        response = client.get("/health")
+        response: Response = client.get("/health")
         elapsed: float = time.time() - start
 
         # Health check should be fast
         assert elapsed < 1.0
         assert response.status_code in [200, 503]
 
-    def test_health_endpoint_database_connectivity_check(
-        self, client: TestClient
-    ) -> None:
+    def test_health_endpoint_database_connectivity_check(self, client: TestClient) -> None:
         """Test /health performs actual database connectivity check.
 
         Validates:
@@ -150,7 +141,7 @@ class TestHealthEndpointContract:
         - Returns false if database unreachable
         - Catches connection errors gracefully
         """
-        response = client.get("/health")
+        response: Response = client.get("/health")
         data: dict[str, Any] = response.json()
 
         # Should have database connectivity information
@@ -159,9 +150,7 @@ class TestHealthEndpointContract:
             # Value should be boolean, not error message
             assert isinstance(data["database"]["connected"], bool)
 
-    def test_health_endpoint_timestamp_format(
-        self, client: TestClient
-    ) -> None:
+    def test_health_endpoint_timestamp_format(self, client: TestClient) -> None:
         """Test /health response includes ISO 8601 timestamp.
 
         Validates:
@@ -171,7 +160,7 @@ class TestHealthEndpointContract:
         """
         from datetime import datetime
 
-        response = client.get("/health")
+        response: Response = client.get("/health")
         data: dict[str, Any] = response.json()
 
         # Check for timestamp field
@@ -180,9 +169,7 @@ class TestHealthEndpointContract:
 
             # Parse ISO 8601 timestamp
             try:
-                timestamp: datetime = datetime.fromisoformat(
-                    timestamp_str.replace("Z", "+00:00")
-                )
+                timestamp: datetime = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
 
                 # Verify timestamp is recent
                 now: datetime = datetime.now()
@@ -203,15 +190,13 @@ class TestHealthEndpointContract:
         responses: list[int] = []
 
         for _ in range(5):
-            response = client.get("/health")
+            response: Response = client.get("/health")
             responses.append(response.status_code)
 
         # All responses should be the same
         assert len(set(responses)) == 1  # All status codes identical
 
-    def test_health_endpoint_concurrent_requests(
-        self, client: TestClient
-    ) -> None:
+    def test_health_endpoint_concurrent_requests(self, client: TestClient) -> None:
         """Test /health handles concurrent requests.
 
         Validates:
@@ -227,15 +212,13 @@ class TestHealthEndpointContract:
 
         def check_health() -> None:
             """Check health in thread."""
-            response = client.get("/health")
+            response: Response = client.get("/health")
             results.append(response.status_code)
 
         # Make 20 concurrent health checks
         num_threads: int = 20
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
-            futures: list[Any] = [
-                executor.submit(check_health) for _ in range(num_threads)
-            ]
+            futures: list[Any] = [executor.submit(check_health) for _ in range(num_threads)]
             for future in futures:
                 future.result()
 
@@ -252,27 +235,23 @@ class TestHealthEndpointContract:
         - Content-Type header is application/json
         - Response is valid JSON
         """
-        response = client.get("/health")
+        response: Response = client.get("/health")
 
         # Verify content type
-        assert "application/json" in response.headers.get(
-            "content-type", ""
-        ).lower()
+        assert "application/json" in response.headers.get("content-type", "").lower()
 
         # Verify response is valid JSON
         data: dict[str, Any] = response.json()
         assert isinstance(data, dict)
 
-    def test_health_endpoint_cors_headers(
-        self, client: TestClient
-    ) -> None:
+    def test_health_endpoint_cors_headers(self, client: TestClient) -> None:
         """Test /health includes CORS headers for frontend access.
 
         Validates:
         - Access-Control-Allow-Origin header present
         - CORS enabled for monitoring dashboards
         """
-        response = client.get(
+        response: Response = client.get(
             "/health",
             headers={"Origin": "http://localhost:5173"},
         )

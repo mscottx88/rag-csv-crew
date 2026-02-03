@@ -12,11 +12,9 @@ Constitutional Requirements:
 """
 
 import time
-from typing import Any, Callable
-from unittest.mock import Mock, patch
 
-import pytest
 from psycopg import OperationalError
+import pytest
 
 
 @pytest.mark.integration
@@ -94,9 +92,7 @@ class TestDatabaseRetry:
         assert result == "success"
         assert attempt_count == 2  # Initial + 1 retry
 
-    def test_retry_with_reconnecting_notification(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_retry_with_reconnecting_notification(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test 'Reconnecting...' notification printed on retry.
 
         Validates:
@@ -120,7 +116,7 @@ class TestDatabaseRetry:
         with pytest.raises(OperationalError):
             retry_with_backoff(failing_operation, max_retries=3)
 
-        captured = capsys.readouterr()
+        captured: pytest.CaptureResult[str] = capsys.readouterr()
         # Should see 2 "Reconnecting..." messages (not on first attempt)
         assert captured.out.count("Reconnecting") == 2
 
