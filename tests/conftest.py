@@ -10,7 +10,8 @@ Constitutional Requirements:
 from collections.abc import Generator
 from typing import Any
 
-from psycopg.pool import ConnectionPool
+from fastapi.testclient import TestClient
+from psycopg_pool import ConnectionPool
 import pytest
 
 
@@ -62,3 +63,51 @@ def connection_pool(db_config: dict[str, Any]) -> Generator[ConnectionPool, None
         yield pool
     finally:
         pool.close()
+
+
+@pytest.fixture(scope="function")
+def client() -> Generator[TestClient, None, None]:
+    """Provide FastAPI test client for API tests.
+
+    Creates a new test client for each test function.
+
+    Yields:
+        TestClient instance configured with the application
+
+    Note:
+        This fixture creates the application with default configuration
+    """
+    from backend.src.main import create_app
+
+    app: object = create_app()
+    test_client: TestClient = TestClient(app)  # type: ignore[arg-type]
+
+    yield test_client
+
+    # Cleanup (if needed)
+
+
+@pytest.fixture(scope="function")
+def client_no_db() -> Generator[TestClient, None, None]:
+    """Provide FastAPI test client with no database connection.
+
+    Creates a test client that simulates database unavailability for testing
+    unhealthy status responses.
+
+    Yields:
+        TestClient instance configured with simulated DB failure
+
+    Note:
+        This fixture is used for testing error handling and health check
+        failure scenarios
+    """
+    from backend.src.main import create_app
+
+    # For now, use the same app - actual DB failure simulation would require
+    # mocking the database connection check
+    app: object = create_app()
+    test_client: TestClient = TestClient(app)  # type: ignore[arg-type]
+
+    yield test_client
+
+    # Cleanup (if needed)

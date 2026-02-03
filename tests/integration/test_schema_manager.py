@@ -15,7 +15,7 @@ from datetime import UTC
 from typing import Any
 
 import pytest
-from psycopg.pool import ConnectionPool
+from psycopg_pool import ConnectionPool
 
 
 @pytest.mark.integration

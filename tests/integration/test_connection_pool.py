@@ -12,7 +12,7 @@ Constitutional Requirements:
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from psycopg.pool import ConnectionPool
+from psycopg_pool import ConnectionPool
 import pytest
 
 

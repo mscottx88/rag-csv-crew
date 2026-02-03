@@ -278,7 +278,7 @@ The following patterns are **ABSOLUTELY FORBIDDEN** anywhere in this repository:
 **ALWAYS use these patterns instead:**
 
 **Database Connections:**
-- ✅ Use `psycopg.pool.ConnectionPool` (synchronous connection pooling)
+- ✅ Use `psycopg_pool.ConnectionPool` (synchronous connection pooling)
 - ✅ NEVER use `asyncpg` or `psycopg` async variants
 - ✅ Configure pool with appropriate size (min_size, max_size)
 - ✅ Use context managers for connection acquisition: `with pool.connection() as conn:`
@@ -370,7 +370,7 @@ worker.join(timeout=5.0)
 **Database Connection Pool Pattern:**
 
 ```python
-from psycopg.pool import ConnectionPool
+from psycopg_pool import ConnectionPool
 from psycopg import Connection
 from typing import Any
 

@@ -11,7 +11,7 @@ Constitutional Requirements:
 - All functions have return type annotations
 """
 
-from psycopg.pool import ConnectionPool
+from psycopg_pool import ConnectionPool
 import pytest
 
 
