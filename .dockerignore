@@ -1,0 +1,85 @@
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Documentation
+README.md
+CHANGELOG.md
+LICENSE
+docs/
+*.md
+specs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+ENV/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+.tox/
+.hypothesis/
+
+# Node.js / Frontend (don't include in backend image)
+node_modules/
+frontend/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+frontend/dist/
+frontend/build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Development
+.env.local
+.env.*.local
+*.log
+*.tmp
+*.temp
+*.bak
+
+# Testing (don't include test files in production image)
+tests/
+test_*.py
+*_test.py
+conftest.py
+
+# Data (don't include data in image)
+data/
+logs/
+output/
+uploads/
+*.db
+*.sqlite
+*.sqlite3
