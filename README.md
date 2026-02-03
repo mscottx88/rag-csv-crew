@@ -1,5 +1,45 @@
 [![Continuous Integration](https://github.com/nearform/pyspark-common-utilities/actions/workflows/ci.yml/badge.svg)](https://github.com/nearform/pyspark-common-utilities/actions/workflows/ci.yml)
 
+# RAG CSV Crew
+
+In this repository, github spec kit is used to generate the entirety of the project contents. This is a hands-off repo! No coding!
+
+## Setup
+
+1. Install github spec kit. Instructions from [github](https://github.com/github/spec-kit).
+2. Install [Claude Code](https://code.claude.com/docs/en/setup).
+3. Install the [Claude Code VS Code Marketplace Extension](https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code).
+4. Install specify-cli:
+
+```bash
+uv tool install specify-cli --from git+https://github.com/github/spec-kit.git
+```
+
+5. Initialize Claude:
+
+```bash
+specify init . --ai claude
+```
+
+6. Login to Claude Code:
+
+```claude
+/login
+```
+
+## Workflow
+
+```claude
+/speckit.constitution
+/speckit.specify Create a Python-based Hybrid Search RAG application using CrewAI, built with SDD, combining structured, full-text, and vector store queries to convert plain-text questions about arbitrary Postgres data ingested from local CSV files into SQL queries and analyze the results to produce a human-readable plain-text response formatted in HTML all hosted by a FastAPI based backend with a React frontend.
+/speckit.clarify
+/speckit.plan
+/speckit.checklist
+/speckit.tasks
+/speckit.analyze
+/speckit.implement
+```
+
 # Python Project Template
 
 Standard Python project template for Nearform projects. Includes linting, type checking, testing, and commit message validation.
@@ -13,7 +53,7 @@ Standard Python project template for Nearform projects. Includes linting, type c
 
 ```bash
 # Install uv (if needed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
+curl -LsSf "https://astral.sh/uv/install.sh" | sh
 
 # Install python version
 uv python install 3.13
@@ -22,7 +62,7 @@ uv python install 3.13
 uv venv .venv --python 3.13
 
 # Activate venv
-source .venv/bin/activate
+source .venv/Scripts/activate
 
 # Install dependencies
 uv sync --extra dev
@@ -37,6 +77,7 @@ uv run pre-commit install --hook-type commit-msg
 Update `pyproject.toml` with your project details.
 
 ## Development Commands
+
 ```bash
 # Run all checks manually
 uv run ruff check .              # Lint
@@ -54,6 +95,7 @@ uv run pytest                    # Test
 - **conventional-pre-commit**: Commit message validation
 
 ### Commit workflow
+
 ```bash
 # 1. Commit triggers pre-commit checks
 git commit -m "feat: add new feature"
@@ -73,6 +115,7 @@ git commit -m "feat: add new feature"
 ## Commit Message Format
 
 Follow [Conventional Commits](https://www.conventionalcommits.org/):
+
 ```
 type(scope): subject
 
@@ -84,6 +127,7 @@ type(scope): subject
 ## CI/CD
 
 GitHub Actions runs on every push and PR:
+
 - Linting (ruff)
 - Type checking (mypy)
 - Tests (pytest)

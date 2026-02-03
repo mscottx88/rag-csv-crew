@@ -1,3 +1,6 @@
+# Claude
+.claude/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -19,20 +22,38 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # Virtual environments
 .venv/
 venv/
 ENV/
 env/
+.python-version
 
-# Testing
+# Testing & Quality Tools
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 htmlcov/
 .coverage
 .coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+.tox/
+
+# Node.js / Frontend
+node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.local
 
 # IDE
 .vscode/
@@ -40,15 +61,40 @@ htmlcov/
 *.swp
 *.swo
 *~
+*.sublime-project
+*.sublime-workspace
 
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Data folders
 data/
 logs/
 output/
+uploads/
 
 # Environment variables
 .env
+.env.local
+.env.*.local
+backend/.env
+
+# Docker
+.dockerignore
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.bak
+
+# Project-specific
+backend/logs/
+frontend/.eslintcache

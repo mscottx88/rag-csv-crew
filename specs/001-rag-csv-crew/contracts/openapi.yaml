@@ -1,0 +1,768 @@
+openapi: 3.1.0
+info:
+  title: Hybrid Search RAG API
+  description: |
+    REST API for hybrid search RAG application enabling CSV upload and natural language querying
+    with multi-user isolation via PostgreSQL schemas.
+
+    **Core Features**:
+    - Username-only authentication (no password)
+    - CSV file upload with automatic schema detection
+    - Natural language query processing with hybrid search
+    - HTML-formatted response generation
+    - Query history and caching
+    - Multi-file cross-dataset queries
+
+    **Authentication**: Bearer token obtained via `/auth/login` endpoint
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8000
+    description: Development server
+  - url: https://api.example.com
+    description: Production server
+
+tags:
+  - name: Authentication
+    description: User authentication (username-only)
+  - name: Datasets
+    description: CSV file upload, listing, and deletion
+  - name: Queries
+    description: Natural language query submission and history
+  - name: Health
+    description: Service health checks
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      description: Verify service is running and database is accessible
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service unavailable (database connection failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: User login (username-only, no password)
+      description: |
+        Authenticate user with username only. Creates user schema on first login.
+        Returns JWT token for subsequent requests.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLogin'
+      responses:
+        '200':
+          description: Login successful, returns auth token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthToken'
+        '400':
+          description: Invalid username format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error (schema creation failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/me:
+    get:
+      tags: [Authentication]
+      summary: Get current user info
+      description: Returns information about the authenticated user
+      operationId: getCurrentUser
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User information retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /datasets:
+    get:
+      tags: [Datasets]
+      summary: List all datasets for current user
+      description: Returns paginated list of uploaded datasets with metadata
+      operationId: listDatasets
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageQuery'
+        - $ref: '#/components/parameters/PageSizeQuery'
+      responses:
+        '200':
+          description: List of datasets retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetList'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      tags: [Datasets]
+      summary: Upload CSV file
+      description: |
+        Upload a CSV file for ingestion. Detects schema, creates table, and ingests data.
+        Prompts user if filename already exists (replace or keep both).
+      operationId: uploadDataset
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: CSV file to upload
+                replace_existing:
+                  type: boolean
+                  default: false
+                  description: If true and filename exists, replace it. If false, append timestamp.
+              required:
+                - file
+      responses:
+        '201':
+          description: Dataset uploaded and ingested successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dataset'
+        '400':
+          description: Invalid CSV format or validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '409':
+          description: Filename conflict (when replace_existing=false)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilenameConflictResponse'
+        '413':
+          description: File too large (if size limits enabled)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error during ingestion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /datasets/{dataset_id}:
+    get:
+      tags: [Datasets]
+      summary: Get dataset details
+      description: Returns metadata and schema for a specific dataset
+      operationId: getDataset
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DatasetIdPath'
+      responses:
+        '200':
+          description: Dataset details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dataset'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Dataset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [Datasets]
+      summary: Delete dataset
+      description: Removes dataset and all associated data (table, mappings, cross-references)
+      operationId: deleteDataset
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DatasetIdPath'
+      responses:
+        '204':
+          description: Dataset deleted successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Dataset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error during deletion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /queries:
+    get:
+      tags: [Queries]
+      summary: Get query history
+      description: Returns paginated list of previous queries with their status
+      operationId: getQueryHistory
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageQuery'
+        - $ref: '#/components/parameters/PageSizeQuery'
+        - name: status
+          in: query
+          description: Filter by query status
+          schema:
+            $ref: '#/components/schemas/QueryStatus'
+      responses:
+        '200':
+          description: Query history retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryHistory'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      tags: [Queries]
+      summary: Submit natural language query
+      description: |
+        Submit a natural language question about uploaded CSV data.
+        Query is processed using hybrid search (structured, full-text, vector).
+        Timeout: 30 seconds (configurable).
+      operationId: submitQuery
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryCreate'
+      responses:
+        '201':
+          description: Query submitted, processing started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Query'
+        '400':
+          description: Invalid query format or no datasets available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          description: Server error during query submission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /queries/{query_id}:
+    get:
+      tags: [Queries]
+      summary: Get query status and result
+      description: |
+        Returns query status and response (if completed).
+        Poll this endpoint for query completion (status=completed).
+      operationId: getQuery
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/QueryIdPath'
+      responses:
+        '200':
+          description: Query information retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryWithResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Query not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /queries/{query_id}/cancel:
+    post:
+      tags: [Queries]
+      summary: Cancel running query
+      description: |
+        Attempts to cancel a running query (status=processing).
+        Query will transition to status=cancelled if successful.
+      operationId: cancelQuery
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/QueryIdPath'
+      responses:
+        '200':
+          description: Query cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Query'
+        '400':
+          description: Query cannot be cancelled (already completed/failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Query not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /queries/examples:
+    get:
+      tags: [Queries]
+      summary: Get example queries
+      description: Returns generic example questions to help users understand capabilities
+      operationId: getExampleQueries
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Example queries retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  examples:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        question:
+                          type: string
+                          example: "What are the top 10 rows?"
+                        description:
+                          type: string
+                          example: "Shows the first 10 rows of your data"
+                        category:
+                          type: string
+                          enum: [basic, aggregation, filtering, cross_dataset]
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from /auth/login endpoint
+
+  parameters:
+    PageQuery:
+      name: page
+      in: query
+      description: Page number (1-indexed)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSizeQuery:
+      name: page_size
+      in: query
+      description: Number of items per page
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+    DatasetIdPath:
+      name: dataset_id
+      in: path
+      required: true
+      description: UUID of the dataset
+      schema:
+        type: string
+        format: uuid
+    QueryIdPath:
+      name: query_id
+      in: path
+      required: true
+      description: UUID of the query
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    UnauthorizedError:
+      description: Authentication token missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded]
+        database:
+          type: string
+          enum: [connected, disconnected]
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - status
+        - database
+        - timestamp
+
+    UserLogin:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: '^[a-z][a-z0-9_]{2,49}$'
+          example: alice
+      required:
+        - username
+
+    AuthToken:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT bearer token
+        token_type:
+          type: string
+          enum: [bearer]
+        username:
+          type: string
+      required:
+        - access_token
+        - token_type
+        - username
+
+    User:
+      type: object
+      properties:
+        username:
+          type: string
+        schema_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        last_login_at:
+          type: string
+          format: date-time
+          nullable: true
+        is_active:
+          type: boolean
+      required:
+        - username
+        - schema_name
+        - created_at
+        - is_active
+
+    ColumnSchema:
+      type: object
+      properties:
+        name:
+          type: string
+        inferred_type:
+          type: string
+          enum: [text, integer, numeric, boolean, date, timestamp]
+        nullable:
+          type: boolean
+        semantic_type:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+      required:
+        - name
+        - inferred_type
+        - nullable
+
+    Dataset:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        original_filename:
+          type: string
+        table_name:
+          type: string
+        uploaded_at:
+          type: string
+          format: date-time
+        row_count:
+          type: integer
+          minimum: 0
+        column_count:
+          type: integer
+          minimum: 1
+        file_size_bytes:
+          type: integer
+          minimum: 1
+        schema_json:
+          type: array
+          items:
+            $ref: '#/components/schemas/ColumnSchema'
+      required:
+        - id
+        - filename
+        - original_filename
+        - table_name
+        - uploaded_at
+        - row_count
+        - column_count
+        - file_size_bytes
+        - schema_json
+
+    DatasetList:
+      type: object
+      properties:
+        datasets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Dataset'
+        total_count:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+      required:
+        - datasets
+        - total_count
+        - page
+        - page_size
+
+    QueryStatus:
+      type: string
+      enum:
+        - pending
+        - processing
+        - completed
+        - failed
+        - cancelled
+        - timeout
+
+    QueryCreate:
+      type: object
+      properties:
+        query_text:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        dataset_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          nullable: true
+          description: Specific datasets to query, or null for all
+      required:
+        - query_text
+
+    Query:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        query_text:
+          type: string
+        submitted_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: '#/components/schemas/QueryStatus'
+        generated_sql:
+          type: string
+          nullable: true
+        result_count:
+          type: integer
+          minimum: 0
+          nullable: true
+        execution_time_ms:
+          type: integer
+          minimum: 0
+          nullable: true
+      required:
+        - id
+        - query_text
+        - submitted_at
+        - status
+
+    Response:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        query_id:
+          type: string
+          format: uuid
+        html_content:
+          type: string
+        plain_text:
+          type: string
+        confidence_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          nullable: true
+        generated_at:
+          type: string
+          format: date-time
+        data_snapshot:
+          type: object
+          nullable: true
+          additionalProperties: true
+      required:
+        - id
+        - query_id
+        - html_content
+        - plain_text
+        - generated_at
+
+    QueryWithResponse:
+      allOf:
+        - $ref: '#/components/schemas/Query'
+        - type: object
+          properties:
+            response:
+              $ref: '#/components/schemas/Response'
+              nullable: true
+
+    QueryHistory:
+      type: object
+      properties:
+        queries:
+          type: array
+          items:
+            $ref: '#/components/schemas/Query'
+        total_count:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+      required:
+        - queries
+        - total_count
+        - page
+        - page_size
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error type/code
+        message:
+          type: string
+          description: Human-readable error message
+        detail:
+          type: object
+          nullable: true
+          description: Additional error details
+      required:
+        - error
+        - message
+
+    FilenameConflictResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          enum: [filename_conflict]
+        message:
+          type: string
+        existing_dataset_id:
+          type: string
+          format: uuid
+        suggested_filename:
+          type: string
+          description: Filename with timestamp suffix
+      required:
+        - error
+        - message
+        - existing_dataset_id
+        - suggested_filename
