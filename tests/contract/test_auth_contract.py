@@ -12,7 +12,7 @@ Constitutional Requirements:
 - All functions have return type annotations
 """
 
-from datetime import datetime, timezone
+from datetime import datetime
 import re
 from typing import Any
 

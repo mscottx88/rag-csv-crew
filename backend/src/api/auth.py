@@ -16,7 +16,6 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError  # type: ignore[import-untyped]
-from psycopg import Connection
 from pydantic import ValidationError
 
 from backend.src.api.dependencies import get_current_user
@@ -48,7 +47,9 @@ def get_jwt_config() -> tuple[str, str, int]:
     """
     secret_key: str | None = os.getenv("JWT_SECRET")
     if not secret_key:
-        raise RuntimeError("JWT_SECRET environment variable not set. Required for authentication.")
+        raise RuntimeError(
+            "JWT_SECRET environment variable not set. Required for authentication."
+        )
 
     algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
     expire_minutes_str: str = os.getenv("JWT_EXPIRE_MINUTES", "1440")  # 24 hours
@@ -117,7 +118,6 @@ def login(login_request: UserLogin) -> AuthToken:
     # Ensure user schema exists (idempotent, creates on first login)
     try:
         with pool.connection() as conn:
-            conn: Connection[tuple[str, ...]]
             ensure_user_schema_exists(conn, username)
             update_last_login(conn, username)
     except ValueError as e:
@@ -261,52 +261,50 @@ def get_current_user_profile(
         ) from e
 
     try:
-        with pool.connection() as conn:
-            conn: Connection[tuple[str, ...]]
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
+        with pool.connection() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
                     SELECT username, schema_name, created_at, last_login_at, is_active
                     FROM public.users
                     WHERE username = %s
                     """,
-                    (username,),
-                )
-                row: tuple[str, ...] | None = cur.fetchone()
+                (username,),
+            )
+            row: tuple[str, ...] | None = cur.fetchone()
 
-                if row is None:
-                    log_event(
-                        logger=logger,
-                        level="warning",
-                        event="user_not_found",
-                        user=username,
-                        extra={},
-                    )
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail=f"User '{username}' not found",
-                    )
-
-                # Convert row to User model
-                user_data: dict[str, Any] = {
-                    "username": row[0],
-                    "schema_name": row[1],
-                    "created_at": row[2],
-                    "last_login_at": row[3],
-                    "is_active": row[4],
-                }
-
-                user: User = User(**user_data)
-
+            if row is None:
                 log_event(
                     logger=logger,
-                    level="info",
-                    event="get_user_success",
+                    level="warning",
+                    event="user_not_found",
                     user=username,
                     extra={},
                 )
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"User '{username}' not found",
+                )
 
-                return user
+            # Convert row to User model
+            user_data: dict[str, Any] = {
+                "username": row[0],
+                "schema_name": row[1],
+                "created_at": row[2],
+                "last_login_at": row[3],
+                "is_active": row[4],
+            }
+
+            user: User = User(**user_data)
+
+            log_event(
+                logger=logger,
+                level="info",
+                event="get_user_success",
+                user=username,
+                extra={},
+            )
+
+            return user
 
     except HTTPException:
         # Re-raise HTTP exceptions

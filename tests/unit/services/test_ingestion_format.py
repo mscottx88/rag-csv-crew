@@ -119,7 +119,7 @@ class TestCSVFormatDetection:
         - UTF-8 encoding correctly identified
         - Unicode characters handled
         """
-        csv_content: bytes = "name,city\nAlice,New York\nBob,Los Angeles\n".encode("utf-8")
+        csv_content: bytes = b"name,city\nAlice,New York\nBob,Los Angeles\n"
         csv_file: BytesIO = BytesIO(csv_content)
 
         from backend.src.services.ingestion import detect_csv_format

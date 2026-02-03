@@ -127,7 +127,7 @@ class TestResultAnalystAgent:
         mock_agent_instance: MagicMock = MagicMock()
         mock_agent_class.return_value = mock_agent_instance
 
-        agent: Any = create_result_analyst_agent()
+        create_result_analyst_agent()
 
         # Verify Agent class was called
         assert mock_agent_class.called

@@ -16,11 +16,10 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from psycopg import Connection
 
 from backend.src.api.dependencies import get_current_user
 from backend.src.db.connection import get_global_pool
-from backend.src.models.dataset import Dataset, DatasetList
+from backend.src.models.dataset import ColumnSchema, Dataset, DatasetList
 from backend.src.services.ingestion import (
     check_filename_conflict,
     create_dataset_table,
@@ -75,7 +74,7 @@ def get_current_username(credentials: HTTPAuthorizationCredentials = Depends(bea
 def upload_dataset(
     file: UploadFile = File(...),
     username: str = Depends(get_current_username),
-) -> Dataset:
+) -> Dataset | JSONResponse:
     """Upload CSV file and create dataset.
 
     Performs:
@@ -167,8 +166,6 @@ def upload_dataset(
         ) from e
 
     with pool.connection() as conn:
-        conn: Connection[tuple[str, ...]]
-
         # Check filename conflict
         try:
             conflict_info: dict[str, Any] = check_filename_conflict(
@@ -399,10 +396,12 @@ def upload_dataset(
 
                 # Extract columns list from schema_json (stored as {"columns": [...]})
                 schema_json_db: dict[str, Any] = row[8]
-                columns_list: list[dict[str, Any]] = schema_json_db.get("columns", [])
+                columns_list: list[ColumnSchema] = [
+                    ColumnSchema(**col) for col in schema_json_db.get("columns", [])
+                ]
 
                 dataset: Dataset = Dataset(
-                    id=str(row[0]),
+                    id=row[0],
                     filename=row[1],
                     original_filename=row[2],
                     table_name=row[3],
@@ -503,8 +502,6 @@ def list_datasets(
         ) from e
 
     with pool.connection() as conn:
-        conn: Connection[tuple[str, ...]]
-
         try:
             # Get total count
             with conn.cursor() as cur:
@@ -535,10 +532,12 @@ def list_datasets(
             datasets: list[Dataset] = []
             for row in rows:
                 schema_json_db: dict[str, Any] = row[8]
-                columns_list: list[dict[str, Any]] = schema_json_db.get("columns", [])
+                columns_list: list[ColumnSchema] = [
+                    ColumnSchema(**col) for col in schema_json_db.get("columns", [])
+                ]
 
                 dataset: Dataset = Dataset(
-                    id=str(row[0]),
+                    id=row[0],
                     filename=row[1],
                     original_filename=row[2],
                     table_name=row[3],
@@ -632,8 +631,6 @@ def get_dataset(
         ) from e
 
     with pool.connection() as conn:
-        conn: Connection[tuple[str, ...]]
-
         try:
             with conn.cursor() as cur:
                 cur.execute(
@@ -662,10 +659,12 @@ def get_dataset(
 
                 # Extract columns from schema_json
                 schema_json_db: dict[str, Any] = row[8]
-                columns_list: list[dict[str, Any]] = schema_json_db.get("columns", [])
+                columns_list: list[ColumnSchema] = [
+                    ColumnSchema(**col) for col in schema_json_db.get("columns", [])
+                ]
 
                 dataset: Dataset = Dataset(
-                    id=str(row[0]),
+                    id=row[0],
                     filename=row[1],
                     original_filename=row[2],
                     table_name=row[3],
@@ -752,8 +751,6 @@ def delete_dataset(
         ) from e
 
     with pool.connection() as conn:
-        conn: Connection[tuple[str, ...]]
-
         try:
             # First, get the table_name for the dataset
             with conn.cursor() as cur:

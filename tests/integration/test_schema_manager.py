@@ -14,8 +14,8 @@ Constitutional Requirements:
 from datetime import UTC
 from typing import Any
 
-import pytest
 from psycopg_pool import ConnectionPool
+import pytest
 
 
 @pytest.mark.integration

@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from psycopg import Connection
 from psycopg.rows import dict_row
-from psycopg_pool import ConnectionPool  # type: ignore[import-untyped]
+from psycopg_pool import ConnectionPool
 
 if TYPE_CHECKING:
     from ..models.config import DatabaseConfig

@@ -20,7 +20,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from backend.src.api.dependencies import get_current_user
 from backend.src.db.connection import get_global_pool
 from backend.src.models.query import Query, QueryCreate, QueryHistory, QueryWithResponse
-from backend.src.models.user import User
 from backend.src.services.query_execution import QueryExecutionService
 from backend.src.services.query_history import QueryHistoryService
 from backend.src.services.response_generator import ResponseGenerator
@@ -31,13 +30,13 @@ router: APIRouter = APIRouter(prefix="/queries", tags=["Queries"])
 
 @router.post("", response_model=Query, status_code=status.HTTP_201_CREATED)
 def submit_query(
-    query_create: QueryCreate, current_user: Annotated[User, Depends(get_current_user)]
+    query_create: QueryCreate, current_username: Annotated[str, Depends(get_current_user)]
 ) -> Query:
     """Submit a natural language query for processing.
 
     Args:
         query_create: Query submission request
-        current_user: Authenticated user from JWT token
+        current_username: Username from authenticated JWT token
 
     Returns:
         Query object with pending status
@@ -62,7 +61,7 @@ def submit_query(
 
     # Store query as pending
     query_id: UUID = history_service.store_query(
-        query_text=query_create.query_text, username=current_user.username, status="pending"
+        query_text=query_create.query_text, username=current_username, status="pending"
     )
 
     # Process query in synchronous manner
@@ -71,14 +70,14 @@ def submit_query(
         start_time: float = time.time()
 
         # Update to processing status
-        history_service.update_query_status(query_id, current_user.username, "processing")
+        history_service.update_query_status(query_id, current_username, "processing")
 
         # Generate SQL
         sql_service: TextToSQLService = TextToSQLService()
         sql_result: dict[str, Any] = sql_service.generate_sql(
             query_text=query_create.query_text,
             dataset_ids=query_create.dataset_ids,
-            username=current_user.username,
+            _username=current_username,
         )
 
         # Execute SQL
@@ -86,7 +85,7 @@ def submit_query(
         query_results: dict[str, Any] = execution_service.execute_query(
             sql=sql_result["sql"],
             params=sql_result["params"],
-            username=current_user.username,
+            username=current_username,
             timeout_seconds=30,
         )
 
@@ -102,7 +101,7 @@ def submit_query(
         # Update query as completed
         history_service.update_query_status(
             query_id,
-            current_user.username,
+            current_username,
             "completed",
             generated_sql=sql_result["sql"],
             result_count=query_results["row_count"],
@@ -112,7 +111,7 @@ def submit_query(
         # Store response
         history_service.store_response(
             query_id=query_id,
-            username=current_user.username,
+            username=current_username,
             html_content=response_data["html_content"],
             plain_text=response_data["plain_text"],
             confidence_score=response_data.get("confidence_score"),
@@ -120,26 +119,26 @@ def submit_query(
 
     except Exception as e:
         # Update query as failed
-        history_service.update_query_status(query_id, current_user.username, "failed")
+        history_service.update_query_status(query_id, current_username, "failed")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Query processing failed: {e!s}",
-        )
+        ) from e
 
     # Return query object
-    query_obj: dict[str, Any] = history_service.get_query_by_id(query_id, current_user.username)
+    query_obj: dict[str, Any] = history_service.get_query_by_id(query_id, current_username)
     return Query(**query_obj)
 
 
 @router.get("/{query_id}", response_model=QueryWithResponse)
 def get_query(
-    query_id: UUID, current_user: Annotated[User, Depends(get_current_user)]
+    query_id: UUID, current_username: Annotated[str, Depends(get_current_user)]
 ) -> QueryWithResponse:
     """Get query status and result by ID.
 
     Args:
         query_id: Query UUID
-        current_user: Authenticated user from JWT token
+        current_username: Username from authenticated JWT token
 
     Returns:
         QueryWithResponse object with embedded response if available
@@ -152,29 +151,29 @@ def get_query(
 
     try:
         query_with_response: dict[str, Any] = history_service.get_query_with_response(
-            query_id, current_user.username
+            query_id, current_username
         )
         return QueryWithResponse(**query_with_response)
-    except Exception:
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Query {query_id} not found"
-        )
+        ) from exc
 
 
 @router.get("", response_model=QueryHistory)
 def get_query_history(
     page: int = 1,
     page_size: int = 50,
-    status: str | None = None,
-    current_user: User = Depends(get_current_user),
+    query_status: str | None = None,
+    current_username: str = Depends(get_current_user),
 ) -> QueryHistory:
     """Get paginated query history for current user.
 
     Args:
         page: Page number (1-indexed)
         page_size: Items per page (1-100)
-        status: Optional status filter
-        current_user: Authenticated user from JWT token
+        query_status: Optional status filter
+        current_username: Username from authenticated JWT token
 
     Returns:
         QueryHistory object with paginated queries
@@ -194,19 +193,19 @@ def get_query_history(
     history_service: QueryHistoryService = QueryHistoryService(pool)
 
     history: dict[str, Any] = history_service.get_query_history(
-        username=current_user.username, page=page, page_size=page_size, status=status
+        username=current_username, page=page, page_size=page_size, status=query_status
     )
 
     return QueryHistory(**history)
 
 
 @router.post("/{query_id}/cancel", response_model=Query)
-def cancel_query(query_id: UUID, current_user: Annotated[User, Depends(get_current_user)]) -> Query:
+def cancel_query(query_id: UUID, current_username: Annotated[str, Depends(get_current_user)]) -> Query:
     """Cancel a running query.
 
     Args:
         query_id: Query UUID
-        current_user: Authenticated user from JWT token
+        current_username: Username from authenticated JWT token
 
     Returns:
         Query object with cancelled status
@@ -222,38 +221,37 @@ def cancel_query(query_id: UUID, current_user: Annotated[User, Depends(get_curre
 
     try:
         # Get current query
-        query_obj: dict[str, Any] = history_service.get_query_by_id(query_id, current_user.username)
+        query_obj: dict[str, Any] = history_service.get_query_by_id(query_id, current_username)
 
         # Check if query can be cancelled
-        if query_obj["status"] in ["completed", "failed", "cancelled", "timeout"]:
+        if query_obj["status"] in {"completed", "failed", "cancelled", "timeout"}:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Cannot cancel query with status: {query_obj['status']}",
             )
 
         # Update status to cancelled
-        history_service.update_query_status(query_id, current_user.username, "cancelled")
+        history_service.update_query_status(query_id, current_username, "cancelled")
 
         # Return updated query
         updated_query: dict[str, Any] = history_service.get_query_by_id(
-            query_id, current_user.username
+            query_id, current_username
         )
         return Query(**updated_query)
 
     except HTTPException:
         raise
-    except Exception:
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Query {query_id} not found"
-        )
+        ) from exc
 
 
 @router.get("/examples", response_model=dict[str, Any])
-def get_example_queries(current_user: Annotated[User, Depends(get_current_user)]) -> dict[str, Any]:
+def get_example_queries(
+    _current_username: Annotated[str, Depends(get_current_user)],
+) -> dict[str, Any]:
     """Get example queries to help users understand capabilities.
-
-    Args:
-        current_user: Authenticated user from JWT token
 
     Returns:
         Dictionary with examples array
@@ -261,6 +259,8 @@ def get_example_queries(current_user: Annotated[User, Depends(get_current_user)]
     Examples per FR-017:
     - Generic questions that work with any dataset
     - Categorized by complexity (basic, aggregation, filtering, cross_dataset)
+
+    Note: _current_username parameter is required for authentication but not used in function body.
     """
     examples: list[dict[str, str]] = [
         {

@@ -10,9 +10,8 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
-from datetime import datetime, timezone
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from psycopg_pool import ConnectionPool
 import pytest
@@ -363,7 +362,7 @@ class TestQueryHistory:
 
         # Create query and response
         query_id: UUID = service.store_query("Test", username, "completed")
-        response_id: UUID = service.store_response(
+        service.store_response(
             query_id=query_id,
             username=username,
             html_content="<p>Test</p>",

@@ -25,14 +25,13 @@ class TextToSQLService:
     """Service for converting natural language to SQL queries."""
 
     def generate_sql(
-        self, query_text: str, dataset_ids: list[UUID] | None, username: str
+        self, query_text: str, dataset_ids: list[UUID] | None, _username: str
     ) -> dict[str, Any]:
         """Generate SQL from natural language query.
 
         Args:
             query_text: Natural language question
             dataset_ids: Optional list of dataset UUIDs to query
-            username: Username for context
 
         Returns:
             Dictionary with sql and params
@@ -75,7 +74,7 @@ class TextToSQLService:
             Clean SQL string
         """
         # Remove markdown code block markers
-        sql = sql.replace("```sql", "").replace("```", "")
+        sql: str = sql.replace("```sql", "").replace("```", "")
         # Trim whitespace
         return sql.strip()
 
@@ -84,14 +83,14 @@ class TextToSQLOrchestrator:
     """Orchestrates the complete query processing workflow."""
 
     def process_query(
-        self, query_text: str, dataset_ids: list[UUID] | None, username: str
+        self, query_text: str, dataset_ids: list[UUID] | None, _username: str
     ) -> dict[str, Any]:
         """Process complete query workflow: SQL generation → execution → HTML formatting.
 
         Args:
             query_text: Natural language question
             dataset_ids: Optional list of dataset UUIDs
-            username: Username for context
+            _username: Username for context (unused, reserved for future use)
 
         Returns:
             Dictionary with generated_sql, html_content, execution results
@@ -169,5 +168,5 @@ class TextToSQLOrchestrator:
         Returns:
             Clean SQL string
         """
-        sql = sql.replace("```sql", "").replace("```", "")
+        sql: str = sql.replace("```sql", "").replace("```", "")
         return sql.strip()

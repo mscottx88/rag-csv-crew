@@ -91,13 +91,12 @@ class TestConnectionPool:
                 thread_id: Thread identifier for tracking
             """
             try:
-                with connection_pool.connection() as conn:
-                    with conn.cursor() as cur:
-                        cur.execute("SELECT 1 as value")
-                        row: tuple[int] | None = cur.fetchone()
-                        assert row is not None
-                        assert row[0] == 1
-                        results.append(True)
+                with connection_pool.connection() as conn, conn.cursor() as cur:
+                    cur.execute("SELECT 1 as value")
+                    row: tuple[int] | None = cur.fetchone()
+                    assert row is not None
+                    assert row[0] == 1
+                    results.append(True)
             except Exception as e:
                 errors.append(e)
 

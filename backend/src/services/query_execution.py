@@ -15,7 +15,6 @@ from concurrent.futures import TimeoutError as FuturesTimeoutError
 from threading import Event
 from typing import Any
 
-from psycopg import Connection
 from psycopg_pool import ConnectionPool
 
 
@@ -62,7 +61,6 @@ class QueryExecutionService:
         def run_query() -> dict[str, Any]:
             """Execute query in thread with cancellation check."""
             with self.pool.connection() as conn:
-                conn: Connection
                 # Set search path to user schema
                 user_schema: str = f"{username}_schema"
                 with conn.cursor() as cur:
@@ -89,7 +87,9 @@ class QueryExecutionService:
                     )
 
                     # Convert rows to list of dicts
-                    result_rows: list[dict[str, Any]] = [dict(zip(columns, row, strict=False)) for row in rows]
+                    result_rows: list[dict[str, Any]] = [
+                        dict(zip(columns, row, strict=False)) for row in rows
+                    ]
 
                     return {"rows": result_rows, "row_count": len(result_rows), "columns": columns}
 
@@ -100,10 +100,10 @@ class QueryExecutionService:
             try:
                 result: dict[str, Any] = future.result(timeout=timeout_seconds)
                 return result
-            except FuturesTimeoutError:
+            except FuturesTimeoutError as exc:
                 # Cancel the query on timeout
                 if cancel_event:
                     cancel_event.set()
-                raise Exception(f"Query exceeded {timeout_seconds} second timeout")
+                raise Exception(f"Query exceeded {timeout_seconds} second timeout") from exc
             except Exception as e:
                 raise e

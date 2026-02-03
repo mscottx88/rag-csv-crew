@@ -10,7 +10,6 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
-
 from crewai import Agent
 
 

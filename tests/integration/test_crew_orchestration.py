@@ -89,7 +89,7 @@ class TestCrewOrchestration:
         - Execution order is guaranteed
         - Context flows between tasks
         """
-        from backend.src.crew.tasks import create_sql_generation_task, create_html_formatting_task
+        from backend.src.crew.tasks import create_html_formatting_task, create_sql_generation_task
 
         mock_sql_agent: MagicMock = MagicMock()
         mock_analyst_agent: MagicMock = MagicMock()
@@ -228,6 +228,7 @@ class TestCrewOrchestration:
         - Thread-based concurrency per constitution
         """
         from concurrent.futures import ThreadPoolExecutor
+
         from backend.src.services.text_to_sql import TextToSQLOrchestrator
 
         # Mock crew responses
@@ -273,7 +274,7 @@ class TestCrewOrchestration:
         - Constitution compliance verified
         - Thread-based execution confirmed
         """
-        from backend.src.crew.agents import create_sql_generator_agent, create_result_analyst_agent
+        from backend.src.crew.agents import create_result_analyst_agent, create_sql_generator_agent
 
         # Verify agents can be created (synchronous)
         sql_agent: Any = create_sql_generator_agent()

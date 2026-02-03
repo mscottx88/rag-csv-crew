@@ -10,10 +10,10 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 import time
 from typing import Any
-from uuid import uuid4
 
 from psycopg_pool import ConnectionPool
 import pytest
@@ -49,7 +49,7 @@ class TestQueryExecution:
 
         start_time: float = time.time()
 
-        with pytest.raises((FuturesTimeoutError, Exception)) as exc_info:
+        with pytest.raises((FuturesTimeoutError, Exception)):
             service.execute_query(
                 sql=long_query,
                 params=[],
@@ -155,8 +155,9 @@ class TestQueryExecution:
         - Cancellation is fast (<1s)
         - Proper cleanup occurs
         """
-        from backend.src.services.query_execution import QueryExecutionService
         from threading import Event
+
+        from backend.src.services.query_execution import QueryExecutionService
 
         service: QueryExecutionService = QueryExecutionService(connection_pool)
         cancel_event: Event = Event()

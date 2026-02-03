@@ -24,17 +24,18 @@ class ResponseGenerator:
     """Service for generating HTML responses from query results."""
 
     def generate_html_response(
-        self, query_text: str, query_results: dict[str, Any], query_id: UUID
+        self, query_text: str, query_results: dict[str, Any], _query_id: UUID
     ) -> dict[str, Any]:
         """Generate HTML response from SQL query results.
 
         Args:
             query_text: Original user question
             query_results: Query results with rows, columns, row_count
-            query_id: UUID of the query
 
         Returns:
             Dictionary with html_content, plain_text, confidence_score
+
+        Note: _query_id parameter is reserved for future use but currently unused.
 
         Constitutional Compliance:
         - Uses CrewAI synchronously (not async)

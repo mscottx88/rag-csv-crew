@@ -96,7 +96,7 @@ class TestSQLGeneratorAgent:
         mock_agent_instance: MagicMock = MagicMock()
         mock_agent_class.return_value = mock_agent_instance
 
-        agent: Any = create_sql_generator_agent()
+        create_sql_generator_agent()
 
         # Verify Agent class was called
         assert mock_agent_class.called

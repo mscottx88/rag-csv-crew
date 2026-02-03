@@ -79,7 +79,7 @@ def detect_csv_format(csv_file: BytesIO) -> dict[str, Any]:
     # Use csv.Sniffer to detect delimiter and quote character
     try:
         sniffer: csv.Sniffer = csv.Sniffer()
-        dialect: csv.Dialect = sniffer.sniff(sample_text, delimiters=",;\t|")
+        dialect: Any = sniffer.sniff(sample_text, delimiters=",;\t|")
         delimiter: str = dialect.delimiter
         quotechar: str = dialect.quotechar or '"'
 
@@ -214,7 +214,7 @@ def _infer_value_type(value: str) -> str:
         # Check for date patterns: YYYY-MM-DD, MM/DD/YYYY, etc.
         try:
             # Try common date formats
-            from dateutil import parser  # type: ignore[import-untyped]
+            from dateutil import parser
 
             parsed: datetime = parser.parse(value)
             if parsed:
@@ -519,7 +519,7 @@ def ingest_csv_data(
             f"SELECT COUNT(*) FROM {full_table_name} WHERE _dataset_id = %s",
             (dataset_id,),
         )
-        result: tuple[int, ...] | None = cur.fetchone()
+        result: tuple[Any, ...] | None = cur.fetchone()
         row_count: int = result[0] if result else 0
 
     return row_count
@@ -662,7 +662,7 @@ def check_filename_conflict(
 
     with conn.cursor() as cur:
         cur.execute(check_sql, (filename,))
-        result: tuple[int, ...] | None = cur.fetchone()
+        result: tuple[Any, ...] | None = cur.fetchone()
         count: int = result[0] if result else 0
 
     if count == 0:

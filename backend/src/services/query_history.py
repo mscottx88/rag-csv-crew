@@ -14,7 +14,6 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from psycopg import Connection
 from psycopg_pool import ConnectionPool
 
 
@@ -46,7 +45,6 @@ class QueryHistoryService:
         user_schema: str = f"{username}_schema"
 
         with self.pool.connection() as conn:
-            conn: Connection
             with conn.cursor() as cur:
                 cur.execute(f"SET search_path TO {user_schema}, public")
 
@@ -81,12 +79,9 @@ class QueryHistoryService:
             execution_time_ms: Optional execution time in milliseconds
         """
         user_schema: str = f"{username}_schema"
-        completed_at: datetime | None = (
-            datetime.now(UTC) if status == "completed" else None
-        )
+        completed_at: datetime | None = datetime.now(UTC) if status == "completed" else None
 
         with self.pool.connection() as conn:
-            conn: Connection
             with conn.cursor() as cur:
                 cur.execute(f"SET search_path TO {user_schema}, public")
 
@@ -127,7 +122,6 @@ class QueryHistoryService:
         user_schema: str = f"{username}_schema"
 
         with self.pool.connection() as conn:
-            conn: Connection
             with conn.cursor() as cur:
                 cur.execute(f"SET search_path TO {user_schema}, public")
 
@@ -182,13 +176,14 @@ class QueryHistoryService:
         user_schema: str = f"{username}_schema"
 
         with self.pool.connection() as conn:
-            conn: Connection
             with conn.cursor() as cur:
                 cur.execute(f"SET search_path TO {user_schema}, public")
 
                 cur.execute(
                     """
-                    INSERT INTO responses (id, query_id, html_content, plain_text, confidence_score, generated_at)
+                    INSERT INTO responses (
+                        id, query_id, html_content, plain_text, confidence_score, generated_at
+                    )
                     VALUES (%s, %s, %s, %s, %s, %s)
                     """,
                     (
@@ -220,7 +215,6 @@ class QueryHistoryService:
         user_schema: str = f"{username}_schema"
 
         with self.pool.connection() as conn:
-            conn: Connection
             with conn.cursor() as cur:
                 cur.execute(f"SET search_path TO {user_schema}, public")
 
@@ -285,7 +279,6 @@ class QueryHistoryService:
         offset: int = (page - 1) * page_size
 
         with self.pool.connection() as conn:
-            conn: Connection
             with conn.cursor() as cur:
                 cur.execute(f"SET search_path TO {user_schema}, public")
 
@@ -343,7 +336,6 @@ class QueryHistoryService:
         user_schema: str = f"{username}_schema"
 
         with self.pool.connection() as conn:
-            conn: Connection
             with conn.cursor() as cur:
                 cur.execute(f"SET search_path TO {user_schema}, public")
 

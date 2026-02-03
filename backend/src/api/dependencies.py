@@ -11,17 +11,20 @@ Constitutional Requirements:
 - All functions have return type annotations
 """
 
-from fastapi import HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials
+import os
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError  # type: ignore[import-untyped]
 
 from backend.src.services.auth import validate_jwt_token
 
+# Bearer scheme for JWT token extraction
+bearer_scheme: HTTPBearer = HTTPBearer()
+
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials,
-    secret_key: str,
-    algorithm: str,
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
 ) -> str:
     """Extract and validate current user from JWT Bearer token.
 
@@ -42,8 +45,6 @@ def get_current_user(
 
     Args:
         credentials: HTTPAuthorizationCredentials from HTTPBearer()
-        secret_key: JWT secret key for token validation
-        algorithm: JWT algorithm (e.g., "HS256")
 
     Returns:
         Username extracted from valid token
@@ -61,6 +62,16 @@ def get_current_user(
         )
 
     token: str = credentials.credentials
+
+    # Get JWT configuration from environment
+    secret_key: str | None = os.getenv("JWT_SECRET")
+    algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
+
+    if not secret_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="JWT configuration missing",
+        )
 
     try:
         # Validate token and extract username
