@@ -184,7 +184,11 @@ def cleanup_test_data(connection_pool: ConnectionPool, request: Any) -> Generato
 
                 # Clean up test user schemas and recreate them fresh
                 # NOTE: 'bob' intentionally excluded - used in FK violation tests where user must not exist
-                test_usernames: list[str] = ['alice', 'testuser', 'testuser2', 'newuser123', 'csvuser', 'csvuser2', 'csvuser3']
+                test_usernames: list[str] = [
+                    'alice', 'testuser', 'testuser2', 'newuser123',
+                    'csvuser', 'csvuser2', 'csvuser3',
+                    'listuser', 'pageuser', 'getuser', 'getuser2', 'deluser', 'deluser2'
+                ]
                 for username in test_usernames:
                     schema_name: str = f"{username}_schema"
 
@@ -203,7 +207,8 @@ def cleanup_test_data(connection_pool: ConnectionPool, request: Any) -> Generato
                 # This leaves schemas intact but removes user records so tests can recreate them
                 cur.execute(
                     "DELETE FROM public.users WHERE username IN "
-                    "('alice', 'testuser', 'testuser2', 'newuser123', 'csvuser', 'csvuser2', 'csvuser3')"
+                    "('alice', 'testuser', 'testuser2', 'newuser123', 'csvuser', 'csvuser2', 'csvuser3', "
+                    "'listuser', 'pageuser', 'getuser', 'getuser2', 'deluser', 'deluser2')"
                 )
             conn.commit()
     except Exception:

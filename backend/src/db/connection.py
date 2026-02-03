@@ -12,8 +12,8 @@ import logging
 from typing import TYPE_CHECKING
 
 from psycopg import Connection
-from psycopg_pool import ConnectionPool  # type: ignore[import-untyped]
 from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool  # type: ignore[import-untyped]
 
 if TYPE_CHECKING:
     from ..models.config import DatabaseConfig
@@ -107,9 +107,7 @@ class DatabaseConnectionPool:
             RuntimeError: If pool not initialized
         """
         if self._pool is None:
-            raise RuntimeError(
-                "Connection pool not initialized. Call initialize() first."
-            )
+            raise RuntimeError("Connection pool not initialized. Call initialize() first.")
 
         conn: Connection
         with self._pool.connection() as conn:
@@ -118,11 +116,7 @@ class DatabaseConnectionPool:
             try:
                 yield conn
             finally:
-                if (
-                    not autocommit
-                    and not conn.closed
-                    and conn.info.transaction_status == 2
-                ):
+                if not autocommit and not conn.closed and conn.info.transaction_status == 2:
                     # Ensure transaction is either committed or rolled back (INTRANS)
                     conn.rollback()
 
@@ -222,7 +216,7 @@ def get_global_pool() -> DatabaseConnectionPool:
     Raises:
         RuntimeError: If global pool not initialized
     """
-    global _global_pool  # noqa: PLW0603
+    global _global_pool
     if _global_pool is None:
         raise RuntimeError(
             "Global connection pool not initialized. Call initialize_global_pool() first."

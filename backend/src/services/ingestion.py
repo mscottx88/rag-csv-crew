@@ -16,12 +16,11 @@ Constitutional Requirements:
 import csv
 from datetime import datetime
 from io import BytesIO, StringIO
-import json
 from typing import Any
 import uuid
 
 import chardet
-from psycopg import Connection, sql
+from psycopg import Connection
 from psycopg.types.json import Jsonb
 
 
@@ -246,7 +245,7 @@ def _resolve_column_type(types_seen: set[str]) -> str:
         return "TEXT"
 
     if len(types_seen) == 1:
-        return list(types_seen)[0]
+        return next(iter(types_seen))
 
     # Mixed types - resolve to least restrictive compatible type
     if "TEXT" in types_seen:
@@ -374,9 +373,7 @@ def _sanitize_table_name(filename: str) -> str:
         filename = filename[:-4]
 
     # Convert to lowercase, replace invalid chars with underscore
-    sanitized: str = "".join(
-        c if c.isalnum() or c == "_" else "_" for c in filename.lower()
-    )
+    sanitized: str = "".join(c if c.isalnum() or c == "_" else "_" for c in filename.lower())
 
     # Ensure starts with letter
     if not sanitized[0].isalpha():
@@ -399,9 +396,7 @@ def _sanitize_column_name(col_name: str) -> str:
         Sanitized column name: lowercase, alphanumeric + underscore
     """
     # Convert to lowercase, replace invalid chars with underscore
-    sanitized: str = "".join(
-        c if c.isalnum() or c == "_" else "_" for c in col_name.lower()
-    )
+    sanitized: str = "".join(c if c.isalnum() or c == "_" else "_" for c in col_name.lower())
 
     # Ensure starts with letter or underscore
     if sanitized and not (sanitized[0].isalpha() or sanitized[0] == "_"):
@@ -489,9 +484,7 @@ def ingest_csv_data(
 
     # Parse CSV to get column names
     csv_stringio: StringIO = StringIO(csv_text)
-    reader: csv.DictReader[str] = csv.DictReader(
-        csv_stringio, delimiter=format_info["delimiter"]
-    )
+    reader: csv.DictReader[str] = csv.DictReader(csv_stringio, delimiter=format_info["delimiter"])
     fieldnames: list[str] = list(reader.fieldnames or [])
 
     if not fieldnames:
@@ -514,10 +507,9 @@ def ingest_csv_data(
     )
 
     # Execute COPY
-    with conn.cursor() as cur:
-        with cur.copy(copy_sql) as copy:
-            csv_with_dataset_id.seek(0)
-            copy.write(csv_with_dataset_id.read())
+    with conn.cursor() as cur, cur.copy(copy_sql) as copy:
+        csv_with_dataset_id.seek(0)
+        copy.write(csv_with_dataset_id.read())
 
     conn.commit()
 
@@ -533,9 +525,7 @@ def ingest_csv_data(
     return row_count
 
 
-def _prepend_dataset_id_column(
-    csv_file: StringIO, dataset_id: str, delimiter: str
-) -> StringIO:
+def _prepend_dataset_id_column(csv_file: StringIO, dataset_id: str, delimiter: str) -> StringIO:
     """Prepend _dataset_id column to CSV for COPY ingestion.
 
     Args:

@@ -48,9 +48,7 @@ def get_jwt_config() -> tuple[str, str, int]:
     """
     secret_key: str | None = os.getenv("JWT_SECRET")
     if not secret_key:
-        raise RuntimeError(
-            "JWT_SECRET environment variable not set. Required for authentication."
-        )
+        raise RuntimeError("JWT_SECRET environment variable not set. Required for authentication.")
 
     algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
     expire_minutes_str: str = os.getenv("JWT_EXPIRE_MINUTES", "1440")  # 24 hours
@@ -146,7 +144,7 @@ def login(login_request: UserLogin) -> AuthToken:
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Schema creation failed: {str(e)}",
+            detail=f"Schema creation failed: {e!s}",
         ) from e
 
     # Generate JWT token

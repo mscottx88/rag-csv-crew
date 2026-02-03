@@ -13,14 +13,14 @@ Constitutional Requirements:
 from io import BytesIO, StringIO
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, status, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from psycopg import Connection
 
 from backend.src.api.dependencies import get_current_user
 from backend.src.db.connection import get_global_pool
-from backend.src.models.dataset import Dataset
+from backend.src.models.dataset import Dataset, DatasetList
 from backend.src.services.ingestion import (
     check_filename_conflict,
     create_dataset_table,
@@ -147,7 +147,7 @@ def upload_dataset(
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to read file: {str(e)}",
+            detail=f"Failed to read file: {e!s}",
         ) from e
 
     # Get database connection
@@ -222,7 +222,7 @@ def upload_dataset(
             )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to detect CSV format: {str(e)}",
+                detail=f"Failed to detect CSV format: {e!s}",
             ) from e
 
         # Decode CSV for schema detection
@@ -245,7 +245,7 @@ def upload_dataset(
             )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to decode CSV: {str(e)}",
+                detail=f"Failed to decode CSV: {e!s}",
             ) from e
 
         # Detect schema
@@ -284,7 +284,7 @@ def upload_dataset(
             )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to detect CSV schema: {str(e)}",
+                detail=f"Failed to detect CSV schema: {e!s}",
             ) from e
 
         # Create dataset table
@@ -300,7 +300,7 @@ def upload_dataset(
             )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to create dataset table: {str(e)}",
+                detail=f"Failed to create dataset table: {e!s}",
             ) from e
 
         # Normalize schema types to match ColumnSchema pattern
@@ -352,7 +352,7 @@ def upload_dataset(
             )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to store dataset metadata: {str(e)}",
+                detail=f"Failed to store dataset metadata: {e!s}",
             ) from e
 
         # Ingest data
@@ -377,7 +377,7 @@ def upload_dataset(
             )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to ingest CSV data: {str(e)}",
+                detail=f"Failed to ingest CSV data: {e!s}",
             ) from e
 
         # Fetch complete dataset record
@@ -438,3 +438,385 @@ def upload_dataset(
         )
 
         return dataset
+
+
+@router.get("/", response_model=DatasetList, status_code=status.HTTP_200_OK)
+def list_datasets(
+    page: int = 1,
+    page_size: int = 50,
+    username: str = Depends(get_current_username),
+) -> DatasetList:
+    """List datasets for authenticated user with pagination.
+
+    Retrieves all datasets uploaded by the current user with
+    pagination support per openapi.yaml GET /datasets.
+
+    Args:
+        page: Page number (1-indexed, default 1)
+        page_size: Items per page (1-100, default 50)
+        username: Current authenticated user
+
+    Returns:
+        DatasetList with datasets array and pagination metadata
+
+    Raises:
+        HTTPException 500: Server error during retrieval
+
+    Per openapi.yaml GET /datasets:
+    - Response 200: DatasetList schema
+    - Pagination via query params
+    - Ordered by uploaded_at DESC
+    """
+    log_event(
+        logger=logger,
+        level="info",
+        event="datasets_list_request",
+        user=username,
+        extra={"page": page, "page_size": page_size},
+    )
+
+    # Validate pagination params
+    if page < 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Page must be >= 1",
+        )
+    if page_size < 1 or page_size > 100:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Page size must be between 1 and 100",
+        )
+
+    try:
+        pool = get_global_pool()
+    except RuntimeError as e:
+        log_event(
+            logger=logger,
+            level="error",
+            event="list_failed",
+            user=username,
+            extra={"error": "Database pool not initialized"},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database connection unavailable",
+        ) from e
+
+    with pool.connection() as conn:
+        conn: Connection[tuple[str, ...]]
+
+        try:
+            # Get total count
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"SELECT COUNT(*) FROM {username}_schema.datasets",
+                )
+                total_result: tuple[int] | None = cur.fetchone()
+                total_count: int = total_result[0] if total_result else 0
+
+            # Calculate offset
+            offset: int = (page - 1) * page_size
+
+            # Fetch paginated datasets
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT id, filename, original_filename, table_name, uploaded_at,
+                           row_count, column_count, file_size_bytes, schema_json
+                    FROM {username}_schema.datasets
+                    ORDER BY uploaded_at DESC
+                    LIMIT %s OFFSET %s
+                    """,
+                    (page_size, offset),
+                )
+                rows: list[tuple[Any, ...]] = cur.fetchall()
+
+            # Build Dataset objects
+            datasets: list[Dataset] = []
+            for row in rows:
+                schema_json_db: dict[str, Any] = row[8]
+                columns_list: list[dict[str, Any]] = schema_json_db.get("columns", [])
+
+                dataset: Dataset = Dataset(
+                    id=str(row[0]),
+                    filename=row[1],
+                    original_filename=row[2],
+                    table_name=row[3],
+                    uploaded_at=row[4],
+                    row_count=row[5],
+                    column_count=row[6],
+                    file_size_bytes=row[7],
+                    schema_json=columns_list,
+                )
+                datasets.append(dataset)
+
+            log_event(
+                logger=logger,
+                level="info",
+                event="datasets_list_success",
+                user=username,
+                extra={
+                    "total_count": total_count,
+                    "page": page,
+                    "returned_count": len(datasets),
+                },
+            )
+
+            return DatasetList(
+                datasets=datasets,
+                total_count=total_count,
+                page=page,
+                page_size=page_size,
+            )
+
+        except Exception as e:
+            log_event(
+                logger=logger,
+                level="error",
+                event="datasets_list_failed",
+                user=username,
+                extra={"error": str(e)},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to retrieve datasets",
+            ) from e
+
+
+@router.get("/{dataset_id}", response_model=Dataset, status_code=status.HTTP_200_OK)
+def get_dataset(
+    dataset_id: str,
+    username: str = Depends(get_current_username),
+) -> Dataset:
+    """Get single dataset by ID for authenticated user.
+
+    Retrieves full metadata for a specific dataset including
+    schema information per openapi.yaml GET /datasets/{dataset_id}.
+
+    Args:
+        dataset_id: UUID of the dataset
+        username: Current authenticated user
+
+    Returns:
+        Dataset with all metadata fields
+
+    Raises:
+        HTTPException 404: Dataset not found or not owned by user
+        HTTPException 500: Server error during retrieval
+
+    Per openapi.yaml GET /datasets/{dataset_id}:
+    - Response 200: Dataset schema
+    - Response 404: Dataset not found
+    """
+    log_event(
+        logger=logger,
+        level="info",
+        event="dataset_get_request",
+        user=username,
+        extra={"dataset_id": dataset_id},
+    )
+
+    try:
+        pool = get_global_pool()
+    except RuntimeError as e:
+        log_event(
+            logger=logger,
+            level="error",
+            event="get_failed",
+            user=username,
+            extra={"error": "Database pool not initialized"},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database connection unavailable",
+        ) from e
+
+    with pool.connection() as conn:
+        conn: Connection[tuple[str, ...]]
+
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT id, filename, original_filename, table_name, uploaded_at,
+                           row_count, column_count, file_size_bytes, schema_json
+                    FROM {username}_schema.datasets
+                    WHERE id = %s
+                    """,
+                    (dataset_id,),
+                )
+                row: tuple[Any, ...] | None = cur.fetchone()
+
+                if row is None:
+                    log_event(
+                        logger=logger,
+                        level="warning",
+                        event="dataset_not_found",
+                        user=username,
+                        extra={"dataset_id": dataset_id},
+                    )
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Dataset {dataset_id} not found",
+                    )
+
+                # Extract columns from schema_json
+                schema_json_db: dict[str, Any] = row[8]
+                columns_list: list[dict[str, Any]] = schema_json_db.get("columns", [])
+
+                dataset: Dataset = Dataset(
+                    id=str(row[0]),
+                    filename=row[1],
+                    original_filename=row[2],
+                    table_name=row[3],
+                    uploaded_at=row[4],
+                    row_count=row[5],
+                    column_count=row[6],
+                    file_size_bytes=row[7],
+                    schema_json=columns_list,
+                )
+
+                log_event(
+                    logger=logger,
+                    level="info",
+                    event="dataset_get_success",
+                    user=username,
+                    extra={"dataset_id": dataset_id},
+                )
+
+                return dataset
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            log_event(
+                logger=logger,
+                level="error",
+                event="dataset_get_failed",
+                user=username,
+                extra={"dataset_id": dataset_id, "error": str(e)},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to retrieve dataset",
+            ) from e
+
+
+@router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_dataset(
+    dataset_id: str,
+    username: str = Depends(get_current_username),
+) -> None:
+    """Delete dataset and associated data for authenticated user.
+
+    Removes dataset metadata and drops the associated data table
+    per openapi.yaml DELETE /datasets/{dataset_id}.
+
+    Args:
+        dataset_id: UUID of the dataset to delete
+        username: Current authenticated user
+
+    Returns:
+        None (204 No Content)
+
+    Raises:
+        HTTPException 404: Dataset not found or not owned by user
+        HTTPException 500: Server error during deletion
+
+    Per openapi.yaml DELETE /datasets/{dataset_id}:
+    - Response 204: No Content (successful deletion)
+    - Response 404: Dataset not found
+    - Cascade: Drops dataset table and removes metadata
+    """
+    log_event(
+        logger=logger,
+        level="info",
+        event="dataset_delete_request",
+        user=username,
+        extra={"dataset_id": dataset_id},
+    )
+
+    try:
+        pool = get_global_pool()
+    except RuntimeError as e:
+        log_event(
+            logger=logger,
+            level="error",
+            event="delete_failed",
+            user=username,
+            extra={"error": "Database pool not initialized"},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database connection unavailable",
+        ) from e
+
+    with pool.connection() as conn:
+        conn: Connection[tuple[str, ...]]
+
+        try:
+            # First, get the table_name for the dataset
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT table_name
+                    FROM {username}_schema.datasets
+                    WHERE id = %s
+                    """,
+                    (dataset_id,),
+                )
+                row: tuple[Any, ...] | None = cur.fetchone()
+
+                if row is None:
+                    log_event(
+                        logger=logger,
+                        level="warning",
+                        event="dataset_not_found_for_delete",
+                        user=username,
+                        extra={"dataset_id": dataset_id},
+                    )
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Dataset {dataset_id} not found",
+                    )
+
+                table_name: str = row[0]
+
+            # Drop the data table
+            with conn.cursor() as cur:
+                cur.execute(f"DROP TABLE IF EXISTS {username}_schema.{table_name} CASCADE")
+
+            # Delete the dataset metadata
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    DELETE FROM {username}_schema.datasets
+                    WHERE id = %s
+                    """,
+                    (dataset_id,),
+                )
+
+            conn.commit()
+
+            log_event(
+                logger=logger,
+                level="info",
+                event="dataset_delete_success",
+                user=username,
+                extra={"dataset_id": dataset_id, "table_name": table_name},
+            )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            log_event(
+                logger=logger,
+                level="error",
+                event="dataset_delete_failed",
+                user=username,
+                extra={"dataset_id": dataset_id, "error": str(e)},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete dataset",
+            ) from e
