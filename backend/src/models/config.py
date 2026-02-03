@@ -11,7 +11,9 @@ Constitutional Requirements:
 - pylint 10.00/10.00 compliant
 """
 
-from pydantic import Field
+from typing import Any
+
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -91,4 +93,27 @@ class AppConfig(BaseSettings):
     query_timeout_seconds: int = Field(default=30, ge=1)
     max_file_size_bytes: int = Field(default=0, ge=0)  # 0 = unlimited
 
-    model_config = SettingsConfigDict(env_file=".env")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value: Any) -> list[str] | Any:
+        """Parse comma-separated CORS origins from environment variable.
+
+        Handles both string (comma-separated) and list formats.
+
+        Args:
+            value: Raw value from environment variable or direct assignment
+
+        Returns:
+            List of CORS origin strings
+
+        Examples:
+            "http://localhost:3000,http://localhost:5173" -> ["http://localhost:3000", "http://localhost:5173"]
+            ["http://localhost:3000"] -> ["http://localhost:3000"]
+        """
+        if isinstance(value, str):
+            # Split comma-separated string and strip whitespace
+            origins: list[str] = [origin.strip() for origin in value.split(",") if origin.strip()]
+            return origins
+        return value

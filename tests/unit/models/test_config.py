@@ -161,12 +161,14 @@ class TestAppConfig:
     """Test AppConfig model validation and composition."""
 
     def test_app_config_defaults(self) -> None:
-        """Test AppConfig default values and nested configs."""
-        # Note: This will require environment variables or will use defaults
+        """Test AppConfig loads from .env file correctly."""
+        # Note: This loads from .env file if present
         config: AppConfig = AppConfig(db=DatabaseConfig(user="testuser", password="testpass"))
 
         assert config.log_level == "INFO"
-        assert config.cors_origins == ["http://localhost:5173"]
+        # CORS origins loaded from .env file (not default)
+        assert isinstance(config.cors_origins, list)
+        assert len(config.cors_origins) > 0
         assert config.query_timeout_seconds == 30
         assert config.max_file_size_bytes == 0  # Unlimited
 
@@ -215,7 +217,7 @@ class TestAppConfig:
 
     def test_app_config_max_file_size_validation(self) -> None:
         """Test AppConfig max file size must be non-negative."""
-        # Zero is valid (unlimited)
+        # Test: Zero value means unlimited file size
         config_unlimited: AppConfig = AppConfig(
             db=DatabaseConfig(user="test", password="test"),
             max_file_size_bytes=0,

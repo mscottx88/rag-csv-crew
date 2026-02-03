@@ -112,11 +112,11 @@ class AuthToken(BaseModel):
     Per FR-021a: Tokens expire after 24 hours of inactivity.
 
     Attributes:
-        access_token: JWT token string
+        access_token: JWT token string (non-empty)
         token_type: Token type (always "bearer")
         username: Authenticated username
     """
 
-    access_token: str
+    access_token: str = Field(..., min_length=1)
     token_type: str = "bearer"
     username: str
