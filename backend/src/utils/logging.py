@@ -135,8 +135,8 @@ def get_structured_logger(name: str) -> logging.Logger:
         # Set default log level (can be overridden via configuration)
         logger.setLevel(logging.INFO)
 
-        # Prevent propagation to root logger (avoid duplicate logs)
-        logger.propagate = False
+        # Enable propagation to root logger (allows pytest caplog to work)
+        logger.propagate = True
 
     return logger
 

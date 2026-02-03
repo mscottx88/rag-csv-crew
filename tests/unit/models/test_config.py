@@ -60,10 +60,14 @@ class TestDatabaseConfig:
         assert config.pool_max_size == 20
         assert config.statement_timeout == 60000
 
-    def test_database_config_missing_required_fields(self) -> None:
+    def test_database_config_missing_required_fields(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test DatabaseConfig fails without required user/password."""
+        # Clear environment variables to force validation error
+        monkeypatch.delenv("DATABASE_USER", raising=False)
+        monkeypatch.delenv("DATABASE_PASSWORD", raising=False)
+
         with pytest.raises(ValidationError) as exc_info:
-            DatabaseConfig()  # type: ignore[call-arg]
+            DatabaseConfig(_env_file=None)  # type: ignore[call-arg]
 
         errors: list[dict[str, Any]] = exc_info.value.errors()
         error_fields: set[str] = {error["loc"][0] for error in errors}
@@ -88,7 +92,7 @@ class TestDatabaseConfig:
             )
 
     def test_database_config_env_prefix(self) -> None:
-        """Test DatabaseConfig uses DB_ environment variable prefix."""
+        """Test DatabaseConfig uses DATABASE_ environment variable prefix."""
         # This test verifies the model_config.env_prefix setting
         config: DatabaseConfig = DatabaseConfig(
             user="envuser",
@@ -96,7 +100,7 @@ class TestDatabaseConfig:
         )
 
         # Verify env_prefix is set correctly
-        assert config.model_config.get("env_prefix") == "DB_"
+        assert config.model_config.get("env_prefix") == "DATABASE_"
 
 
 @pytest.mark.unit

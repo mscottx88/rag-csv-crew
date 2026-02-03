@@ -43,7 +43,7 @@ class DatabaseConfig(BaseSettings):
     pool_max_size: int = Field(default=10, ge=1)
     statement_timeout: int = Field(default=30000, ge=0)  # 30 seconds in ms
 
-    model_config = SettingsConfigDict(env_prefix="DB_")
+    model_config = SettingsConfigDict(env_prefix="DATABASE_", env_file=".env", extra="ignore")
 
 
 class LLMConfig(BaseSettings):
@@ -68,7 +68,7 @@ class LLMConfig(BaseSettings):
     max_tokens: int = Field(default=4096, ge=1)
     temperature: float = Field(default=0.1, ge=0.0, le=2.0)
 
-    model_config = SettingsConfigDict(env_prefix="LLM_")
+    model_config = SettingsConfigDict(env_prefix="LLM_", env_file=".env", extra="ignore")
 
 
 class AppConfig(BaseSettings):

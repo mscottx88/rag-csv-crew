@@ -12,6 +12,7 @@ Constitutional Requirements:
 """
 
 from datetime import UTC, datetime, timedelta
+import uuid
 
 from jose import JWTError, jwt  # type: ignore[import-untyped]
 
@@ -51,11 +52,12 @@ def generate_jwt_token(
     expire_delta: timedelta = timedelta(minutes=expire_minutes)
     expire_time: datetime = now + expire_delta
 
-    # Create JWT payload
+    # Create JWT payload with unique identifier
     payload: dict[str, datetime | str] = {
         "sub": username,  # Subject: username
         "exp": expire_time,  # Expiration time
-        "iat": now,  # Issued at (ensures token uniqueness)
+        "iat": now,  # Issued at timestamp
+        "jti": str(uuid.uuid4()),  # JWT ID (ensures token uniqueness)
     }
 
     # Encode token

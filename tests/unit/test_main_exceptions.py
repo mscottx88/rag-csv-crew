@@ -176,7 +176,7 @@ class TestExceptionHandlers:
             # Verify field-specific error information present
             assert response.status_code == 422
 
-    def test_exception_logging_integration(self, _caplog: pytest.LogCaptureFixture) -> None:
+    def test_exception_logging_integration(self) -> None:
         """Test exceptions are logged with structured logging.
 
         Validates:
