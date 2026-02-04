@@ -51,7 +51,9 @@ CREATE TABLE IF NOT EXISTS {schema_name}.column_mappings (
     semantic_type VARCHAR(100),
     description TEXT,
     embedding vector(1536),
-    _fulltext TSVECTOR,
+    _fulltext TSVECTOR GENERATED ALWAYS AS (
+        to_tsvector('english', coalesce(column_name, '') || ' ' || coalesce(description, ''))
+    ) STORED,
 
     UNIQUE (dataset_id, column_name)
 )
