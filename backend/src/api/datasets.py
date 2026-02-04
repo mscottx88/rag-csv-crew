@@ -18,7 +18,8 @@ from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from backend.src.api.dependencies import get_current_user
-from backend.src.db.connection import get_global_pool
+from backend.src.api.utils import get_pool_with_error_handling
+from backend.src.db.connection import DatabaseConnectionPool
 from backend.src.models.dataset import ColumnSchema, Dataset, DatasetList
 from backend.src.services.ingestion import (
     check_filename_conflict,
@@ -134,20 +135,9 @@ def upload_dataset(
         ) from e
 
     # Get database connection
-    try:
-        pool = get_global_pool()
-    except RuntimeError as e:
-        log_event(
-            logger=logger,
-            level="error",
-            event="upload_failed",
-            user=username,
-            extra={"error": "Database pool not initialized"},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Database connection unavailable",
-        ) from e
+    pool: DatabaseConnectionPool = get_pool_with_error_handling(
+        logger=logger, event_name="upload_failed", user=username
+    )
 
     with pool.connection() as conn:
         # Check filename conflict
@@ -470,20 +460,9 @@ def list_datasets(
             detail="Page size must be between 1 and 100",
         )
 
-    try:
-        pool = get_global_pool()
-    except RuntimeError as e:
-        log_event(
-            logger=logger,
-            level="error",
-            event="list_failed",
-            user=username,
-            extra={"error": "Database pool not initialized"},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Database connection unavailable",
-        ) from e
+    pool: DatabaseConnectionPool = get_pool_with_error_handling(
+        logger=logger, event_name="list_failed", user=username
+    )
 
     with pool.connection() as conn:
         try:
@@ -599,20 +578,9 @@ def get_dataset(
         extra={"dataset_id": dataset_id},
     )
 
-    try:
-        pool = get_global_pool()
-    except RuntimeError as e:
-        log_event(
-            logger=logger,
-            level="error",
-            event="get_failed",
-            user=username,
-            extra={"error": "Database pool not initialized"},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Database connection unavailable",
-        ) from e
+    pool: DatabaseConnectionPool = get_pool_with_error_handling(
+        logger=logger, event_name="get_failed", user=username
+    )
 
     with pool.connection() as conn:
         try:
@@ -719,20 +687,9 @@ def delete_dataset(
         extra={"dataset_id": dataset_id},
     )
 
-    try:
-        pool = get_global_pool()
-    except RuntimeError as e:
-        log_event(
-            logger=logger,
-            level="error",
-            event="delete_failed",
-            user=username,
-            extra={"error": "Database pool not initialized"},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Database connection unavailable",
-        ) from e
+    pool: DatabaseConnectionPool = get_pool_with_error_handling(
+        logger=logger, event_name="delete_failed", user=username
+    )
 
     with pool.connection() as conn:
         try:

@@ -74,9 +74,9 @@ class TextToSQLService:
             Clean SQL string
         """
         # Remove markdown code block markers
-        sql = sql.replace("```sql", "").replace("```", "")
+        cleaned_sql: str = sql.replace("```sql", "").replace("```", "")
         # Trim whitespace
-        return sql.strip()
+        return cleaned_sql.strip()
 
 
 class TextToSQLOrchestrator:
@@ -168,5 +168,5 @@ class TextToSQLOrchestrator:
         Returns:
             Clean SQL string
         """
-        sql = sql.replace("```sql", "").replace("```", "")
-        return sql.strip()
+        cleaned_sql: str = sql.replace("```sql", "").replace("```", "")
+        return cleaned_sql.strip()

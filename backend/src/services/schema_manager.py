@@ -16,6 +16,24 @@ from datetime import UTC, datetime
 
 from psycopg import Connection, errors
 
+from backend.src.db.schemas import (
+    COLUMN_MAPPINGS_DATASET_INDEX_SQL,
+    COLUMN_MAPPINGS_EMBEDDING_INDEX_SQL,
+    COLUMN_MAPPINGS_TABLE_SQL,
+    CROSS_REFERENCES_SOURCE_INDEX_SQL,
+    CROSS_REFERENCES_TABLE_SQL,
+    CROSS_REFERENCES_TARGET_INDEX_SQL,
+    DATASETS_FILENAME_INDEX_SQL,
+    DATASETS_TABLE_SQL,
+    DATASETS_UPLOADED_INDEX_SQL,
+    QUERIES_STATUS_INDEX_SQL,
+    QUERIES_SUBMITTED_INDEX_SQL,
+    QUERIES_TABLE_SQL,
+    RESPONSES_GENERATED_INDEX_SQL,
+    RESPONSES_QUERY_INDEX_SQL,
+    RESPONSES_TABLE_SQL,
+)
+
 
 def ensure_user_schema_exists(conn: Connection[tuple[str, ...]], username: str) -> None:
     """Ensure user record and schema exist, create if missing.
@@ -81,172 +99,62 @@ def ensure_user_schema_exists(conn: Connection[tuple[str, ...]], username: str) 
             # Same username and schema_name - idempotent, continue
 
         # Create user schema if not exists (idempotent)
-        cur.execute(f"CREATE SCHEMA IF NOT EXISTS {schema_name}")
+        schema_sql: str = f"CREATE SCHEMA IF NOT EXISTS {schema_name}"
+        cur.execute(schema_sql)
 
         # Create datasets table
-        cur.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {schema_name}.datasets (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                filename VARCHAR(255) NOT NULL,
-                original_filename VARCHAR(255) NOT NULL,
-                table_name VARCHAR(63) NOT NULL UNIQUE,
-                uploaded_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-                row_count BIGINT NOT NULL,
-                column_count INTEGER NOT NULL,
-                file_size_bytes BIGINT NOT NULL,
-                schema_json JSONB NOT NULL,
-
-                CONSTRAINT positive_row_count CHECK (row_count >= 0),
-                CONSTRAINT positive_column_count CHECK (column_count > 0),
-                CONSTRAINT positive_file_size CHECK (file_size_bytes > 0),
-                CONSTRAINT valid_table_name CHECK (table_name ~ '^[a-z][a-z0-9_]{{0,62}}$')
-            )
-            """
-        )
+        datasets_sql: str = DATASETS_TABLE_SQL.format(schema_name=schema_name)
+        cur.execute(datasets_sql)
 
         # Create indexes for datasets table
-        cur.execute(
-            f"""
-            CREATE INDEX IF NOT EXISTS idx_datasets_uploaded
-            ON {schema_name}.datasets (uploaded_at DESC)
-            """
-        )
-        cur.execute(
-            f"""
-            CREATE INDEX IF NOT EXISTS idx_datasets_filename
-            ON {schema_name}.datasets (filename)
-            """
-        )
+        datasets_uploaded_idx_sql: str = DATASETS_UPLOADED_INDEX_SQL.format(schema_name=schema_name)
+        cur.execute(datasets_uploaded_idx_sql)
+        datasets_filename_idx_sql: str = DATASETS_FILENAME_INDEX_SQL.format(schema_name=schema_name)
+        cur.execute(datasets_filename_idx_sql)
 
         # Create column_mappings table
-        cur.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {schema_name}.column_mappings (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                dataset_id UUID NOT NULL REFERENCES {schema_name}.datasets(id) ON DELETE CASCADE,
-                column_name VARCHAR(255) NOT NULL,
-                inferred_type VARCHAR(50) NOT NULL,
-                semantic_type VARCHAR(100),
-                description TEXT,
-                embedding vector(1536),
-
-                UNIQUE (dataset_id, column_name)
-            )
-            """
-        )
+        column_mappings_sql: str = COLUMN_MAPPINGS_TABLE_SQL.format(schema_name=schema_name)
+        cur.execute(column_mappings_sql)
 
         # Create indexes for column_mappings table
-        cur.execute(
-            f"""
-            CREATE INDEX IF NOT EXISTS idx_column_mappings_dataset
-            ON {schema_name}.column_mappings (dataset_id)
-            """
+        col_map_dataset_idx_sql: str = COLUMN_MAPPINGS_DATASET_INDEX_SQL.format(
+            schema_name=schema_name
         )
-        cur.execute(
-            f"""
-            CREATE INDEX IF NOT EXISTS idx_column_mappings_embedding
-            ON {schema_name}.column_mappings USING hnsw (embedding vector_cosine_ops)
-            """
+        cur.execute(col_map_dataset_idx_sql)
+        col_map_embed_idx_sql: str = COLUMN_MAPPINGS_EMBEDDING_INDEX_SQL.format(
+            schema_name=schema_name
         )
+        cur.execute(col_map_embed_idx_sql)
 
         # Create cross_references table
-        cur.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {schema_name}.cross_references (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                source_dataset_id UUID NOT NULL
-                    REFERENCES {schema_name}.datasets(id) ON DELETE CASCADE,
-                source_column VARCHAR(255) NOT NULL,
-                target_dataset_id UUID NOT NULL
-                    REFERENCES {schema_name}.datasets(id) ON DELETE CASCADE,
-                target_column VARCHAR(255) NOT NULL,
-                relationship_type VARCHAR(50) NOT NULL CHECK (relationship_type IN ('foreign_key', 'shared_values', 'similar_values')),
-                confidence_score FLOAT NOT NULL CHECK (confidence_score BETWEEN 0 AND 1),
-                detected_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-
-                UNIQUE (source_dataset_id, source_column, target_dataset_id, target_column)
-            )
-            """
-        )
+        cross_references_sql: str = CROSS_REFERENCES_TABLE_SQL.format(schema_name=schema_name)
+        cur.execute(cross_references_sql)
 
         # Create indexes for cross_references table
-        cur.execute(
-            f"""
-            CREATE INDEX IF NOT EXISTS idx_cross_refs_source
-            ON {schema_name}.cross_references (source_dataset_id)
-            """
-        )
-        cur.execute(
-            f"""
-            CREATE INDEX IF NOT EXISTS idx_cross_refs_target
-            ON {schema_name}.cross_references (target_dataset_id)
-            """
-        )
+        cross_refs_source_idx_sql: str = CROSS_REFERENCES_SOURCE_INDEX_SQL.format(schema_name=schema_name)
+        cur.execute(cross_refs_source_idx_sql)
+        cross_refs_target_idx_sql: str = CROSS_REFERENCES_TARGET_INDEX_SQL.format(schema_name=schema_name)
+        cur.execute(cross_refs_target_idx_sql)
 
         # Create queries table
-        cur.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {schema_name}.queries (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                query_text TEXT NOT NULL,
-                submitted_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-                completed_at TIMESTAMP WITH TIME ZONE,
-                status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'cancelled', 'timeout')),
-                generated_sql TEXT,
-                result_count INTEGER,
-                execution_time_ms INTEGER,
-
-                CONSTRAINT positive_execution_time CHECK (execution_time_ms IS NULL OR execution_time_ms >= 0),
-                CONSTRAINT positive_result_count CHECK (result_count IS NULL OR result_count >= 0)
-            )
-            """
-        )
+        queries_sql: str = QUERIES_TABLE_SQL.format(schema_name=schema_name)
+        cur.execute(queries_sql)
 
         # Create indexes for queries table
-        cur.execute(
-            f"""
-            CREATE INDEX IF NOT EXISTS idx_queries_submitted
-            ON {schema_name}.queries (submitted_at DESC)
-            """
-        )
-        cur.execute(
-            f"""
-            CREATE INDEX IF NOT EXISTS idx_queries_status
-            ON {schema_name}.queries (status) WHERE status IN ('pending', 'processing')
-            """
-        )
+        queries_submitted_idx_sql: str = QUERIES_SUBMITTED_INDEX_SQL.format(schema_name=schema_name)
+        cur.execute(queries_submitted_idx_sql)
+        queries_status_idx_sql: str = QUERIES_STATUS_INDEX_SQL.format(schema_name=schema_name)
+        cur.execute(queries_status_idx_sql)
 
         # Create responses table
-        cur.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {schema_name}.responses (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                query_id UUID NOT NULL REFERENCES {schema_name}.queries(id) ON DELETE CASCADE,
-                html_content TEXT NOT NULL,
-                plain_text TEXT NOT NULL,
-                confidence_score FLOAT CHECK (confidence_score BETWEEN 0 AND 1),
-                generated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-                data_snapshot JSONB,
-
-                UNIQUE (query_id)
-            )
-            """
-        )
+        responses_sql: str = RESPONSES_TABLE_SQL.format(schema_name=schema_name)
+        cur.execute(responses_sql)
 
         # Create indexes for responses table
-        cur.execute(
-            f"""
-            CREATE INDEX IF NOT EXISTS idx_responses_query
-            ON {schema_name}.responses (query_id)
-            """
-        )
-        cur.execute(
-            f"""
-            CREATE INDEX IF NOT EXISTS idx_responses_generated
-            ON {schema_name}.responses (generated_at DESC)
-            """
-        )
+        responses_query_idx_sql: str = RESPONSES_QUERY_INDEX_SQL.format(schema_name=schema_name)
+        cur.execute(responses_query_idx_sql)
+        responses_generated_idx_sql: str = RESPONSES_GENERATED_INDEX_SQL.format(schema_name=schema_name)
+        cur.execute(responses_generated_idx_sql)
 
     # Commit transaction
     conn.commit()

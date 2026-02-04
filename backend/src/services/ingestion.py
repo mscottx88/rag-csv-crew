@@ -369,11 +369,10 @@ def _sanitize_table_name(filename: str) -> str:
         Sanitized table name: lowercase, alphanumeric + underscore, ends with _data
     """
     # Remove .csv extension if present
-    if filename.lower().endswith(".csv"):
-        filename = filename[:-4]
+    base_name: str = filename[:-4] if filename.lower().endswith(".csv") else filename
 
     # Convert to lowercase, replace invalid chars with underscore
-    sanitized: str = "".join(c if c.isalnum() or c == "_" else "_" for c in filename.lower())
+    sanitized: str = "".join(c if c.isalnum() or c == "_" else "_" for c in base_name.lower())
 
     # Ensure starts with letter
     if not sanitized[0].isalpha():

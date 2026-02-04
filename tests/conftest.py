@@ -10,6 +10,7 @@ Constitutional Requirements:
 from collections.abc import Generator
 import os
 from typing import Any
+from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 from psycopg_pool import ConnectionPool
@@ -26,6 +27,93 @@ def setup_jwt_env() -> None:
     os.environ["JWT_SECRET"] = "test-secret-key-for-testing-only-not-production"
     os.environ["JWT_ALGORITHM"] = "HS256"
     os.environ["JWT_EXPIRE_MINUTES"] = "1440"  # 24 hours
+
+
+@pytest.fixture(scope="function")
+def mock_agent() -> MagicMock:
+    """Create a mock BaseAgent for CrewAI tests.
+
+    Returns:
+        MagicMock configured to pass Pydantic validation as a BaseAgent
+
+    Note:
+        This fixture creates a mock that satisfies CrewAI's agent type requirements
+    """
+    from crewai import Agent
+
+    # Create actual Agent instances to avoid Pydantic validation issues
+    mock_agent_obj: Agent = Agent(
+        role="Test Agent",
+        goal="Test goal",
+        backstory="Test backstory",
+        verbose=False,
+        allow_delegation=False,
+    )
+    return mock_agent_obj  # type: ignore[return-value]
+
+
+@pytest.fixture(scope="function", autouse=True)
+def mock_crewai(request: Any) -> Generator[MagicMock | None, None, None]:
+    """Mock CrewAI for integration and contract tests to avoid API quota limits.
+
+    This fixture automatically mocks the CrewAI Crew class for all tests except
+    unit tests (which have their own specific mocks) and E2E tests (which need
+    real API calls). This prevents real API calls to OpenAI/Anthropic during
+    integration and contract testing.
+
+    Args:
+        request: pytest request object to check test markers
+
+    Yields:
+        MagicMock instance or None (if test is a unit test or E2E test)
+
+    Note:
+        - Unit tests are identified by the 'unit' marker
+        - E2E tests are identified by the 'e2e' marker
+        Both are excluded from this autouse fixture
+    """
+    # Skip mocking for unit tests (they have their own mocks) and E2E tests (need real APIs)
+    if "unit" in request.keywords or "e2e" in request.keywords:
+        yield None
+        return
+
+    # Mock CrewAI for integration and contract tests at multiple import locations
+    # This ensures all services that use Crew get the mock
+    with (
+        patch("crewai.Crew") as mock_crew_base,
+        patch("backend.src.services.text_to_sql.Crew") as mock_crew_text_to_sql,
+        patch("backend.src.services.response_generator.Crew") as mock_crew_response_gen,
+    ):
+        # Create mock instance that will be returned by Crew()
+        mock_crew_instance: MagicMock = MagicMock()
+
+        # Mock the kickoff() method to return realistic CrewAI results
+        # This simulates successful SQL generation and HTML formatting
+        # Note: Uses a query that will return empty results when no datasets exist
+        mock_result: MagicMock = MagicMock()
+        mock_result.raw = """
+        SELECT
+            'No datasets found' as message,
+            0 as count
+        WHERE FALSE
+        """
+        mock_result.tasks_output = [
+            MagicMock(
+                raw="SELECT 'No datasets found' as message, 0 as count WHERE FALSE"
+            ),
+            MagicMock(
+                raw="<article><h1>Query Results</h1><p>No data available. Please upload datasets first.</p></article>"
+            ),
+        ]
+
+        mock_crew_instance.kickoff.return_value = mock_result
+
+        # Apply mock to all patch locations
+        mock_crew_base.return_value = mock_crew_instance
+        mock_crew_text_to_sql.return_value = mock_crew_instance
+        mock_crew_response_gen.return_value = mock_crew_instance
+
+        yield mock_crew_instance
 
 
 @pytest.fixture(scope="session")
@@ -199,6 +287,10 @@ def cleanup_test_data(connection_pool: ConnectionPool, request: Any) -> Generato
                     "getuser2",
                     "deluser",
                     "deluser2",
+                    "usera",
+                    "userb",
+                    "e2euser",
+                    "e2euser2",
                 ]
                 for username in test_usernames:
                     schema_name: str = f"{username}_schema"
@@ -220,7 +312,8 @@ def cleanup_test_data(connection_pool: ConnectionPool, request: Any) -> Generato
                 cur.execute(
                     "DELETE FROM public.users WHERE username IN "
                     "('alice', 'testuser', 'testuser2', 'newuser123', 'csvuser', 'csvuser2', 'csvuser3', "
-                    "'listuser', 'pageuser', 'getuser', 'getuser2', 'deluser', 'deluser2')"
+                    "'listuser', 'pageuser', 'getuser', 'getuser2', 'deluser', 'deluser2', 'usera', 'userb', "
+                    "'e2euser', 'e2euser2')"
                 )
             conn.commit()
     except Exception:

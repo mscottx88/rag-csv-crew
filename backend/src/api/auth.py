@@ -19,7 +19,8 @@ from jose import JWTError  # type: ignore[import-untyped]
 from pydantic import ValidationError
 
 from backend.src.api.dependencies import get_current_user
-from backend.src.db.connection import get_global_pool
+from backend.src.api.utils import get_pool_with_error_handling
+from backend.src.db.connection import DatabaseConnectionPool
 from backend.src.models.user import AuthToken, User, UserLogin
 from backend.src.services.auth import generate_jwt_token
 from backend.src.services.schema_manager import (
@@ -98,20 +99,9 @@ def login(login_request: UserLogin) -> AuthToken:
     )
 
     # Get database connection pool
-    try:
-        pool = get_global_pool()
-    except RuntimeError as e:
-        log_event(
-            logger=logger,
-            level="error",
-            event="login_failed",
-            user=username,
-            extra={"error": "Database pool not initialized"},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Database connection unavailable",
-        ) from e
+    pool: DatabaseConnectionPool = get_pool_with_error_handling(
+        logger=logger, event_name="login_failed", user=username
+    )
 
     # Ensure user schema exists (idempotent, creates on first login)
     try:
@@ -235,20 +225,9 @@ def get_current_user_profile(
         ) from e
 
     # Query user from database
-    try:
-        pool = get_global_pool()
-    except RuntimeError as e:
-        log_event(
-            logger=logger,
-            level="error",
-            event="get_user_failed",
-            user=username,
-            extra={"error": "Database pool not initialized"},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Database connection unavailable",
-        ) from e
+    pool: DatabaseConnectionPool = get_pool_with_error_handling(
+        logger=logger, event_name="get_user_failed", user=username
+    )
 
     try:
         with pool.connection() as conn, conn.cursor() as cur:

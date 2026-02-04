@@ -85,10 +85,25 @@ class TestCrewOrchestration:
         - Execution order is guaranteed
         - Context flows between tasks
         """
+        from crewai import Agent
+
         from backend.src.crew.tasks import create_html_formatting_task, create_sql_generation_task
 
-        mock_sql_agent: MagicMock = MagicMock()
-        mock_analyst_agent: MagicMock = MagicMock()
+        # Create real Agent instances to pass Pydantic validation
+        mock_sql_agent: Agent = Agent(
+            role="SQL Generator",
+            goal="Generate SQL",
+            backstory="Test SQL agent",
+            verbose=False,
+            allow_delegation=False,
+        )
+        mock_analyst_agent: Agent = Agent(
+            role="Result Analyst",
+            goal="Format results",
+            backstory="Test analyst agent",
+            verbose=False,
+            allow_delegation=False,
+        )
         mock_sql_generator.return_value = mock_sql_agent
         mock_result_analyst.return_value = mock_analyst_agent
 

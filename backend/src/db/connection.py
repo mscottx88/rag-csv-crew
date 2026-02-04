@@ -235,5 +235,5 @@ def close_global_pool() -> None:
         return
 
     _global_pool.close()
-    _global_pool = None
+    _global_pool = None  # Type already declared at module level (line 189)
     logger.info("Global database connection pool closed")
