@@ -54,6 +54,64 @@ frontend/
 - `cd frontend && npm run build` - Build for production
 - `cd frontend && npm test` - Run frontend tests
 
+## Git Workflow - Checkpoint Commits
+
+**CRITICAL: Commit changes at reasonable checkpoints to enable diagnosis of critical failures.**
+
+### When to Commit
+
+You MUST create git commits at the following checkpoints:
+
+1. **Unit of Work Completed**: After implementing a complete feature, service, or endpoint
+2. **Quality Gate Passed**: After all tests pass and quality checks succeed (ruff, mypy, pylint)
+3. **Phase Boundary**: After completing a user story or major phase (e.g., "Phase 3 complete")
+4. **Refactoring Checkpoint**: After completing a significant refactoring task
+5. **Before Major Changes**: Before starting a complex or risky change
+6. **Error Recovery Points**: After fixing a critical bug or recovering from a failure
+
+### Commit Message Format
+
+Use descriptive commit messages that explain WHAT changed and WHY:
+
+```bash
+git commit -m "$(cat <<'EOF'
+feat: implement text-to-SQL service with CrewAI
+
+- Added TextToSQLService with SQL generation agent
+- Integrated Claude Opus API for natural language processing
+- Added parameterized query generation for security
+- Tests: 95% coverage on service methods
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+EOF
+)"
+```
+
+### Commit Frequency Guidelines
+
+- **Minimum**: Commit after each completed task in tasks.md (e.g., T077-T089)
+- **Ideal**: Commit after each file or logical group of files is implemented and tested
+- **Maximum**: Never go more than 1 hour without a commit if actively working
+
+### Why This Matters
+
+**Checkpoint commits enable:**
+
+1. **Failure Diagnosis**: Compare working vs broken states using `git diff`
+2. **Selective Rollback**: Revert specific changes without losing all progress
+3. **Progress Tracking**: Clear history of what was completed when
+4. **Collaboration**: Other developers (or future Claude sessions) can pick up where you left off
+5. **Code Review**: Smaller, focused commits are easier to review than large diffs
+
+### Enforcement
+
+- **Before Quality Gates**: Always commit working code before running quality checks
+- **After Quality Gates**: Always commit after achieving passing quality gates
+- **During Implementation**: Commit each file or service as it's completed
+- **Session Boundaries**: Always commit at the end of a work session
+
+**Bottom line**: Commit early, commit often. Each commit should represent a coherent, working checkpoint.
+
 ## Code Style
 
 **Python 3.13**: Follow strict constitutional standards (ruff, mypy --strict, pylint 10.00/10.00, thread-based concurrency)
