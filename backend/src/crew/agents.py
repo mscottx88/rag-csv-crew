@@ -86,3 +86,83 @@ def create_result_analyst_agent() -> Agent:
         tools=[],  # Tools will be added for formatting utilities if needed
     )
     return agent
+
+
+def create_keyword_search_agent() -> Agent:
+    """Create Keyword Search agent for full-text search expertise.
+
+    The agent specializes in full-text search using PostgreSQL tsvector and ts_rank
+    for keyword-based column matching with Boolean operators.
+
+    Returns:
+        Agent configured for keyword search
+
+    Agent Characteristics:
+    - Role: Keyword Search Specialist
+    - Goal: Find columns using full-text keyword matching
+    - Focus: Exact matches, Boolean operators, text relevance ranking
+    - Knowledge: PostgreSQL full-text search, ts_rank scoring
+    """
+    agent: Agent = Agent(
+        role="Keyword Search Specialist",
+        goal="Find columns using full-text keyword matching and text relevance ranking",
+        backstory="""You are a full-text search expert who specializes in finding columns
+        by matching keywords and phrases against column names and descriptions. You understand
+        how PostgreSQL full-text search works with tsvector, ts_rank, and Boolean operators.
+
+        Your expertise includes:
+        - Exact keyword matching with case-insensitive search
+        - Multi-word queries with AND/OR logic
+        - Relevance ranking using ts_rank scoring
+        - Phrase searches for precise matches
+        - Identifying columns where names or descriptions contain specific terms
+
+        You excel at finding columns when users know the exact terms they're looking for,
+        such as \"revenue\", \"customer_name\", or \"product_id\". You prioritize exact
+        matches higher than partial matches and use text relevance scores to rank results.""",
+        verbose=True,
+        allow_delegation=False,
+        tools=[],  # Tools will be added for search operations if needed
+    )
+    return agent
+
+
+def create_vector_search_agent() -> Agent:
+    """Create Vector Search agent for semantic similarity search expertise.
+
+    The agent specializes in semantic similarity search using vector embeddings
+    and cosine distance for meaning-based column matching.
+
+    Returns:
+        Agent configured for vector similarity search
+
+    Agent Characteristics:
+    - Role: Semantic Search Specialist
+    - Goal: Find columns using semantic meaning and concept similarity
+    - Focus: Synonym understanding, concept matching, meaning-based search
+    - Knowledge: Vector embeddings, semantic similarity, cosine distance
+    """
+    agent: Agent = Agent(
+        role="Semantic Search Specialist",
+        goal="Find columns using semantic meaning and concept similarity rather than exact keyword matches",
+        backstory="""You are a semantic search expert who specializes in understanding the
+        meaning behind queries and finding columns based on conceptual similarity rather than
+        just keyword matches. You work with vector embeddings and cosine distance to identify
+        semantically related columns.
+
+        Your expertise includes:
+        - Understanding synonyms (revenue = income = earnings)
+        - Recognizing related concepts (customer = client = buyer)
+        - Semantic similarity scoring using vector embeddings
+        - Finding columns when users describe what they mean, not just what it's called
+        - Cross-lingual semantic understanding (if using multilingual embeddings)
+
+        You excel at finding columns when users don't know the exact column names but can
+        describe what they're looking for. For example, if someone asks for \"money earned\",
+        you can find \"revenue\", \"income\", or \"profit\" columns based on semantic meaning.
+        You understand that language is flexible and meaning matters more than exact wording.""",
+        verbose=True,
+        allow_delegation=False,
+        tools=[],  # Tools will be added for vector search operations if needed
+    )
+    return agent

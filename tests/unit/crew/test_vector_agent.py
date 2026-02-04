@@ -11,7 +11,6 @@ Constitutional Requirements:
 """
 
 from typing import Any
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -75,8 +74,7 @@ class TestVectorSearchAgent:
             or "meaning" in backstory_lower
         )
 
-    @patch("backend.src.crew.agents.Agent")
-    def test_vector_agent_task_execution(self, mock_agent_class: MagicMock) -> None:
+    def test_vector_agent_task_execution(self) -> None:
         """Test Vector Search agent executes semantic search tasks.
 
         Validates:
@@ -84,29 +82,25 @@ class TestVectorSearchAgent:
         - Agent returns columns ranked by semantic similarity
         - Results include cosine distance scores
 
-        Args:
-            mock_agent_class: Mocked CrewAI Agent class
-
         Success Criteria (T103):
         - Agent processes semantic search requests
         - Returns columns ranked by meaning similarity
         """
-        # Mock agent
-        mock_agent: MagicMock = MagicMock()
-        mock_agent_class.return_value = mock_agent
+        # Create real agent (required for CrewAI Task Pydantic validation)
+        agent: Any = create_vector_search_agent()
 
         # Create task
         query_text: str = "find earnings data"
         dataset_ids: list[str] = ["dataset-1", "dataset-2"]
 
         task: Any = create_vector_search_task(
-            agent=mock_agent,
+            agent=agent,
             query_text=query_text,
             dataset_ids=dataset_ids
         )
 
         # Verify task configuration
-        assert task.agent == mock_agent
+        assert task.agent == agent
         assert query_text in task.description
         assert task.expected_output is not None
 
@@ -166,19 +160,13 @@ class TestVectorSearchAgent:
         keyword_role_lower: str = keyword_agent.role.lower()
         assert "keyword" in keyword_role_lower or "text" in keyword_role_lower
 
-    @patch("backend.src.crew.agents.Agent")
-    def test_vector_agent_returns_similarity_scores(
-        self, mock_agent_class: MagicMock
-    ) -> None:
+    def test_vector_agent_returns_similarity_scores(self) -> None:
         """Test Vector Search agent returns cosine distance scores.
 
         Validates:
         - Results include similarity scores (1 - cosine distance)
         - Columns ranked by semantic similarity
         - Supports configurable result limit
-
-        Args:
-            mock_agent_class: Mocked CrewAI Agent class
 
         Success Criteria (T103):
         - Agent output includes ranked column list
@@ -187,11 +175,11 @@ class TestVectorSearchAgent:
         """
         from backend.src.crew.tasks import create_vector_search_task
 
-        mock_agent: MagicMock = MagicMock()
-        mock_agent_class.return_value = mock_agent
+        # Create real agent (required for CrewAI Task Pydantic validation)
+        agent: Any = create_vector_search_agent()
 
         task: Any = create_vector_search_task(
-            agent=mock_agent,
+            agent=agent,
             query_text="product information",
             dataset_ids=["dataset-1"]
         )

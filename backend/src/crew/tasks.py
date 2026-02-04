@@ -114,3 +114,108 @@ Output the HTML content only, starting with a containing element like <article> 
         context=context if context else [],
     )
     return task
+
+
+def create_keyword_search_task(
+    agent: Agent, query_text: str, dataset_ids: list[str] | None
+) -> Task:
+    """Create task for keyword-based full-text column search.
+
+    Args:
+        agent: Keyword Search agent
+        query_text: Natural language query to search for
+        dataset_ids: Optional list of dataset IDs to filter results
+
+    Returns:
+        Task configured for keyword search
+
+    Task Output:
+    - List of matching columns ranked by text relevance (ts_rank)
+    - Each result includes column_name, dataset_id, and rank score
+    - Results ordered by descending relevance
+    """
+    dataset_info: str = (
+        f"specific datasets: {dataset_ids}" if dataset_ids else "all available datasets"
+    )
+
+    description: str = f"""Find columns that match the query using full-text keyword search.
+
+Query: "{query_text}"
+Target Datasets: {dataset_info}
+
+Search Strategy:
+1. Use PostgreSQL full-text search with tsvector and ts_rank
+2. Match keywords against column names and descriptions
+3. Apply AND/OR Boolean logic for multi-word queries
+4. Rank results by text relevance score (ts_rank)
+5. Prioritize exact matches over partial matches
+6. Return columns ordered by descending relevance
+
+Requirements:
+- Use plainto_tsquery() for natural language processing
+- Query against _fulltext tsvector columns
+- Return top 10 most relevant columns
+- Include column_name, dataset_id, and rank score for each result
+
+Output a JSON list of matching columns with their relevance scores."""
+
+    expected_output: str = (
+        "JSON list of columns ranked by keyword relevance, "
+        "including column_name, dataset_id, and rank score"
+    )
+
+    task: Task = Task(description=description, expected_output=expected_output, agent=agent)
+    return task
+
+
+def create_vector_search_task(
+    agent: Agent, query_text: str, dataset_ids: list[str] | None
+) -> Task:
+    """Create task for semantic vector similarity column search.
+
+    Args:
+        agent: Vector Search agent
+        query_text: Natural language query to search for
+        dataset_ids: Optional list of dataset IDs to filter results
+
+    Returns:
+        Task configured for vector similarity search
+
+    Task Output:
+    - List of matching columns ranked by semantic similarity
+    - Each result includes column_name, dataset_id, distance, and similarity score
+    - Results ordered by descending similarity (lowest distance first)
+    """
+    dataset_info: str = (
+        f"specific datasets: {dataset_ids}" if dataset_ids else "all available datasets"
+    )
+
+    description: str = f"""Find columns that are semantically similar to the query using vector embeddings.
+
+Query: "{query_text}"
+Target Datasets: {dataset_info}
+
+Search Strategy:
+1. Generate embedding for the query using OpenAI text-embedding-3-small
+2. Use pgvector cosine distance (<=> operator) for similarity search
+3. Find columns with similar semantic meaning, not just keyword matches
+4. Understand synonyms (revenue = income = earnings)
+5. Recognize related concepts (customer = client = buyer)
+6. Convert distance to similarity score: similarity = 1 - (distance / 2)
+
+Requirements:
+- Generate 1536-dimensional embedding for query
+- Query against embedding column using cosine distance
+- Return top 10 most similar columns
+- Include column_name, dataset_id, distance, and similarity score
+- Order by ascending distance (descending similarity)
+
+Output a JSON list of semantically similar columns with their similarity scores."""
+
+    expected_output: str = (
+        "JSON list of columns ranked by semantic similarity, "
+        "including column_name, dataset_id, distance, and similarity score"
+    )
+
+    task: Task = Task(description=description, expected_output=expected_output, agent=agent)
+    return task

@@ -11,7 +11,6 @@ Constitutional Requirements:
 """
 
 from typing import Any
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -70,8 +69,7 @@ class TestKeywordSearchAgent:
             or "text search" in backstory_lower
         )
 
-    @patch("backend.src.crew.agents.Agent")
-    def test_keyword_agent_task_execution(self, mock_agent_class: MagicMock) -> None:
+    def test_keyword_agent_task_execution(self) -> None:
         """Test Keyword Search agent executes full-text search tasks.
 
         Validates:
@@ -79,29 +77,25 @@ class TestKeywordSearchAgent:
         - Agent returns ranked column matches using ts_rank
         - Results include relevance scores
 
-        Args:
-            mock_agent_class: Mocked CrewAI Agent class
-
         Success Criteria (T102):
         - Agent processes keyword search requests
         - Returns columns ranked by text relevance
         """
-        # Mock agent
-        mock_agent: MagicMock = MagicMock()
-        mock_agent_class.return_value = mock_agent
+        # Create real agent (required for CrewAI Task Pydantic validation)
+        agent: Any = create_keyword_search_agent()
 
         # Create task
         query_text: str = "find revenue columns"
         dataset_ids: list[str] = ["dataset-1", "dataset-2"]
 
         task: Any = create_keyword_search_task(
-            agent=mock_agent,
+            agent=agent,
             query_text=query_text,
             dataset_ids=dataset_ids
         )
 
         # Verify task configuration
-        assert task.agent == mock_agent
+        assert task.agent == agent
         assert query_text in task.description
         assert task.expected_output is not None
 
@@ -153,19 +147,13 @@ class TestKeywordSearchAgent:
         vector_role_lower: str = vector_agent.role.lower()
         assert "vector" in vector_role_lower or "semantic" in vector_role_lower
 
-    @patch("backend.src.crew.agents.Agent")
-    def test_keyword_agent_returns_ranked_results(
-        self, mock_agent_class: MagicMock
-    ) -> None:
+    def test_keyword_agent_returns_ranked_results(self) -> None:
         """Test Keyword Search agent returns ts_rank-ordered results.
 
         Validates:
         - Results include relevance scores (ts_rank)
         - Columns ranked by keyword match quality
         - Supports configurable result limit
-
-        Args:
-            mock_agent_class: Mocked CrewAI Agent class
 
         Success Criteria (T102):
         - Agent output includes ranked column list
@@ -174,11 +162,11 @@ class TestKeywordSearchAgent:
         """
         from backend.src.crew.tasks import create_keyword_search_task
 
-        mock_agent: MagicMock = MagicMock()
-        mock_agent_class.return_value = mock_agent
+        # Create real agent (required for CrewAI Task Pydantic validation)
+        agent: Any = create_keyword_search_agent()
 
         task: Any = create_keyword_search_task(
-            agent=mock_agent,
+            agent=agent,
             query_text="customer data",
             dataset_ids=["dataset-1"]
         )
