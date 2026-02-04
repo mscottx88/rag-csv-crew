@@ -252,8 +252,9 @@ def submit_query(
             detail=f"Query processing failed: {e!s}",
         ) from e
 
-    # Return query object (already typed in clarification branch)
-    query_obj = history_service.get_query_by_id(query_id, current_username)
+    # Return query object (type annotation required by constitution, even though mypy
+    # sees this as redefinition from clarification branch - both paths don't execute together)
+    query_obj: dict[str, Any] = history_service.get_query_by_id(query_id, current_username)
     return Query(**query_obj)
 
 

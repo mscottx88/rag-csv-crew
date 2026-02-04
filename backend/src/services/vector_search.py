@@ -52,13 +52,8 @@ class VectorSearchService:
         Returns:
             Normalized text with single spaces
         """
-        # Strip leading/trailing whitespace
-        normalized: str = text.strip()
-
-        # Collapse multiple spaces to single space
-        normalized = re.sub(r'\s+', ' ', normalized)
-
-        return normalized
+        # Strip leading/trailing whitespace and collapse multiple spaces to single space
+        return re.sub(r'\s+', ' ', text.strip())
 
     def generate_embedding(self, text: str) -> list[float]:
         """Generate embedding vector for a single text string.
@@ -143,6 +138,11 @@ class VectorSearchService:
 
         return embeddings
 
+    # pylint: disable=too-many-locals
+    # JUSTIFICATION: Function requires many local variables for SQL query construction
+    # (embedding, schema, sql_parts, params, placeholders) and result processing
+    # (row unpacking: column_name, dataset_id, description, distance, similarity).
+    # Reducing would require over-engineering (builder pattern) or reduce clarity.
     def find_similar_columns(
         self,
         username: str,
@@ -202,14 +202,13 @@ class VectorSearchService:
         sql: str = "".join(sql_parts)
 
         # Execute query with connection pool
-        with self.pool.connection() as conn:
+        with self.pool.connection() as conn, conn.cursor() as cur:
             # Set search path for schema isolation
-            with conn.cursor() as cur:
-                cur.execute(f"SET search_path TO {user_schema}, public")
+            cur.execute(f"SET search_path TO {user_schema}, public")
 
-                # Execute similarity search
-                cur.execute(sql, params)
-                rows: list[tuple[Any, ...]] = cur.fetchall()
+            # Execute similarity search
+            cur.execute(sql, params)
+            rows: list[tuple[Any, ...]] = cur.fetchall()
 
         # Convert rows to dictionaries with similarity scores
         results: list[dict[str, Any]] = []

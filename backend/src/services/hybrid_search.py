@@ -126,6 +126,10 @@ class HybridSearchService:
             "fused_results": fused_results
         }
 
+    # pylint: disable=too-many-locals
+    # JUSTIFICATION: SQL query construction requires many variables (schema, sql_parts, params,
+    # placeholders for dataset filtering) and result processing (row unpacking: column_name,
+    # dataset_id, description). Reducing would sacrifice clarity or require over-engineering.
     def exact_search(
         self,
         username: str,
@@ -192,6 +196,10 @@ class HybridSearchService:
         except Exception as e:
             raise RuntimeError(f"Exact search failed: {e}") from e
 
+    # pylint: disable=too-many-locals
+    # JUSTIFICATION: Full-text search requires many variables for SQL construction (schema,
+    # sql_parts, params, placeholders) and result processing (row unpacking: column_name,
+    # dataset_id, description, rank). Reducing would harm code clarity or require over-engineering.
     def fulltext_search(
         self,
         username: str,
@@ -262,6 +270,10 @@ class HybridSearchService:
         except Exception as e:
             raise RuntimeError(f"Full-text search failed: {e}") from e
 
+    # pylint: disable=too-many-locals
+    # JUSTIFICATION: Result fusion requires many variables for weight extraction, deduplication
+    # tracking (fused_map), result processing from 3 strategies (exact, fulltext, vector),
+    # and score calculations. Reducing would obscure the fusion logic or require over-engineering.
     def fuse_results(
         self,
         exact_results: list[dict[str, Any]],
