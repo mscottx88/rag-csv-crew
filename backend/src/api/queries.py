@@ -20,12 +20,136 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from backend.src.api.dependencies import get_current_user
 from backend.src.db.connection import get_global_pool
 from backend.src.models.query import Query, QueryCreate, QueryHistory, QueryWithResponse
+from backend.src.services.hybrid_search import HybridSearchService
 from backend.src.services.query_execution import QueryExecutionService
 from backend.src.services.query_history import QueryHistoryService
 from backend.src.services.response_generator import ResponseGenerator
 from backend.src.services.text_to_sql import TextToSQLService
 
 router: APIRouter = APIRouter(prefix="/queries", tags=["Queries"])
+
+
+# pylint: disable=too-many-arguments
+# JUSTIFICATION: Orchestration function needs to pass context (query data, services, user)
+# to maintain clean separation of concerns. Reducing arguments would require over-engineering
+# (wrapper objects) or tight coupling (accessing global state).
+def _handle_clarification_response(
+    query_id: UUID,
+    query_text: str,
+    search_results: dict[str, Any],
+    confidence_score: float,
+    start_time: float,
+    *,
+    history_service: QueryHistoryService,
+    response_generator: ResponseGenerator,
+    username: str,
+) -> Query:
+    """Handle low-confidence query by generating and storing clarification response.
+
+    Args:
+        query_id: Query UUID
+        query_text: Original query text
+        search_results: Results from hybrid search
+        confidence_score: Calculated confidence score
+        start_time: Query processing start timestamp
+        history_service: Query history service instance
+        response_generator: Response generator instance
+        username: Current username
+
+    Returns:
+        Query object with clarification response stored
+    """
+    clarification_response: dict[str, Any] = response_generator.generate_clarification_request(
+        query_text=query_text, search_results=search_results
+    )
+
+    execution_time_ms: int = int((time.time() - start_time) * 1000)
+
+    history_service.update_query_status(
+        query_id,
+        username,
+        "completed",
+        generated_sql=None,
+        result_count=0,
+        execution_time_ms=execution_time_ms,
+    )
+
+    history_service.store_response(
+        query_id=query_id,
+        username=username,
+        html_content=clarification_response["html_content"],
+        plain_text=clarification_response["plain_text"],
+        confidence_score=confidence_score,
+    )
+
+    query_obj: dict[str, Any] = history_service.get_query_by_id(query_id, username)
+    return Query(**query_obj)
+
+
+# pylint: disable=too-many-arguments
+# JUSTIFICATION: Orchestration function needs to pass context (query data, services, user)
+# to maintain clean separation of concerns. Reducing arguments would require over-engineering
+# (wrapper objects) or tight coupling (accessing global state).
+def _execute_sql_query(
+    query_id: UUID,
+    query_text: str,
+    dataset_ids: list[UUID] | None,
+    start_time: float,
+    pool: Any,
+    *,
+    history_service: QueryHistoryService,
+    response_generator: ResponseGenerator,
+    username: str,
+) -> None:
+    """Execute high-confidence SQL query and store response.
+
+    Args:
+        query_id: Query UUID
+        query_text: Original query text
+        dataset_ids: Optional dataset UUIDs to query
+        start_time: Query processing start timestamp
+        pool: Database connection pool
+        history_service: Query history service instance
+        response_generator: Response generator instance
+        username: Current username
+    """
+    sql_service: TextToSQLService = TextToSQLService()
+    sql_result: dict[str, Any] = sql_service.generate_sql(
+        query_text=query_text,
+        dataset_ids=dataset_ids,
+        _username=username,
+    )
+
+    execution_service: QueryExecutionService = QueryExecutionService(pool)
+    query_results: dict[str, Any] = execution_service.execute_query(
+        sql=sql_result["sql"],
+        params=sql_result["params"],
+        username=username,
+        timeout_seconds=30,
+    )
+
+    response_data: dict[str, Any] = response_generator.generate_html_response(
+        query_text=query_text, query_results=query_results, _query_id=query_id
+    )
+
+    execution_time_ms: int = int((time.time() - start_time) * 1000)
+
+    history_service.update_query_status(
+        query_id,
+        username,
+        "completed",
+        generated_sql=sql_result["sql"],
+        result_count=query_results["row_count"],
+        execution_time_ms=execution_time_ms,
+    )
+
+    history_service.store_response(
+        query_id=query_id,
+        username=username,
+        html_content=response_data["html_content"],
+        plain_text=response_data["plain_text"],
+        confidence_score=response_data.get("confidence_score"),
+    )
 
 
 @router.post("", response_model=Query, status_code=status.HTTP_201_CREATED)
@@ -46,15 +170,19 @@ def submit_query(
 
     Workflow:
     1. Store query in database with pending status
-    2. Generate SQL using CrewAI
-    3. Execute SQL query
-    4. Generate HTML response
-    5. Update query status to completed
-    6. Store response
+    2. Run hybrid search (exact match + full-text + semantic vector search)
+    3. Calculate confidence score based on search results
+    4. If low confidence (<0.6): Return clarification request with alternatives
+    5. If high confidence (>=0.6): Generate SQL using CrewAI
+    6. Execute SQL query
+    7. Generate HTML response
+    8. Update query status to completed
+    9. Store response
 
     Constitutional Compliance:
     - Synchronous handler (def, not async def)
-    - Thread-based processing
+    - Thread-based processing (HybridSearchService uses ThreadPoolExecutor)
+    - Confidence threshold: 0.6 per FR-038
     """
     pool: Any = get_global_pool()
     history_service: QueryHistoryService = QueryHistoryService(pool)
@@ -72,49 +200,48 @@ def submit_query(
         # Update to processing status
         history_service.update_query_status(query_id, current_username, "processing")
 
-        # Generate SQL
-        sql_service: TextToSQLService = TextToSQLService()
-        sql_result: dict[str, Any] = sql_service.generate_sql(
+        # Run hybrid search to find relevant columns (semantic + keyword + exact match)
+        hybrid_service: HybridSearchService = HybridSearchService(pool)
+        # Convert UUID list to string list for hybrid search
+        dataset_ids_str: list[str] | None = (
+            [str(uuid) for uuid in query_create.dataset_ids]
+            if query_create.dataset_ids is not None
+            else None
+        )
+        search_results: dict[str, Any] = hybrid_service.search(
+            username=current_username,
+            query_text=query_create.query_text,
+            dataset_ids=dataset_ids_str,
+            limit=10,
+        )
+
+        # Calculate confidence score and check if clarification is needed
+        response_generator: ResponseGenerator = ResponseGenerator()
+        confidence_score: float = response_generator.calculate_confidence_score(search_results)
+
+        # If low confidence, return clarification request instead of SQL execution
+        if response_generator.is_low_confidence(confidence_score, threshold=0.6):
+            return _handle_clarification_response(
+                query_id=query_id,
+                query_text=query_create.query_text,
+                search_results=search_results,
+                confidence_score=confidence_score,
+                start_time=start_time,
+                history_service=history_service,
+                response_generator=response_generator,
+                username=current_username,
+            )
+
+        # High confidence: proceed with SQL generation and execution
+        _execute_sql_query(
+            query_id=query_id,
             query_text=query_create.query_text,
             dataset_ids=query_create.dataset_ids,
-            _username=current_username,
-        )
-
-        # Execute SQL
-        execution_service: QueryExecutionService = QueryExecutionService(pool)
-        query_results: dict[str, Any] = execution_service.execute_query(
-            sql=sql_result["sql"],
-            params=sql_result["params"],
+            start_time=start_time,
+            pool=pool,
+            history_service=history_service,
+            response_generator=response_generator,
             username=current_username,
-            timeout_seconds=30,
-        )
-
-        # Generate HTML response
-        response_generator: ResponseGenerator = ResponseGenerator()
-        response_data: dict[str, Any] = response_generator.generate_html_response(
-            query_text=query_create.query_text, query_results=query_results, _query_id=query_id
-        )
-
-        # Calculate execution time
-        execution_time_ms: int = int((time.time() - start_time) * 1000)
-
-        # Update query as completed
-        history_service.update_query_status(
-            query_id,
-            current_username,
-            "completed",
-            generated_sql=sql_result["sql"],
-            result_count=query_results["row_count"],
-            execution_time_ms=execution_time_ms,
-        )
-
-        # Store response
-        history_service.store_response(
-            query_id=query_id,
-            username=current_username,
-            html_content=response_data["html_content"],
-            plain_text=response_data["plain_text"],
-            confidence_score=response_data.get("confidence_score"),
         )
 
     except Exception as e:
@@ -125,8 +252,8 @@ def submit_query(
             detail=f"Query processing failed: {e!s}",
         ) from e
 
-    # Return query object
-    query_obj: dict[str, Any] = history_service.get_query_by_id(query_id, current_username)
+    # Return query object (already typed in clarification branch)
+    query_obj = history_service.get_query_by_id(query_id, current_username)
     return Query(**query_obj)
 
 

@@ -333,7 +333,7 @@
 - [X] T116-IMPL [P] [US2-IMPL] Create Vector Search agent in backend/src/crew/agents.py → ✅ Already implemented (Semantic Search Specialist)
 - [X] T117-IMPL [US2-IMPL] Implement full-text search service in backend/src/services/hybrid_search.py → ✅ Already implemented (fulltext_search with ts_rank)
 - [X] T118-IMPL [US2-IMPL] Implement hybrid search orchestration in backend/src/services/hybrid_search.py (parallel execution, weighted fusion) → ✅ Already implemented (ThreadPoolExecutor, 40/30/30 weights, deduplication)
-- [ ] T119-IMPL [US2-IMPL] Integrate hybrid search into query processing in backend/src/services/text_to_sql.py → Make integration work
+- [X] T119-IMPL [US2-IMPL] Integrate hybrid search into query processing in backend/src/api/queries.py → ✅ Implemented: Added HybridSearchService call in submit_query(), confidence scoring with 0.6 threshold, early return for clarification requests, seamless flow to SQL generation for high confidence
 
 #### Ambiguity Handling Implementation (US2)
 
