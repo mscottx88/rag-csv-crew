@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS {schema_name}.column_mappings (
     semantic_type VARCHAR(100),
     description TEXT,
     embedding vector(1536),
+    _fulltext TSVECTOR,
 
     UNIQUE (dataset_id, column_name)
 )
@@ -65,6 +66,12 @@ COLUMN_MAPPINGS_EMBEDDING_INDEX_SQL: str = """
 CREATE INDEX IF NOT EXISTS idx_column_mappings_embedding
 ON {schema_name}.column_mappings
 USING hnsw (embedding vector_cosine_ops)
+"""
+
+COLUMN_MAPPINGS_FULLTEXT_INDEX_SQL: str = """
+CREATE INDEX IF NOT EXISTS idx_column_mappings_fulltext
+ON {schema_name}.column_mappings
+USING GIN (_fulltext)
 """
 
 CROSS_REFERENCES_TABLE_SQL: str = """

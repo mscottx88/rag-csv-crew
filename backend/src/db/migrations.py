@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 from src.db.schemas import (
     COLUMN_MAPPINGS_DATASET_INDEX_SQL,
     COLUMN_MAPPINGS_EMBEDDING_INDEX_SQL,
+    COLUMN_MAPPINGS_FULLTEXT_INDEX_SQL,
     COLUMN_MAPPINGS_TABLE_SQL,
     CROSS_REFERENCES_SOURCE_INDEX_SQL,
     CROSS_REFERENCES_TABLE_SQL,
@@ -226,6 +227,9 @@ def create_user_schema(conn: "Connection", username: str) -> None:
 
         # Create HNSW index for vector similarity search
         cur.execute(COLUMN_MAPPINGS_EMBEDDING_INDEX_SQL.format(schema_name=schema_name))
+
+        # Create GIN index for full-text search
+        cur.execute(COLUMN_MAPPINGS_FULLTEXT_INDEX_SQL.format(schema_name=schema_name))
 
         # Create cross_references table
         cur.execute(CROSS_REFERENCES_TABLE_SQL.format(schema_name=schema_name))
