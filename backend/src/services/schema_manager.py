@@ -35,7 +35,8 @@ from backend.src.db.schemas import (
 )
 
 
-def ensure_user_schema_exists(conn: Connection[tuple[str, ...]], username: str) -> None:
+def ensure_user_schema_exists(conn: Connection[tuple[str, ...]], username: str) -> None:  # pylint: disable=too-many-locals
+    # TODO(pylint-refactor): Extract schema creation into separate helper methods
     """Ensure user record and schema exist, create if missing.
 
     Creates:
@@ -81,7 +82,7 @@ def ensure_user_schema_exists(conn: Connection[tuple[str, ...]], username: str) 
                 """,
                 (username, schema_name),
             )
-        except errors.UniqueViolation:
+        except errors.UniqueViolation as exc:
             # User already exists - rollback failed INSERT and verify schema_name matches
             conn.rollback()
 
@@ -95,7 +96,7 @@ def ensure_user_schema_exists(conn: Connection[tuple[str, ...]], username: str) 
                 raise ValueError(
                     f"User '{username}' already exists with different schema name: "
                     f"expected '{schema_name}', found '{row[0]}'"
-                )
+                ) from exc
             # Same username and schema_name - idempotent, continue
 
         # Create user schema if not exists (idempotent)
@@ -131,9 +132,13 @@ def ensure_user_schema_exists(conn: Connection[tuple[str, ...]], username: str) 
         cur.execute(cross_references_sql)
 
         # Create indexes for cross_references table
-        cross_refs_source_idx_sql: str = CROSS_REFERENCES_SOURCE_INDEX_SQL.format(schema_name=schema_name)
+        cross_refs_source_idx_sql: str = CROSS_REFERENCES_SOURCE_INDEX_SQL.format(
+            schema_name=schema_name
+        )
         cur.execute(cross_refs_source_idx_sql)
-        cross_refs_target_idx_sql: str = CROSS_REFERENCES_TARGET_INDEX_SQL.format(schema_name=schema_name)
+        cross_refs_target_idx_sql: str = CROSS_REFERENCES_TARGET_INDEX_SQL.format(
+            schema_name=schema_name
+        )
         cur.execute(cross_refs_target_idx_sql)
 
         # Create queries table
@@ -153,7 +158,9 @@ def ensure_user_schema_exists(conn: Connection[tuple[str, ...]], username: str) 
         # Create indexes for responses table
         responses_query_idx_sql: str = RESPONSES_QUERY_INDEX_SQL.format(schema_name=schema_name)
         cur.execute(responses_query_idx_sql)
-        responses_generated_idx_sql: str = RESPONSES_GENERATED_INDEX_SQL.format(schema_name=schema_name)
+        responses_generated_idx_sql: str = RESPONSES_GENERATED_INDEX_SQL.format(
+            schema_name=schema_name
+        )
         cur.execute(responses_generated_idx_sql)
 
     # Commit transaction

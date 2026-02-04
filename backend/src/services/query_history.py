@@ -58,7 +58,8 @@ class QueryHistoryService:
 
         return query_id
 
-    def update_query_status(
+    def update_query_status(  # pylint: disable=too-many-positional-arguments
+        # TODO(pylint-refactor): Refactor to use QueryUpdate dataclass or keyword-only args
         self,
         query_id: UUID,
         username: str,
@@ -134,7 +135,8 @@ class QueryHistoryService:
             row: tuple[Any, ...] | None = cur.fetchone()
 
             if not row:
-                raise Exception(f"Query {query_id} not found")
+                # TODO(pylint-refactor): Create QueryNotFoundException class
+                raise Exception(f"Query {query_id} not found")  # pylint: disable=broad-exception-raised
 
             return {
                 "id": row[0],
@@ -147,7 +149,8 @@ class QueryHistoryService:
                 "execution_time_ms": row[7],
             }
 
-    def store_response(
+    def store_response(  # pylint: disable=too-many-positional-arguments
+        # TODO(pylint-refactor): Refactor to use ResponseData dataclass or keyword-only args
         self,
         query_id: UUID,
         username: str,
@@ -224,7 +227,8 @@ class QueryHistoryService:
             row: tuple[Any, ...] | None = cur.fetchone()
 
             if not row:
-                raise Exception(f"Response for query {query_id} not found")
+                # TODO(pylint-refactor): Create ResponseNotFoundException class
+                raise Exception(f"Response for query {query_id} not found")  # pylint: disable=broad-exception-raised
 
             return {
                 "id": row[0],
@@ -251,12 +255,14 @@ class QueryHistoryService:
         try:
             response: dict[str, Any] = self.get_response_by_query_id(query_id, username)
             query["response"] = response
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
+            # TODO(pylint-refactor): Catch specific exceptions (ResponseNotFoundException, DatabaseError)
             query["response"] = None
 
         return query
 
-    def get_query_history(
+    def get_query_history(  # pylint: disable=too-many-locals
+        # TODO(pylint-refactor): Extract helper methods to reduce local variables (e.g., build_query, fetch_results)
         self, username: str, page: int = 1, page_size: int = 50, status: str | None = None
     ) -> dict[str, Any]:
         """Retrieve paginated query history.

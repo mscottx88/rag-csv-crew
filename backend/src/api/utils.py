@@ -103,6 +103,7 @@ def handle_http_exception_or_generic(
         logger=logger,
         level="error",
         event=event_name,
+        user=None,  # System event, no user context
         extra={"error": str(exc)},
     )
     return HTTPException(

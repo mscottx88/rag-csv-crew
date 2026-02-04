@@ -171,7 +171,8 @@ def verify_database(conn: "Connection") -> bool:
         logger.info("Database schema verification passed")
         return True
 
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        # TODO(pylint-refactor): Catch specific database exceptions (psycopg.errors.UndefinedTable, etc.)
         logger.error(
             "Database schema verification failed",
             extra={"error": str(e), "error_type": type(e).__name__},

@@ -90,7 +90,6 @@ class TextToSQLOrchestrator:
         Args:
             query_text: Natural language question
             dataset_ids: Optional list of dataset UUIDs
-            _username: Username for context (unused, reserved for future use)
 
         Returns:
             Dictionary with generated_sql, html_content, execution results

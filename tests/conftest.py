@@ -12,9 +12,13 @@ import os
 from typing import Any
 from unittest.mock import MagicMock, patch
 
+from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 from psycopg_pool import ConnectionPool
 import pytest
+
+# Load environment variables from .env file before all tests
+load_dotenv()
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -233,7 +237,9 @@ def client_no_db() -> Generator[TestClient, None, None]:
 
 
 @pytest.fixture(scope="function", autouse=True)
-def cleanup_test_data(connection_pool: ConnectionPool, request: Any) -> Generator[None, None, None]:
+def cleanup_test_data(
+    connection_pool: ConnectionPool, request: Any
+) -> Generator[None, None, None]:
     """Clean up test data before each test that uses connection_pool.
 
     This fixture runs automatically before each test function that uses the
@@ -299,7 +305,9 @@ def cleanup_test_data(connection_pool: ConnectionPool, request: Any) -> Generato
                     cur.execute(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE")
 
                     # Recreate schema and tables using schema_manager
-                    from backend.src.services.schema_manager import ensure_user_schema_exists
+                    from backend.src.services.schema_manager import (
+                        ensure_user_schema_exists,
+                    )
 
                     try:
                         ensure_user_schema_exists(conn, username)

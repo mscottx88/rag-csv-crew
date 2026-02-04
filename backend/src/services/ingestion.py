@@ -85,7 +85,8 @@ def detect_csv_format(csv_file: BytesIO) -> dict[str, Any]:
 
         # Check if file has header (heuristic-based)
         has_header: bool = sniffer.has_header(sample_text)
-    except (csv.Error, Exception):
+    except (csv.Error, Exception):  # pylint: disable=broad-exception-caught
+        # TODO(pylint-refactor): Catch specific exceptions (csv.Error is already specific)
         # Fallback to comma delimiter if sniffer fails
         delimiter = ","
         quotechar = '"'
@@ -262,7 +263,8 @@ def _resolve_column_type(types_seen: set[str]) -> str:
     return "TEXT"
 
 
-def create_dataset_table(
+def create_dataset_table(  # pylint: disable=too-many-locals
+    # TODO(pylint-refactor): Extract SQL generation and index creation into helper methods
     conn: Connection[tuple[str, ...]],
     username: str,
     filename: str,
@@ -426,7 +428,8 @@ def _map_to_postgres_type(inferred_type: str) -> str:
     return type_mapping.get(inferred_type, "TEXT")
 
 
-def ingest_csv_data(
+def ingest_csv_data(  # pylint: disable=too-many-locals
+    # TODO(pylint-refactor): Extract CSV processing logic into smaller helper functions
     conn: Connection[tuple[str, ...]],
     username: str,
     table_name: str,

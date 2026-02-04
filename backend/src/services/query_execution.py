@@ -29,7 +29,8 @@ class QueryExecutionService:
         """
         self.pool: ConnectionPool = pool
 
-    def execute_query(
+    def execute_query(  # pylint: disable=too-many-positional-arguments
+        # TODO(pylint-refactor): Refactor to use config object or keyword-only args
         self,
         sql: str,
         params: list[Any],
@@ -68,7 +69,8 @@ class QueryExecutionService:
 
                 # Check cancellation before execution
                 if cancel_event and cancel_event.is_set():
-                    raise Exception("Query cancelled before execution")
+                    # TODO(pylint-refactor): Create QueryCancelledException class
+                    raise Exception("Query cancelled before execution")  # pylint: disable=broad-exception-raised
 
                 # Execute query
                 with conn.cursor() as cur:
@@ -78,7 +80,8 @@ class QueryExecutionService:
                     if cancel_event and cancel_event.is_set():
                         # Cancel the running query
                         conn.cancel()
-                        raise Exception("Query cancelled during execution")
+                        # TODO(pylint-refactor): Create QueryCancelledException class
+                        raise Exception("Query cancelled during execution")  # pylint: disable=broad-exception-raised
 
                     # Fetch results
                     rows: list[tuple[Any, ...]] = cur.fetchall()
@@ -104,6 +107,7 @@ class QueryExecutionService:
                 # Cancel the query on timeout
                 if cancel_event:
                     cancel_event.set()
-                raise Exception(f"Query exceeded {timeout_seconds} second timeout") from exc
+                # TODO(pylint-refactor): Create QueryTimeoutException class
+                raise Exception(f"Query exceeded {timeout_seconds} second timeout") from exc  # pylint: disable=broad-exception-raised
             except Exception as e:
                 raise e

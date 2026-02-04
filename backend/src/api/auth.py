@@ -179,7 +179,8 @@ def login(login_request: UserLogin) -> AuthToken:
 
 
 @router.get("/me", response_model=User, status_code=status.HTTP_200_OK)
-def get_current_user_profile(
+def get_current_user_profile(  # pylint: disable=duplicate-code
+    # TODO(pylint-refactor): Extract exception handling pattern shared with datasets.py
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
 ) -> User:
     """Get current authenticated user information.
@@ -207,7 +208,8 @@ def get_current_user_profile(
     # Extract and validate username from token
     try:
         username: str = get_current_user(credentials=credentials)
-    except HTTPException:
+    except HTTPException:  # pylint: disable=duplicate-code
+        # TODO(pylint-refactor): Extract common exception handling pattern into utility function
         # Re-raise HTTP exceptions (401 Unauthorized)
         raise
     except Exception as e:

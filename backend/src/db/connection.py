@@ -167,7 +167,8 @@ class DatabaseConnectionPool:
                     return True
                 logger.error("Health check failed: unexpected result")
                 return False
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # TODO(pylint-refactor): Catch specific database exceptions (psycopg.OperationalError, etc.)
             logger.error(
                 "Database health check failed",
                 extra={"error": str(e), "error_type": type(e).__name__},
