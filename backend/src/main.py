@@ -14,12 +14,19 @@ Constitutional Requirements:
 - All route handlers use def (NOT async def)
 """
 
+from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
+# Load environment variables from .env file
+# Use explicit path to ensure .env is found regardless of working directory
+env_path: Path = Path(__file__).parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 from src.api.auth import router as auth_router
 from src.api.datasets import router as datasets_router
