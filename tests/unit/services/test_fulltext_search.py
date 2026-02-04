@@ -34,8 +34,13 @@ class TestFullTextSearch:
         - Search returns relevant columns
         - Results ordered by text relevance
         """
+        mock_pool: MagicMock = MagicMock()
         mock_conn: MagicMock = MagicMock()
         mock_cursor: MagicMock = MagicMock()
+
+        # Mock pool.connection() returning connection context manager
+        mock_pool.connection.return_value.__enter__.return_value = mock_conn
+        # Mock conn.cursor() returning cursor context manager
         mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
 
         # Mock query results
@@ -45,7 +50,7 @@ class TestFullTextSearch:
             ("revenue_annual", "dataset-3", 0.5),
         ]
 
-        service: HybridSearchService = HybridSearchService(mock_conn)
+        service: HybridSearchService = HybridSearchService(mock_pool)
         results: list[dict[str, Any]] = service.fulltext_search(
             username="testuser",
             query_text="revenue",
@@ -57,9 +62,9 @@ class TestFullTextSearch:
         assert results[0]["column_name"] == "revenue"
         assert results[0]["rank"] == 0.9
 
-        # Verify SQL query used ts_query and ts_rank
-        mock_cursor.execute.assert_called_once()
-        sql_query: str = mock_cursor.execute.call_args[0][0]
+        # Verify SQL query used ts_query and ts_rank (second execute call is the actual query)
+        assert mock_cursor.execute.call_count == 2  # SET search_path + actual query
+        sql_query: str = mock_cursor.execute.call_args_list[1][0][0]  # Second call
         assert "ts_rank" in sql_query.lower()
         assert "_fulltext" in sql_query.lower()
 
@@ -75,8 +80,11 @@ class TestFullTextSearch:
         - Multi-word queries return relevant results
         - Boolean operators work correctly
         """
+        mock_pool: MagicMock = MagicMock()
         mock_conn: MagicMock = MagicMock()
         mock_cursor: MagicMock = MagicMock()
+
+        mock_pool.connection.return_value.__enter__.return_value = mock_conn
         mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
 
         mock_cursor.fetchall.return_value = [
@@ -84,7 +92,7 @@ class TestFullTextSearch:
             ("customer_id", "dataset-1", 0.6),
         ]
 
-        service: HybridSearchService = HybridSearchService(mock_conn)
+        service: HybridSearchService = HybridSearchService(mock_pool)
         results: list[dict[str, Any]] = service.fulltext_search(
             username="testuser",
             query_text="customer name",
@@ -92,9 +100,9 @@ class TestFullTextSearch:
         )
 
         # Verify multi-word query executed
-        mock_cursor.execute.assert_called_once()
-        sql_query: str = mock_cursor.execute.call_args[0][0]
-        sql_params: tuple[Any, ...] = mock_cursor.execute.call_args[0][1]
+        assert mock_cursor.execute.call_count == 2  # SET search_path + actual query
+        sql_query: str = mock_cursor.execute.call_args_list[1][0][0]  # Second call
+        sql_params: tuple[Any, ...] = mock_cursor.execute.call_args_list[1][0][1]
 
         # Verify query parameters contain search text
         assert any("customer" in str(param).lower() for param in sql_params)
@@ -111,8 +119,11 @@ class TestFullTextSearch:
         - Dataset filter restricts results correctly
         - Relevance ranking preserved
         """
+        mock_pool: MagicMock = MagicMock()
         mock_conn: MagicMock = MagicMock()
         mock_cursor: MagicMock = MagicMock()
+
+        mock_pool.connection.return_value.__enter__.return_value = mock_conn
         mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
 
         mock_cursor.fetchall.return_value = [
@@ -120,7 +131,7 @@ class TestFullTextSearch:
             ("sales", "dataset-B", 0.7),
         ]
 
-        service: HybridSearchService = HybridSearchService(mock_conn)
+        service: HybridSearchService = HybridSearchService(mock_pool)
         results: list[dict[str, Any]] = service.fulltext_search(
             username="testuser",
             query_text="revenue",
@@ -129,9 +140,9 @@ class TestFullTextSearch:
         )
 
         # Verify dataset filter applied
-        mock_cursor.execute.assert_called_once()
-        sql_query: str = mock_cursor.execute.call_args[0][0]
-        sql_params: tuple[Any, ...] = mock_cursor.execute.call_args[0][1]
+        assert mock_cursor.execute.call_count == 2  # SET search_path + actual query
+        sql_query: str = mock_cursor.execute.call_args_list[1][0][0]  # Second call
+        sql_params: tuple[Any, ...] = mock_cursor.execute.call_args_list[1][0][1]
 
         # Should have dataset IDs in params
         assert "dataset-A" in sql_params or "dataset-B" in sql_params
@@ -148,8 +159,11 @@ class TestFullTextSearch:
         - Ranking reflects text relevance
         - Scores in valid range
         """
+        mock_pool: MagicMock = MagicMock()
         mock_conn: MagicMock = MagicMock()
         mock_cursor: MagicMock = MagicMock()
+
+        mock_pool.connection.return_value.__enter__.return_value = mock_conn
         mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
 
         mock_cursor.fetchall.return_value = [
@@ -158,7 +172,7 @@ class TestFullTextSearch:
             ("revenue_by_region", "dataset-1", 0.5),  # Partial with more text
         ]
 
-        service: HybridSearchService = HybridSearchService(mock_conn)
+        service: HybridSearchService = HybridSearchService(mock_pool)
         results: list[dict[str, Any]] = service.fulltext_search(
             username="testuser",
             query_text="revenue",
@@ -184,13 +198,16 @@ class TestFullTextSearch:
         - Empty results don't cause errors
         - Returns empty list
         """
+        mock_pool: MagicMock = MagicMock()
         mock_conn: MagicMock = MagicMock()
         mock_cursor: MagicMock = MagicMock()
+
+        mock_pool.connection.return_value.__enter__.return_value = mock_conn
         mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
 
         mock_cursor.fetchall.return_value = []
 
-        service: HybridSearchService = HybridSearchService(mock_conn)
+        service: HybridSearchService = HybridSearchService(mock_pool)
         results: list[dict[str, Any]] = service.fulltext_search(
             username="testuser",
             query_text="nonexistent_term_xyz",
@@ -212,13 +229,16 @@ class TestFullTextSearch:
         - Special characters don't break queries
         - No SQL injection vulnerability
         """
+        mock_pool: MagicMock = MagicMock()
         mock_conn: MagicMock = MagicMock()
         mock_cursor: MagicMock = MagicMock()
+
+        mock_pool.connection.return_value.__enter__.return_value = mock_conn
         mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
 
         mock_cursor.fetchall.return_value = []
 
-        service: HybridSearchService = HybridSearchService(mock_conn)
+        service: HybridSearchService = HybridSearchService(mock_pool)
 
         # Test various special characters
         special_queries: list[str] = [
@@ -249,8 +269,11 @@ class TestFullTextSearch:
         - Limit parameter controls result count
         - SQL includes LIMIT clause
         """
+        mock_pool: MagicMock = MagicMock()
         mock_conn: MagicMock = MagicMock()
         mock_cursor: MagicMock = MagicMock()
+
+        mock_pool.connection.return_value.__enter__.return_value = mock_conn
         mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
 
         # Mock more results than limit
@@ -259,7 +282,7 @@ class TestFullTextSearch:
             for i in range(5)
         ]
 
-        service: HybridSearchService = HybridSearchService(mock_conn)
+        service: HybridSearchService = HybridSearchService(mock_pool)
         results: list[dict[str, Any]] = service.fulltext_search(
             username="testuser",
             query_text="column",
@@ -267,8 +290,8 @@ class TestFullTextSearch:
         )
 
         # Verify limit applied
-        mock_cursor.execute.assert_called_once()
-        sql_query: str = mock_cursor.execute.call_args[0][0]
+        assert mock_cursor.execute.call_count == 2  # SET search_path + actual query
+        sql_query: str = mock_cursor.execute.call_args_list[1][0][0]  # Second call
         assert "LIMIT" in sql_query.upper()
 
         # Verify result count
@@ -286,8 +309,11 @@ class TestFullTextSearch:
         - Case-insensitive matching works
         - Results consistent regardless of case
         """
+        mock_pool: MagicMock = MagicMock()
         mock_conn: MagicMock = MagicMock()
         mock_cursor: MagicMock = MagicMock()
+
+        mock_pool.connection.return_value.__enter__.return_value = mock_conn
         mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
 
         mock_cursor.fetchall.return_value = [
@@ -296,7 +322,7 @@ class TestFullTextSearch:
             ("REVENUE", "dataset-3", 0.7),
         ]
 
-        service: HybridSearchService = HybridSearchService(mock_conn)
+        service: HybridSearchService = HybridSearchService(mock_pool)
 
         # Test different cases
         for query_text in ["revenue", "Revenue", "REVENUE"]:

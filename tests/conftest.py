@@ -171,6 +171,24 @@ def connection_pool(db_config: dict[str, Any]) -> Generator[ConnectionPool, None
 
 
 @pytest.fixture(scope="function")
+def test_db_connection(connection_pool: ConnectionPool) -> ConnectionPool:
+    """Alias for connection_pool fixture used by integration tests.
+
+    Provides backwards compatibility for tests that expect test_db_connection.
+
+    Args:
+        connection_pool: The underlying connection pool fixture
+
+    Returns:
+        ConnectionPool instance
+
+    Note:
+        This is an alias fixture - the actual pool is created by connection_pool
+    """
+    return connection_pool
+
+
+@pytest.fixture(scope="function")
 def client(db_config: dict[str, Any]) -> Generator[TestClient, None, None]:
     """Provide FastAPI test client for API tests.
 
