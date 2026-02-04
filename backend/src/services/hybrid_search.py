@@ -171,24 +171,23 @@ class HybridSearchService:
         params.append(limit)
 
         try:
-            with self.pool.connection() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(f"SET search_path TO {user_schema}, public")
-                    cur.execute(sql, params)
-                    rows: list[tuple[Any, ...]] = cur.fetchall()
+            with self.pool.connection() as conn, conn.cursor() as cur:
+                cur.execute(f"SET search_path TO {user_schema}, public")
+                cur.execute(sql, params)
+                rows: list[tuple[Any, ...]] = cur.fetchall()
 
-                    results: list[dict[str, Any]] = []
-                    for row in rows:
-                        column_name: str = row[0]
-                        dataset_id: str = row[1]
+                results: list[dict[str, Any]] = []
+                for row in rows:
+                    column_name: str = row[0]
+                    dataset_id: str = row[1]
 
-                        results.append({
-                            "column_name": column_name,
-                            "dataset_id": dataset_id,
-                            "score": 1.0  # Exact match always has score 1.0
-                        })
+                    results.append({
+                        "column_name": column_name,
+                        "dataset_id": dataset_id,
+                        "score": 1.0  # Exact match always has score 1.0
+                    })
 
-                    return results
+                return results
 
         except Exception as e:
             raise RuntimeError(f"Exact search failed: {e}") from e
@@ -241,25 +240,24 @@ class HybridSearchService:
         params.append(limit)
 
         try:
-            with self.pool.connection() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(f"SET search_path TO {user_schema}, public")
-                    cur.execute(sql, params)
-                    rows: list[tuple[Any, ...]] = cur.fetchall()
+            with self.pool.connection() as conn, conn.cursor() as cur:
+                cur.execute(f"SET search_path TO {user_schema}, public")
+                cur.execute(sql, params)
+                rows: list[tuple[Any, ...]] = cur.fetchall()
 
-                    results: list[dict[str, Any]] = []
-                    for row in rows:
-                        column_name: str = row[0]
-                        dataset_id: str = row[1]
-                        rank: float = float(row[2])
+                results: list[dict[str, Any]] = []
+                for row in rows:
+                    column_name: str = row[0]
+                    dataset_id: str = row[1]
+                    rank: float = float(row[2])
 
-                        results.append({
-                            "column_name": column_name,
-                            "dataset_id": dataset_id,
-                            "rank": rank
-                        })
+                    results.append({
+                        "column_name": column_name,
+                        "dataset_id": dataset_id,
+                        "rank": rank
+                    })
 
-                    return results
+                return results
 
         except Exception as e:
             raise RuntimeError(f"Full-text search failed: {e}") from e

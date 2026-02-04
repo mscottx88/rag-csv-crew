@@ -147,9 +147,9 @@ class ResponseGenerator:
         html_parts: list[str] = [
             "<article>",
             "<header>",
-            f"<h1>Clarification Needed</h1>",
+            "<h1>Clarification Needed</h1>",
             f"<p>Your query: <strong>{query_text}</strong></p>",
-            f"<p>I found multiple possible matches. Did you mean one of these columns?</p>",
+            "<p>I found multiple possible matches. Did you mean one of these columns?</p>",
             "</header>",
             "<section>",
             "<ul>",

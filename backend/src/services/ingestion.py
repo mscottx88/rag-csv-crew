@@ -744,7 +744,7 @@ def generate_column_embeddings(
                 """
 
                 # Update each column with its embedding
-                for column_name, embedding in zip(column_names, embeddings):
+                for column_name, embedding in zip(column_names, embeddings, strict=False):
                     cur.execute(update_sql, (embedding, dataset_id, column_name))
 
             conn.commit()

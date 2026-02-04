@@ -200,34 +200,33 @@ class VectorSearchService:
         params.append(limit)
 
         try:
-            with self.pool.connection() as conn:
+            with self.pool.connection() as conn, conn.cursor() as cur:
                 # Set search path to user schema
-                with conn.cursor() as cur:
-                    cur.execute(f"SET search_path TO {user_schema}, public")
+                cur.execute(f"SET search_path TO {user_schema}, public")
 
-                    # Execute similarity search
-                    cur.execute(sql, params)
-                    rows: list[tuple[Any, ...]] = cur.fetchall()
+                # Execute similarity search
+                cur.execute(sql, params)
+                rows: list[tuple[Any, ...]] = cur.fetchall()
 
-                    # Convert to dict format with similarity score
-                    results: list[dict[str, Any]] = []
-                    for row in rows:
-                        column_name: str = row[0]
-                        dataset_id: str = row[1]
-                        distance: float = row[2]
+                # Convert to dict format with similarity score
+                results: list[dict[str, Any]] = []
+                for row in rows:
+                    column_name: str = row[0]
+                    dataset_id: str = row[1]
+                    distance: float = row[2]
 
-                        # Convert distance to similarity: similarity = 1 - (distance / 2)
-                        # Cosine distance range is [0, 2], so we normalize to [0, 1]
-                        similarity: float = 1.0 - (distance / 2.0)
+                    # Convert distance to similarity: similarity = 1 - (distance / 2)
+                    # Cosine distance range is [0, 2], so we normalize to [0, 1]
+                    similarity: float = 1.0 - (distance / 2.0)
 
-                        results.append({
-                            "column_name": column_name,
-                            "dataset_id": dataset_id,
-                            "distance": distance,
-                            "similarity": similarity
-                        })
+                    results.append({
+                        "column_name": column_name,
+                        "dataset_id": dataset_id,
+                        "distance": distance,
+                        "similarity": similarity
+                    })
 
-                    return results
+                return results
 
         except Exception as e:
             raise RuntimeError(f"Vector similarity search failed: {e}") from e
