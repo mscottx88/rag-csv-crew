@@ -1,0 +1,257 @@
+{
+  "description": "Semantic variation test dataset for SC-004 validation",
+  "purpose": "Validate that hybrid search matches semantically similar terms at least 80% of the time",
+  "test_criteria": {
+    "total_pairs": 30,
+    "success_threshold": 0.80,
+    "matching_definition": "Returning identical or equivalent result sets for semantically varied questions"
+  },
+  "question_pairs": [
+    {
+      "id": 1,
+      "category": "financial_terms",
+      "base_question": "Show me the revenue",
+      "semantic_variation": "What is the total income?",
+      "expected_columns": ["revenue", "income", "sales", "earnings"],
+      "notes": "Revenue/income/earnings are semantically equivalent"
+    },
+    {
+      "id": 2,
+      "category": "financial_terms",
+      "base_question": "What are the total sales?",
+      "semantic_variation": "Show me all revenue figures",
+      "expected_columns": ["sales", "revenue", "total_sales", "gross_sales"],
+      "notes": "Sales and revenue are interchangeable in business context"
+    },
+    {
+      "id": 3,
+      "category": "financial_terms",
+      "base_question": "Display profit margins",
+      "semantic_variation": "What is the net income?",
+      "expected_columns": ["profit", "net_income", "margin", "profit_margin"],
+      "notes": "Profit and net income are closely related financial metrics"
+    },
+    {
+      "id": 4,
+      "category": "customer_data",
+      "base_question": "List all customers",
+      "semantic_variation": "Show me the client list",
+      "expected_columns": ["customer", "client", "customer_name", "client_name"],
+      "notes": "Customer and client are synonyms in business"
+    },
+    {
+      "id": 5,
+      "category": "customer_data",
+      "base_question": "Who are our buyers?",
+      "semantic_variation": "Display all purchasers",
+      "expected_columns": ["buyer", "purchaser", "customer", "client"],
+      "notes": "Buyer and purchaser are semantically equivalent"
+    },
+    {
+      "id": 6,
+      "category": "temporal_data",
+      "base_question": "Show orders from last month",
+      "semantic_variation": "Display previous month's purchases",
+      "expected_columns": ["order_date", "purchase_date", "date", "order_time"],
+      "notes": "Orders and purchases are synonymous"
+    },
+    {
+      "id": 7,
+      "category": "temporal_data",
+      "base_question": "What is the creation date?",
+      "semantic_variation": "When was this made?",
+      "expected_columns": ["created_at", "creation_date", "date_created", "timestamp"],
+      "notes": "Creation date variations"
+    },
+    {
+      "id": 8,
+      "category": "product_data",
+      "base_question": "Show me all products",
+      "semantic_variation": "List the items we sell",
+      "expected_columns": ["product", "item", "product_name", "item_name"],
+      "notes": "Product and item are interchangeable"
+    },
+    {
+      "id": 9,
+      "category": "product_data",
+      "base_question": "What goods do we have?",
+      "semantic_variation": "Display our merchandise",
+      "expected_columns": ["goods", "merchandise", "product", "item"],
+      "notes": "Goods and merchandise are synonyms"
+    },
+    {
+      "id": 10,
+      "category": "quantitative_data",
+      "base_question": "How many units were sold?",
+      "semantic_variation": "What is the quantity purchased?",
+      "expected_columns": ["quantity", "units", "qty", "amount", "count"],
+      "notes": "Quantity and units are semantically similar"
+    },
+    {
+      "id": 11,
+      "category": "quantitative_data",
+      "base_question": "Show me the total amount",
+      "semantic_variation": "What is the sum?",
+      "expected_columns": ["total", "amount", "sum", "total_amount"],
+      "notes": "Total, amount, and sum are equivalent for aggregations"
+    },
+    {
+      "id": 12,
+      "category": "location_data",
+      "base_question": "Where are customers located?",
+      "semantic_variation": "What is the customer address?",
+      "expected_columns": ["location", "address", "city", "region", "country"],
+      "notes": "Location and address both refer to geographical data"
+    },
+    {
+      "id": 13,
+      "category": "location_data",
+      "base_question": "Show me regional data",
+      "semantic_variation": "Display by geographic area",
+      "expected_columns": ["region", "area", "territory", "zone", "district"],
+      "notes": "Regional and geographic area are synonymous"
+    },
+    {
+      "id": 14,
+      "category": "pricing_data",
+      "base_question": "What is the cost?",
+      "semantic_variation": "How much does it cost?",
+      "expected_columns": ["price", "cost", "amount", "value"],
+      "notes": "Price and cost are semantically similar"
+    },
+    {
+      "id": 15,
+      "category": "pricing_data",
+      "base_question": "Show me the price list",
+      "semantic_variation": "What are the rates?",
+      "expected_columns": ["price", "rate", "fee", "charge"],
+      "notes": "Price, rate, fee, and charge are related pricing terms"
+    },
+    {
+      "id": 16,
+      "category": "status_data",
+      "base_question": "What is the order status?",
+      "semantic_variation": "Is the order complete?",
+      "expected_columns": ["status", "state", "order_status", "completion_status"],
+      "notes": "Status and state are synonymous"
+    },
+    {
+      "id": 17,
+      "category": "status_data",
+      "base_question": "Show active records",
+      "semantic_variation": "Display current entries",
+      "expected_columns": ["active", "current", "status", "is_active"],
+      "notes": "Active and current are semantically equivalent for status"
+    },
+    {
+      "id": 18,
+      "category": "identifier_data",
+      "base_question": "What is the order ID?",
+      "semantic_variation": "Show me the order number",
+      "expected_columns": ["order_id", "id", "order_number", "order_ref"],
+      "notes": "ID and number are interchangeable for identifiers"
+    },
+    {
+      "id": 19,
+      "category": "identifier_data",
+      "base_question": "Display customer reference",
+      "semantic_variation": "What is the customer identifier?",
+      "expected_columns": ["customer_id", "customer_ref", "reference", "id"],
+      "notes": "Reference and identifier are synonymous"
+    },
+    {
+      "id": 20,
+      "category": "contact_data",
+      "base_question": "Show customer email",
+      "semantic_variation": "What is the contact address?",
+      "expected_columns": ["email", "email_address", "contact", "contact_email"],
+      "notes": "Email and contact address can refer to email field"
+    },
+    {
+      "id": 21,
+      "category": "contact_data",
+      "base_question": "Display phone numbers",
+      "semantic_variation": "What are the contact numbers?",
+      "expected_columns": ["phone", "phone_number", "contact", "telephone"],
+      "notes": "Phone and telephone are synonymous"
+    },
+    {
+      "id": 22,
+      "category": "employee_data",
+      "base_question": "List all employees",
+      "semantic_variation": "Show me the staff",
+      "expected_columns": ["employee", "staff", "worker", "personnel"],
+      "notes": "Employee, staff, and personnel are semantically similar"
+    },
+    {
+      "id": 23,
+      "category": "employee_data",
+      "base_question": "Who are the team members?",
+      "semantic_variation": "Display all workers",
+      "expected_columns": ["team", "member", "employee", "worker"],
+      "notes": "Team members and workers refer to employees"
+    },
+    {
+      "id": 24,
+      "category": "classification_data",
+      "base_question": "Show product categories",
+      "semantic_variation": "What are the item types?",
+      "expected_columns": ["category", "type", "classification", "group"],
+      "notes": "Category and type are interchangeable for classification"
+    },
+    {
+      "id": 25,
+      "category": "classification_data",
+      "base_question": "Display by department",
+      "semantic_variation": "Show me the divisions",
+      "expected_columns": ["department", "division", "group", "section"],
+      "notes": "Department and division are organizational synonyms"
+    },
+    {
+      "id": 26,
+      "category": "transaction_data",
+      "base_question": "Show all purchases",
+      "semantic_variation": "Display transaction history",
+      "expected_columns": ["purchase", "transaction", "order", "sale"],
+      "notes": "Purchase and transaction are semantically related"
+    },
+    {
+      "id": 27,
+      "category": "transaction_data",
+      "base_question": "What were the orders?",
+      "semantic_variation": "Show me all sales",
+      "expected_columns": ["order", "sale", "transaction", "purchase"],
+      "notes": "Orders and sales are business transaction synonyms"
+    },
+    {
+      "id": 28,
+      "category": "descriptive_data",
+      "base_question": "Show product description",
+      "semantic_variation": "What are the item details?",
+      "expected_columns": ["description", "details", "info", "summary"],
+      "notes": "Description and details are semantically equivalent"
+    },
+    {
+      "id": 29,
+      "category": "descriptive_data",
+      "base_question": "Display the notes",
+      "semantic_variation": "What are the comments?",
+      "expected_columns": ["notes", "comments", "remarks", "description"],
+      "notes": "Notes, comments, and remarks are interchangeable"
+    },
+    {
+      "id": 30,
+      "category": "ranking_data",
+      "base_question": "Show top performers",
+      "semantic_variation": "Who are the best sellers?",
+      "expected_columns": ["rank", "ranking", "performance", "top", "best"],
+      "notes": "Top performers and best sellers refer to ranking data"
+    }
+  ],
+  "metadata": {
+    "created_date": "2026-02-04",
+    "version": "1.0",
+    "success_criteria_reference": "SC-004",
+    "functional_requirement_reference": "FR-006, FR-038"
+  }
+}
