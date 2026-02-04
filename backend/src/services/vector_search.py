@@ -1,17 +1,18 @@
-"""Vector search service for semantic similarity using OpenAI embeddings and pgvector.
+"""Vector search service for semantic column matching using OpenAI embeddings.
 
-This service provides semantic column matching by generating embeddings
-using OpenAI's text-embedding-3-small model and querying PostgreSQL
-with pgvector extension for cosine similarity search.
+Implements:
+- Embedding generation via OpenAI text-embedding-3-small (1536 dimensions)
+- Vector similarity search using pgvector cosine distance
+- Batch embedding generation for efficiency
 
 Constitutional Requirements:
 - Thread-based operations only (no async/await)
 - All variables have explicit type annotations
 - All functions have return type annotations
-- PEP 8 compliance (all imports at top of file)
 """
 
 import os
+import re
 from typing import Any
 
 from openai import OpenAI
@@ -21,212 +22,216 @@ from psycopg_pool import ConnectionPool
 class VectorSearchService:
     """Service for generating embeddings and performing vector similarity search.
 
-    Uses OpenAI text-embedding-3-small (1536 dimensions) for embedding generation
-    and pgvector with cosine distance (<=> operator) for similarity search.
+    Uses OpenAI text-embedding-3-small (1536 dimensions) for semantic understanding
+    and pgvector cosine distance for similarity matching.
     """
 
     def __init__(self, pool: ConnectionPool | None = None) -> None:
-        """Initialize vector search service with OpenAI client.
+        """Initialize vector search service.
 
         Args:
-            pool: Optional database connection pool for similarity searches.
-                  If None, only embedding generation methods are available.
-
-        Raises:
-            ValueError: If OPENAI_API_KEY environment variable is not set.
+            pool: Optional database connection pool (for similarity search)
         """
+        self.pool: ConnectionPool | None = pool
+
+        # Initialize OpenAI client (synchronous)
         api_key: str | None = os.getenv("OPENAI_API_KEY")
         if not api_key:
-            raise ValueError(
-                "OPENAI_API_KEY environment variable must be set for vector search"
-            )
+            raise ValueError("OPENAI_API_KEY environment variable not set")
 
         self.client: OpenAI = OpenAI(api_key=api_key)
-        self.pool: ConnectionPool | None = pool
         self.model: str = "text-embedding-3-small"
-        self.embedding_dimension: int = 1536
+        self.embedding_dim: int = 1536
 
-    def generate_embedding(self, text: str) -> list[float]:
-        """Generate embedding vector for a single text input.
+    def _normalize_text(self, text: str) -> str:
+        """Normalize text by stripping and collapsing whitespace.
 
         Args:
-            text: Text to generate embedding for (column name, description, etc.)
+            text: Input text to normalize
 
         Returns:
-            1536-dimensional embedding vector as list of floats.
+            Normalized text with single spaces
+        """
+        # Strip leading/trailing whitespace
+        normalized: str = text.strip()
+
+        # Collapse multiple spaces to single space
+        normalized = re.sub(r'\s+', ' ', normalized)
+
+        return normalized
+
+    def generate_embedding(self, text: str) -> list[float]:
+        """Generate embedding vector for a single text string.
+
+        Args:
+            text: Input text to embed
+
+        Returns:
+            List of 1536 floating-point values representing the embedding
 
         Raises:
-            ValueError: If text is empty or whitespace-only after normalization.
-            RuntimeError: If OpenAI API call fails.
+            ValueError: If text is empty or whitespace-only
+            Exception: If OpenAI API call fails
         """
-        # Normalize text: strip leading/trailing whitespace and collapse internal whitespace
-        normalized_text: str = " ".join(text.split())
+        # Normalize and validate input
+        normalized_text: str = self._normalize_text(text)
         if not normalized_text:
-            raise ValueError("Text cannot be empty or whitespace-only")
+            raise ValueError("Cannot generate embedding for empty text")
 
-        try:
-            response: Any = self.client.embeddings.create(
-                model=self.model,
-                input=normalized_text
+        # Call OpenAI API (synchronous) - pass string directly for single input
+        response: Any = self.client.embeddings.create(
+            model=self.model, input=normalized_text
+        )
+
+        # Extract embedding from response
+        embedding: list[float] = response.data[0].embedding
+
+        # Validate dimensionality
+        if len(embedding) != self.embedding_dim:
+            raise ValueError(
+                f"Expected {self.embedding_dim}-dimensional embedding, "
+                f"got {len(embedding)}"
             )
-            embedding: list[float] = response.data[0].embedding
 
-            # Verify dimension
-            if len(embedding) != self.embedding_dimension:
-                raise RuntimeError(
-                    f"Expected {self.embedding_dimension}-dimensional embedding, "
-                    f"got {len(embedding)}"
-                )
-
-            return embedding
-
-        except Exception as e:
-            raise RuntimeError(f"Failed to generate embedding: {e}") from e
+        return embedding
 
     def generate_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for multiple texts in a single API call.
 
-        More efficient than calling generate_embedding() repeatedly for multiple texts.
+        More efficient than calling generate_embedding() repeatedly.
 
         Args:
-            texts: List of texts to generate embeddings for.
+            texts: List of input texts to embed
 
         Returns:
-            List of 1536-dimensional embedding vectors (same order as input texts).
+            List of embedding vectors, one per input text
 
         Raises:
-            ValueError: If texts list is empty or contains empty strings.
-            RuntimeError: If OpenAI API call fails.
+            ValueError: If texts list is empty or contains only whitespace
+            Exception: If OpenAI API call fails
         """
         if not texts:
-            raise ValueError("Texts list cannot be empty")
+            raise ValueError("Cannot generate embeddings for empty text list")
 
-        # Normalize all texts: strip and collapse internal whitespace
-        normalized_texts: list[str] = [" ".join(text.split()) for text in texts]
+        # Normalize all texts
+        normalized_texts: list[str] = [self._normalize_text(text) for text in texts]
 
-        # Validate all texts are non-empty
+        # Validate no empty strings
         if any(not text for text in normalized_texts):
-            raise ValueError("All texts must be non-empty after normalization")
+            raise ValueError("Cannot generate embeddings for empty text strings")
 
-        try:
-            response: Any = self.client.embeddings.create(
-                model=self.model,
-                input=normalized_texts
+        # Call OpenAI API with batch (synchronous) - pass list for batch
+        response: Any = self.client.embeddings.create(
+            model=self.model, input=normalized_texts
+        )
+
+        # Extract embeddings (preserve order)
+        embeddings: list[list[float]] = [item.embedding for item in response.data]
+
+        # Validate count and dimensionality
+        if len(embeddings) != len(texts):
+            raise ValueError(
+                f"Expected {len(texts)} embeddings, got {len(embeddings)}"
             )
 
-            embeddings: list[list[float]] = [
-                item.embedding for item in response.data
-            ]
+        for idx, embedding in enumerate(embeddings):
+            if len(embedding) != self.embedding_dim:
+                raise ValueError(
+                    f"Embedding {idx}: expected {self.embedding_dim} dimensions, "
+                    f"got {len(embedding)}"
+                )
 
-            # Verify all dimensions
-            for i, embedding in enumerate(embeddings):
-                if len(embedding) != self.embedding_dimension:
-                    raise RuntimeError(
-                        f"Expected {self.embedding_dimension}-dimensional embedding "
-                        f"for text {i}, got {len(embedding)}"
-                    )
-
-            return embeddings
-
-        except Exception as e:
-            raise RuntimeError(f"Failed to generate batch embeddings: {e}") from e
+        return embeddings
 
     def find_similar_columns(
         self,
         username: str,
         query_text: str,
         limit: int = 10,
-        dataset_ids: list[str] | None = None
+        dataset_ids: list[str] | None = None,
     ) -> list[dict[str, Any]]:
-        """Find columns semantically similar to query text using vector similarity.
-
-        Uses pgvector cosine distance (<=> operator) to find closest embeddings.
-        Distance is converted to similarity score: similarity = 1 - (distance / 2).
+        """Find columns semantically similar to query using pgvector cosine distance.
 
         Args:
-            username: Username for schema isolation.
-            query_text: Natural language query to search for.
-            limit: Maximum number of results to return (default: 10).
-            dataset_ids: Optional list of dataset IDs to filter results.
-                        If None, search across all user's datasets.
+            username: Username for schema isolation
+            query_text: Natural language query text
+            limit: Maximum number of results to return
+            dataset_ids: Optional list of dataset UUIDs to filter by
 
         Returns:
-            List of matching columns sorted by similarity (descending).
-            Each dict contains:
+            List of dictionaries with keys:
                 - column_name: str
                 - dataset_id: str
-                - distance: float (cosine distance, 0 = identical)
+                - description: str | None
+                - distance: float (cosine distance, lower = more similar)
                 - similarity: float (0-1, higher = more similar)
 
         Raises:
-            ValueError: If pool is None, username is empty, or query_text is empty.
-            RuntimeError: If database query fails.
+            ValueError: If pool not initialized or query_text empty
+            Exception: If database query fails
         """
-        if self.pool is None:
-            raise ValueError(
-                "Connection pool is required for similarity search. "
-                "Provide pool parameter to __init__()."
-            )
+        if not self.pool:
+            raise ValueError("Connection pool not initialized for vector search")
 
-        if not username or not username.strip():
-            raise ValueError("Username cannot be empty")
-
-        if not query_text or not query_text.strip():
-            raise ValueError("Query text cannot be empty")
-
-        # Generate embedding for query text
+        # Generate embedding for query
         query_embedding: list[float] = self.generate_embedding(query_text)
 
-        # Build SQL query
+        # Build SQL query with optional dataset filtering
         user_schema: str = f"{username}_schema"
 
-        sql: str = """
-            SELECT
-                column_name,
-                dataset_id,
-                embedding <=> %s::vector AS distance
-            FROM column_mappings
-        """
+        # Base query using pgvector cosine distance operator (<=>)
+        sql_parts: list[str] = [
+            "SELECT column_name, dataset_id, description, ",
+            "embedding <=> %s::vector AS distance ",
+            "FROM column_mappings ",
+            "WHERE embedding IS NOT NULL ",
+        ]
 
+        # Add dataset filtering if specified
         params: list[Any] = [query_embedding]
-
-        # Add dataset filter if provided
-        if dataset_ids is not None and len(dataset_ids) > 0:
-            placeholders: str = ",".join(["%s"] * len(dataset_ids))
-            sql += f" WHERE dataset_id IN ({placeholders})"
+        if dataset_ids:
+            placeholders: str = ", ".join(["%s"] * len(dataset_ids))
+            sql_parts.append(f"AND dataset_id IN ({placeholders}) ")
             params.extend(dataset_ids)
 
-        sql += " ORDER BY distance ASC LIMIT %s"
+        # Order by distance (ascending = most similar first)
+        sql_parts.append("ORDER BY distance ASC ")
+        sql_parts.append("LIMIT %s")
         params.append(limit)
 
-        try:
-            with self.pool.connection() as conn, conn.cursor() as cur:
-                # Set search path to user schema
+        sql: str = "".join(sql_parts)
+
+        # Execute query with connection pool
+        with self.pool.connection() as conn:
+            # Set search path for schema isolation
+            with conn.cursor() as cur:
                 cur.execute(f"SET search_path TO {user_schema}, public")
 
                 # Execute similarity search
                 cur.execute(sql, params)
                 rows: list[tuple[Any, ...]] = cur.fetchall()
 
-                # Convert to dict format with similarity score
-                results: list[dict[str, Any]] = []
-                for row in rows:
-                    column_name: str = row[0]
-                    dataset_id: str = row[1]
-                    distance: float = row[2]
+        # Convert rows to dictionaries with similarity scores
+        results: list[dict[str, Any]] = []
+        for row in rows:
+            column_name: str = row[0]
+            dataset_id: str = row[1]
+            description: str | None = row[2]
+            distance: float = row[3]
 
-                    # Convert distance to similarity: similarity = 1 - (distance / 2)
-                    # Cosine distance range is [0, 2], so we normalize to [0, 1]
-                    similarity: float = 1.0 - (distance / 2.0)
+            # Convert cosine distance to similarity score (0-1, higher is better)
+            # Cosine distance range: [0, 2], where 0 = identical, 2 = opposite
+            # Similarity formula: 1 - (distance / 2)
+            similarity: float = 1.0 - (distance / 2.0)
 
-                    results.append({
-                        "column_name": column_name,
-                        "dataset_id": dataset_id,
-                        "distance": distance,
-                        "similarity": similarity
-                    })
+            results.append(
+                {
+                    "column_name": column_name,
+                    "dataset_id": dataset_id,
+                    "description": description,
+                    "distance": distance,
+                    "similarity": similarity,
+                }
+            )
 
-                return results
-
-        except Exception as e:
-            raise RuntimeError(f"Vector similarity search failed: {e}") from e
+        return results
