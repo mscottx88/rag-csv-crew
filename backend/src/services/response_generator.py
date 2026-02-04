@@ -16,8 +16,8 @@ from uuid import UUID
 
 from crewai import Crew
 
-from backend.src.crew.agents import create_result_analyst_agent
-from backend.src.crew.tasks import create_html_formatting_task
+from src.crew.agents import create_result_analyst_agent
+from src.crew.tasks import create_html_formatting_task
 
 
 class ResponseGenerator:

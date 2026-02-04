@@ -21,12 +21,12 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from backend.src.api.auth import router as auth_router
-from backend.src.api.datasets import router as datasets_router
-from backend.src.api.health import router as health_router
-from backend.src.api.queries import router as queries_router
-from backend.src.models.config import AppConfig
-from backend.src.utils.logging import (
+from src.api.auth import router as auth_router
+from src.api.datasets import router as datasets_router
+from src.api.health import router as health_router
+from src.api.queries import router as queries_router
+from src.models.config import AppConfig
+from src.utils.logging import (
     get_structured_logger,
     log_error,
     log_event,
