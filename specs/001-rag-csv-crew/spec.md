@@ -19,8 +19,8 @@
 - Q: User Role and Permission Model → A: Single role - all users equal - All authenticated users have identical permissions to upload CSV, query their own data, manage their datasets, and view their history
 - Q: Data Retention and Deletion Policy → A: User-controlled deletion, no auto-expiration - Data persists indefinitely until user explicitly deletes it; users can delete individual datasets or clear query history
 - Q: API Versioning Strategy → A: No versioning for MVP - API can change freely during demo/prototype phase; versioning deferred until production-ready
-- Q: LLM Model for Text Generation (SQL queries and HTML responses) → A: Claude Opus
-- Q: Embedding Model for Semantic Search → A: OpenAI text-embedding-3-small
+- Q: LLM Model for Text Generation (SQL queries and HTML responses) → A: Claude Opus 4.5 (model ID: claude-opus-4-5-20251101) via Anthropic API
+- Q: Embedding Model for Semantic Search → A: OpenAI text-embedding-3-small (1536 dimensions) via OpenAI API
 - Q: Cross-Dataset Query Default Behavior → A: Query all datasets by default
 - Q: Multiple Device Session Management → A: Allow multiple concurrent sessions
 - Q: Dataset Deletion Confirmation → A: Require explicit confirmation dialog

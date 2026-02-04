@@ -150,6 +150,7 @@
 - [X] T032-QA [P] [GATE] Run `ruff format backend/src/ backend/tests/` → MUST pass (auto-format)
 - [X] T033-QA [P] [GATE] Run `mypy --strict backend/src/ backend/tests/` → MUST pass with ZERO errors
 - [X] T034-QA [P] [GATE] Run `pylint backend/src/ backend/tests/` → MUST achieve 10.00/10.00 score
+- [ ] T034a-QA [P] [GATE] Verify zero inline imports in backend/src/ and backend/tests/ using grep pattern check: `grep -r "^    from " backend/src backend/tests` → MUST return empty (all imports at top of file per PEP 8 and Constitution)
 - [X] T035-QA [P] [GATE] Run `python scripts/check_local_var_types.py backend/src/**/*.py backend/tests/**/*.py` → MUST pass (verify explicit type annotations on all local variables)
 - [ ] T036-QA [P] [GATE] Verify Pylance analysis → MUST have zero errors and zero warnings in VS Code Problems panel (Manual verification required by user in IDE)
 - [X] T037-QA [P] [GATE] Verify thread-based concurrency compliance → Audit code for async/await patterns, ensure ConnectionPool (not AsyncConnectionPool), validate all FastAPI handlers use def (not async def) per Constitution Principle VI
