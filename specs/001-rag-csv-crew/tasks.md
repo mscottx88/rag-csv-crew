@@ -323,7 +323,7 @@
 #### Semantic Search Implementation (US2)
 
 - [X] T111-IMPL [US2-IMPL] Implement embedding generation service in backend/src/services/vector_search.py using OpenAI → ✅ T098-TEST passing
-- [ ] T112-IMPL [US2-IMPL] Implement column mapping embedding generation in backend/src/services/ingestion.py → Make T099-TEST pass
+- [X] T112-IMPL [US2-IMPL] Implement column mapping embedding generation in backend/src/services/ingestion.py → ✅ T099-TEST passing
 - [ ] T113-IMPL [US2-IMPL] Create pgvector HNSW index for column_mappings.embedding per data-model.md → Make T100-TEST pass
 - [X] T114-IMPL [US2-IMPL] Implement vector similarity search in backend/src/services/vector_search.py → ✅ T101-TEST will pass (find_similar_columns implemented)
 

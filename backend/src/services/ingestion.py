@@ -708,8 +708,8 @@ def generate_column_embeddings(
     vector_service: VectorSearchService = VectorSearchService(pool=pool)
     schema_name: str = f"{username}_schema"
 
-    # Collect texts to embed (column_name + description if available)
-    texts_to_embed: list[str] = []
+    # Generate embeddings for each column
+    embeddings: list[list[float]] = []
     column_names: list[str] = []
 
     for col in columns:
@@ -718,18 +718,16 @@ def generate_column_embeddings(
 
         # Create embedding text: "column_name description"
         embedding_text: str = f"{column_name} {description}".strip()
-        texts_to_embed.append(embedding_text)
-        column_names.append(column_name)
 
-    # Generate embeddings in batch (more efficient)
-    try:
-        embeddings: list[list[float]] = vector_service.generate_embeddings_batch(
-            texts_to_embed
-        )
-    except Exception as e:
-        raise RuntimeError(
-            f"Failed to generate embeddings for dataset {dataset_id}: {e}"
-        ) from e
+        # Generate embedding for this column
+        try:
+            embedding: list[float] = vector_service.generate_embedding(embedding_text)
+            embeddings.append(embedding)
+            column_names.append(column_name)
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to generate embedding for column {column_name}: {e}"
+            ) from e
 
     # Update column_mappings with embeddings
     try:
@@ -753,3 +751,44 @@ def generate_column_embeddings(
         raise RuntimeError(
             f"Failed to store embeddings for dataset {dataset_id}: {e}"
         ) from e
+
+
+class IngestionService:
+    """Service class for CSV ingestion with embedding generation.
+
+    Provides object-oriented interface to ingestion functionality,
+    primarily for testing purposes.
+    """
+
+    def __init__(self, pool: ConnectionPool) -> None:
+        """Initialize ingestion service.
+
+        Args:
+            pool: Database connection pool
+        """
+        self.pool: ConnectionPool = pool
+
+    def generate_column_embeddings(
+        self,
+        username: str,
+        dataset_id: str,
+        columns: list[dict[str, Any]]
+    ) -> None:
+        """Generate and store embeddings for column mappings.
+
+        Delegates to the module-level generate_column_embeddings function.
+
+        Args:
+            username: Username for schema isolation
+            dataset_id: Dataset UUID
+            columns: List of column dictionaries with name, data_type, description
+
+        Raises:
+            RuntimeError: If embedding generation or database update fails
+        """
+        generate_column_embeddings(
+            pool=self.pool,
+            username=username,
+            dataset_id=dataset_id,
+            columns=columns
+        )
