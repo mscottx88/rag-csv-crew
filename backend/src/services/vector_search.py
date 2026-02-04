@@ -1,9 +1,10 @@
-"""Vector search service for semantic column matching using OpenAI embeddings.
+"""Vector search service for semantic column matching using embeddings.
 
 Implements:
-- Embedding generation via OpenAI text-embedding-3-small (1536 dimensions)
+- Embedding generation via OpenAI text-embedding-3-small or Google Gemini (1536 dimensions)
 - Vector similarity search using pgvector cosine distance
 - Batch embedding generation for efficiency
+- Provider auto-detection (Google Gemini if GOOGLE_API_KEY set, else OpenAI)
 
 Constitutional Requirements:
 - Thread-based operations only (no async/await)
@@ -13,10 +14,18 @@ Constitutional Requirements:
 
 import os
 import re
-from typing import Any
+from typing import Any, Literal
 
 from openai import OpenAI
 from psycopg_pool import ConnectionPool
+
+# Google Generative AI imports (optional - only if GOOGLE_API_KEY is set)
+try:
+    import google.generativeai as genai  # type: ignore[import-untyped]
+
+    GOOGLE_AVAILABLE: bool = True
+except ImportError:
+    GOOGLE_AVAILABLE = False
 
 
 class VectorSearchService:
@@ -29,19 +38,38 @@ class VectorSearchService:
     def __init__(self, pool: ConnectionPool | None = None) -> None:
         """Initialize vector search service.
 
+        Auto-detects embedding provider:
+        - Google Gemini if GOOGLE_API_KEY is set (gemini-embedding-001)
+        - OpenAI if OPENAI_API_KEY is set (text-embedding-3-small)
+
         Args:
             pool: Optional database connection pool (for similarity search)
+
+        Raises:
+            ValueError: If neither GOOGLE_API_KEY nor OPENAI_API_KEY is set
         """
         self.pool: ConnectionPool | None = pool
-
-        # Initialize OpenAI client (synchronous)
-        api_key: str | None = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY environment variable not set")
-
-        self.client: OpenAI = OpenAI(api_key=api_key)
-        self.model: str = "text-embedding-3-small"
         self.embedding_dim: int = 1536
+
+        # Auto-detect provider (prefer Google if both are set)
+        google_api_key: str | None = os.getenv("GOOGLE_API_KEY")
+        openai_api_key: str | None = os.getenv("OPENAI_API_KEY")
+
+        if google_api_key and GOOGLE_AVAILABLE:
+            # Initialize Google Gemini client
+            genai.configure(api_key=google_api_key)
+            self.provider: Literal["google", "openai"] = "google"
+            self.model: str = "models/embedding-001"
+            self.client: Any = None  # Google uses module-level API
+        elif openai_api_key:
+            # Initialize OpenAI client (synchronous)
+            self.client = OpenAI(api_key=openai_api_key)
+            self.provider = "openai"
+            self.model = "text-embedding-3-small"
+        else:
+            raise ValueError(
+                "Neither GOOGLE_API_KEY nor OPENAI_API_KEY environment variable is set"
+            )
 
     def _normalize_text(self, text: str) -> str:
         """Normalize text by stripping and collapsing whitespace.
@@ -53,7 +81,7 @@ class VectorSearchService:
             Normalized text with single spaces
         """
         # Strip leading/trailing whitespace and collapse multiple spaces to single space
-        return re.sub(r'\s+', ' ', text.strip())
+        return re.sub(r"\s+", " ", text.strip())
 
     def generate_embedding(self, text: str) -> list[float]:
         """Generate embedding vector for a single text string.
@@ -66,26 +94,29 @@ class VectorSearchService:
 
         Raises:
             ValueError: If text is empty or whitespace-only
-            Exception: If OpenAI API call fails
+            Exception: If API call fails
         """
         # Normalize and validate input
         normalized_text: str = self._normalize_text(text)
         if not normalized_text:
             raise ValueError("Cannot generate embedding for empty text")
 
-        # Call OpenAI API (synchronous) - pass string directly for single input
-        response: Any = self.client.embeddings.create(
-            model=self.model, input=normalized_text
-        )
-
-        # Extract embedding from response
-        embedding: list[float] = response.data[0].embedding
+        # Call appropriate provider API
+        if self.provider == "google":
+            # Call Google Gemini API (synchronous)
+            response: Any = genai.embed_content(
+                model=self.model, content=normalized_text, task_type="retrieval_document"
+            )
+            embedding: list[float] = response["embedding"]
+        else:
+            # Call OpenAI API (synchronous) - pass string directly for single input
+            response = self.client.embeddings.create(model=self.model, input=normalized_text)
+            embedding = response.data[0].embedding
 
         # Validate dimensionality
         if len(embedding) != self.embedding_dim:
             raise ValueError(
-                f"Expected {self.embedding_dim}-dimensional embedding, "
-                f"got {len(embedding)}"
+                f"Expected {self.embedding_dim}-dimensional embedding, got {len(embedding)}"
             )
 
         return embedding
@@ -103,7 +134,7 @@ class VectorSearchService:
 
         Raises:
             ValueError: If texts list is empty or contains only whitespace
-            Exception: If OpenAI API call fails
+            Exception: If API call fails
         """
         if not texts:
             raise ValueError("Cannot generate embeddings for empty text list")
@@ -115,19 +146,28 @@ class VectorSearchService:
         if any(not text for text in normalized_texts):
             raise ValueError("Cannot generate embeddings for empty text strings")
 
-        # Call OpenAI API with batch (synchronous) - pass list for batch
-        response: Any = self.client.embeddings.create(
-            model=self.model, input=normalized_texts
-        )
-
-        # Extract embeddings (preserve order)
-        embeddings: list[list[float]] = [item.embedding for item in response.data]
+        # Call appropriate provider API with batch
+        embeddings: list[list[float]]
+        if self.provider == "google":
+            # Google Gemini batch embeddings (synchronous)
+            # NOTE: Google API processes batch as separate calls internally
+            embeddings = []
+            for normalized_text in normalized_texts:
+                gemini_response: Any = genai.embed_content(
+                    model=self.model, content=normalized_text, task_type="retrieval_document"
+                )
+                embeddings.append(gemini_response["embedding"])
+        else:
+            # Call OpenAI API with batch (synchronous) - pass list for batch
+            openai_response: Any = self.client.embeddings.create(
+                model=self.model, input=normalized_texts
+            )
+            # Extract embeddings (preserve order)
+            embeddings = [item.embedding for item in openai_response.data]
 
         # Validate count and dimensionality
         if len(embeddings) != len(texts):
-            raise ValueError(
-                f"Expected {len(texts)} embeddings, got {len(embeddings)}"
-            )
+            raise ValueError(f"Expected {len(texts)} embeddings, got {len(embeddings)}")
 
         for idx, embedding in enumerate(embeddings):
             if len(embedding) != self.embedding_dim:

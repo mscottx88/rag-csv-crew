@@ -549,7 +549,7 @@
 ### LLM Provider Configuration
 
 - [ ] T204b-POLISH [P] Add GROQ LLM provider support in backend/src/services/text_to_sql.py and backend/src/services/response_generator.py using model openai/gpt-oss-120b with GROQ_API_KEY environment variable (alternative to Claude Opus)
-- [ ] T204c-POLISH [P] Add Google Gemini embeddings provider support in backend/src/services/vector_search.py using model gemini-embedding-001 (1536 dimensions) with GOOGLE_API_KEY environment variable (alternative to OpenAI text-embedding-3-small)
+- [x] T204c-POLISH [P] Add Google Gemini embeddings provider support in backend/src/services/vector_search.py using model gemini-embedding-001 (1536 dimensions) with GOOGLE_API_KEY environment variable (alternative to OpenAI text-embedding-3-small)
 
 ### Performance Optimization
 
@@ -588,6 +588,7 @@
 - [ ] T226-REFACTOR [P] Address pylint TODO markers: Refactor query_execution.py, query_history.py function signatures to use keyword-only args or dataclasses (reduce too-many-positional-arguments)
 - [ ] T227-REFACTOR [P] Address pylint TODO markers: Create specific exception classes (QueryNotFoundException, ResponseNotFoundException, QueryCancelledException, QueryTimeoutException) to replace broad Exception usage
 - [ ] T228-REFACTOR [P] Address pylint TODO markers: Extract common exception handling pattern from auth.py and datasets.py into shared utility function in utils/exception_handlers.py to eliminate duplicate-code
+- [ ] T229-HOTFIX [US1-FIX] Fix SQL reserved keyword handling in CSV ingestion: Add column name sanitization function in backend/src/services/ingestion.py to detect and quote SQL reserved keywords (e.g., "group", "order", "select") during dynamic table creation per FR-002 to prevent "syntax error at or near" failures
 
 **Checkpoint**: Production-ready application with full test coverage, documentation, and constitutional compliance
 
@@ -595,14 +596,14 @@
 
 ## Task Summary
 
-**Total Tasks**: 226 (increased from 224 due to alternative LLM/embedding provider tasks)
+**Total Tasks**: 227 (increased from 226 due to SQL reserved keyword hotfix)
 - Phase 1 (Setup): 11 tasks (added constitution re-check gate)
 - Phase 2 (Foundational): 38 tasks (18 TEST, 1 VERIFY, 1 APPROVAL, 17 IMPL, 8 QA gates)
 - Phase 3 (User Story 1): 59 tasks (24 TEST, 1 VERIFY, 1 APPROVAL, 25 IMPL, 8 QA gates)
 - Phase 4 (User Story 2): 30 tasks (11 TEST, 1 VERIFY, 1 APPROVAL, 11 IMPL, 3 PERF, 3 QA gates)
 - Phase 5 (User Story 4): 47 tasks (18 TEST, 1 VERIFY, 1 APPROVAL, 20 IMPL, 4 PERF/QA gates)
 - Phase 6 (User Story 3): 23 tasks (8 TEST, 1 VERIFY, 1 APPROVAL, 8 IMPL, 3 PERF, 2 QA gates)
-- Phase 7 (Polish): 29 tasks (error handling, logging, LLM/embedding providers, optimization, security, documentation, final validation)
+- Phase 7 (Polish): 30 tasks (error handling, logging, LLM/embedding providers, optimization, security, documentation, hotfixes, final validation)
 
 **TDD Compliance**: ✅ All implementation tasks now have corresponding test tasks written FIRST
 **Quality Gates**: ✅ Moved into each phase (no longer deferred to end)
