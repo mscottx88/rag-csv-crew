@@ -25,6 +25,7 @@ from src.api.auth import router as auth_router
 from src.api.datasets import router as datasets_router
 from src.api.health import router as health_router
 from src.api.queries import router as queries_router
+from src.db.connection import initialize_global_pool, close_global_pool
 from src.models.config import AppConfig
 from src.utils.logging import (
     get_structured_logger,
@@ -204,6 +205,32 @@ def create_app() -> FastAPI:
     fastapi_app.include_router(datasets_router, prefix="", tags=["datasets"])
     fastapi_app.include_router(queries_router, prefix="", tags=["queries"])
     fastapi_app.include_router(health_router, prefix="", tags=["health"])
+
+    # Startup event: Initialize database connection pool
+    @fastapi_app.on_event("startup")
+    def startup_event() -> None:
+        """Initialize database connection pool on application startup."""
+        initialize_global_pool(config.db)
+        log_event(
+            logger=logger,
+            level="info",
+            event="database_pool_initialized",
+            user=None,
+            extra={"database": config.db.database},
+        )
+
+    # Shutdown event: Close database connection pool
+    @fastapi_app.on_event("shutdown")
+    def shutdown_event() -> None:
+        """Close database connection pool on application shutdown."""
+        close_global_pool()
+        log_event(
+            logger=logger,
+            level="info",
+            event="database_pool_closed",
+            user=None,
+            extra={},
+        )
 
     # Log application startup
     log_event(
