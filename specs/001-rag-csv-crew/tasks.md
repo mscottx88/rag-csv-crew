@@ -306,7 +306,7 @@
 
 #### Ambiguity Handling Tests (US2)
 
-- [X] T107-TEST [US2-TEST] Write unit tests for low-confidence detection in tests/unit/services/test_confidence_detection.py validating 60% threshold per FR-038 ✅
+- [X] T107-TEST [US2-TEST] Write unit tests for low-confidence detection in tests/unit/services/test_confidence_detection.py validating 60% clarification threshold per FR-038 and zero-confidence fallback (<40% threshold) returning "No semantic matches found" message per FR-048 ✅
 - [X] T108-TEST [US2-TEST] Write unit tests for clarification request generation in tests/unit/services/test_clarification.py validating multiple interpretation suggestions ✅
 
 ### Phase 4B: Verify Tests FAIL
@@ -543,6 +543,7 @@
 - [ ] T202-POLISH [P] Add structured logging for file operations in backend/src/services/ingestion.py per FR-024
 - [ ] T203-POLISH [P] Add structured logging for query processing with timing in backend/src/services/text_to_sql.py per FR-024
 - [ ] T204-POLISH [P] Add structured logging for errors with stack traces in backend/src/main.py per FR-024
+- [ ] T204a-POLISH [P] Implement log rotation with RotatingFileHandler (100MB per file, 30/90 day retention for standard/security logs) in backend/src/utils/logging.py per FR-024a
 
 ### Performance Optimization
 
@@ -563,9 +564,11 @@
 - [ ] T213-POLISH [P] Validate quickstart.md instructions (test full setup on fresh machine)
 - [ ] T214-POLISH [P] Create example CSV files in examples/ directory (sales.csv, customers.csv)
 - [ ] T215-POLISH [P] Add API documentation links to Swagger UI at /docs
-- [ ] T216-POLISH Create requirements traceability matrix in specs/001-rag-csv-crew/traceability-matrix.md mapping FR-001 to FR-047 to acceptance scenarios, success criteria, tasks per FR-045
+- [ ] T216-POLISH Create requirements traceability matrix in specs/001-rag-csv-crew/traceability-matrix.md mapping FR-001 to FR-048 to acceptance scenarios, success criteria, tasks per FR-045
+- [ ] T216a-POLISH-TEST Write validation script in tests/validation/test_traceability.py ensuring traceability matrix completeness (all FRs mapped to scenarios, all tasks mapped to FRs) per FR-045
 - [ ] T217-POLISH Add design system specification to specs/001-rag-csv-crew/design-system.md documenting HTML formatting standards (font sizes, spacing, contrast ratios WCAG 2.1 AA minimum) per FR-008
 - [ ] T218-POLISH Update FR-024 in spec.md to add log retention policy (daily/weekly rotation, 30/90 day retention, archival strategy)
+- [ ] T218a-POLISH Create edge case mapping document in specs/001-rag-csv-crew/edge-cases.md mapping all 9 identified edge cases to functional requirements per FR-046
 
 ### Final Validation
 
