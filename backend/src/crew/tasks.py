@@ -117,14 +117,14 @@ Output the HTML content only, starting with a containing element like <article> 
 
 
 def create_keyword_search_task(
-    agent: Agent, query_text: str, dataset_ids: list[str] | None
+    agent: Agent, query_text: str, dataset_ids: list[UUID] | None
 ) -> Task:
     """Create task for keyword-based full-text column search.
 
     Args:
         agent: Keyword Search agent
         query_text: Natural language query to search for
-        dataset_ids: Optional list of dataset IDs to filter results
+        dataset_ids: Optional list of dataset UUIDs to filter results
 
     Returns:
         Task configured for keyword search
@@ -169,14 +169,14 @@ Output a JSON list of matching columns with their relevance scores."""
 
 
 def create_vector_search_task(
-    agent: Agent, query_text: str, dataset_ids: list[str] | None
+    agent: Agent, query_text: str, dataset_ids: list[UUID] | None
 ) -> Task:
     """Create task for semantic vector similarity column search.
 
     Args:
         agent: Vector Search agent
         query_text: Natural language query to search for
-        dataset_ids: Optional list of dataset IDs to filter results
+        dataset_ids: Optional list of dataset UUIDs to filter results
 
     Returns:
         Task configured for vector similarity search
@@ -190,7 +190,8 @@ def create_vector_search_task(
         f"specific datasets: {dataset_ids}" if dataset_ids else "all available datasets"
     )
 
-    description: str = f"""Find columns that are semantically similar to the query using vector embeddings.
+    description: str = f"""Find columns that are semantically similar to the query using vector
+embeddings.
 
 Query: "{query_text}"
 Target Datasets: {dataset_info}
