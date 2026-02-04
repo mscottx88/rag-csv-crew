@@ -38,6 +38,8 @@ dependencies = [
     "crewai>=0.11.0",  # Multi-agent orchestration
     "anthropic>=0.8.0",  # Claude Opus API
     "openai>=1.6.0",  # OpenAI embeddings
+    "langchain-anthropic>=0.1.0",  # LangChain Anthropic integration
+    "langchain-groq>=0.1.0",  # LangChain GROQ integration
 
     # Authentication
     "python-jose[cryptography]>=3.3.0",  # JWT tokens
@@ -204,6 +206,8 @@ pretty = true
 module = [
     "crewai.*",
     "anthropic.*",
+    "langchain_anthropic.*",
+    "langchain_groq.*",
     "testcontainers.*",
     "pgvector.*",
     "chardet",
@@ -235,6 +239,7 @@ load-plugins = [
 max-line-length = 100
 disable = [
     "missing-module-docstring",  # We'll add these during implementation
+    "R6103",  # consider-using-assignment-expr (walrus operator is optional style)
 ]
 
 [tool.pylint.design]

@@ -10,7 +10,11 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
+from typing import Any
+
 from crewai import Agent
+
+from backend.src.utils.llm_config import get_llm_for_crew
 
 
 def create_sql_generator_agent() -> Agent:
@@ -28,9 +32,13 @@ def create_sql_generator_agent() -> Agent:
     - Security: Emphasizes SQL injection prevention
     - Knowledge: Database schema, SQL best practices
     """
+    llm: Any = get_llm_for_crew()
     agent: Agent = Agent(
         role="Database Query Specialist",
-        goal="Convert natural language questions into accurate, secure SQL queries that retrieve the requested data",
+        goal=(
+            "Convert natural language questions into accurate, secure SQL queries "
+            "that retrieve the requested data"
+        ),
         backstory="""You are an expert database analyst who specializes in understanding
         user questions and translating them into precise SQL queries. You have deep knowledge
         of SQL syntax, query optimization, and database security best practices.
@@ -44,6 +52,7 @@ def create_sql_generator_agent() -> Agent:
         verbose=True,
         allow_delegation=False,
         tools=[],  # Tools will be added for schema inspection if needed
+        llm=llm,
     )
     return agent
 
@@ -63,9 +72,13 @@ def create_result_analyst_agent() -> Agent:
     - Focus: Readability, accessibility, user-friendliness
     - Output: Structured HTML with tables, lists, headings
     """
+    llm: Any = get_llm_for_crew()
     agent: Agent = Agent(
         role="Data Presentation Specialist",
-        goal="Format query results into clear, readable HTML that helps users understand their data",
+        goal=(
+            "Format query results into clear, readable HTML "
+            "that helps users understand their data"
+        ),
         backstory="""You are a data visualization expert who excels at presenting
         information in a user-friendly format. You understand how to structure HTML
         documents using semantic HTML5 tags for maximum readability and accessibility.
@@ -84,6 +97,7 @@ def create_result_analyst_agent() -> Agent:
         verbose=True,
         allow_delegation=False,
         tools=[],  # Tools will be added for formatting utilities if needed
+        llm=llm,
     )
     return agent
 
@@ -144,7 +158,10 @@ def create_vector_search_agent() -> Agent:
     """
     agent: Agent = Agent(
         role="Semantic Search Specialist",
-        goal="Find columns using semantic meaning and concept similarity rather than exact keyword matches",
+        goal=(
+            "Find columns using semantic meaning and concept similarity "
+            "rather than exact keyword matches"
+        ),
         backstory="""You are a semantic search expert who specializes in understanding the
         meaning behind queries and finding columns based on conceptual similarity rather than
         just keyword matches. You work with vector embeddings and cosine distance to identify
