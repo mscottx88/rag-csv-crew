@@ -42,9 +42,9 @@ class TestTextToSQLService:
 
         # Mock CrewAI response
         mock_crew_instance: MagicMock = MagicMock()
-        mock_crew_instance.kickoff.return_value = MagicMock(
-            result="SELECT * FROM sales_data WHERE region = %s LIMIT 10"
-        )
+        mock_result: MagicMock = MagicMock()
+        mock_result.raw = "SELECT * FROM sales_data WHERE region = %s LIMIT 10"
+        mock_crew_instance.kickoff.return_value = mock_result
         mock_crew.return_value = mock_crew_instance
 
         service: TextToSQLService = TextToSQLService()
@@ -88,14 +88,14 @@ class TestTextToSQLService:
         from backend.src.services.text_to_sql import TextToSQLService
 
         mock_crew_instance: MagicMock = MagicMock()
-        mock_crew_instance.kickoff.return_value = MagicMock(
-            result="""
+        mock_result: MagicMock = MagicMock()
+        mock_result.raw = """
             SELECT c.name, SUM(o.amount) AS total
             FROM customers_data c
             JOIN orders_data o ON c.id = o.customer_id
             GROUP BY c.name
             """
-        )
+        mock_crew_instance.kickoff.return_value = mock_result
         mock_crew.return_value = mock_crew_instance
 
         service: TextToSQLService = TextToSQLService()

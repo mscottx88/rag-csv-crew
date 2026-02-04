@@ -42,8 +42,8 @@ class TestResponseGenerator:
 
         # Mock CrewAI response with HTML
         mock_crew_instance: MagicMock = MagicMock()
-        mock_crew_instance.kickoff.return_value = MagicMock(
-            result="""
+        mock_result: MagicMock = MagicMock()
+        mock_result.raw = """
             <div class="query-response">
                 <h2>Top 5 Sales by Revenue</h2>
                 <table>
@@ -57,7 +57,7 @@ class TestResponseGenerator:
                 </table>
             </div>
             """
-        )
+        mock_crew_instance.kickoff.return_value = mock_result
         mock_crew.return_value = mock_crew_instance
 
         generator: ResponseGenerator = ResponseGenerator()
@@ -104,8 +104,8 @@ class TestResponseGenerator:
         from backend.src.services.response_generator import ResponseGenerator
 
         mock_crew_instance: MagicMock = MagicMock()
-        mock_crew_instance.kickoff.return_value = MagicMock(
-            result="""
+        mock_result: MagicMock = MagicMock()
+        mock_result.raw = """
             <article>
                 <h1>Query Results</h1>
                 <section>
@@ -122,7 +122,7 @@ class TestResponseGenerator:
                 </section>
             </article>
             """
-        )
+        mock_crew_instance.kickoff.return_value = mock_result
         mock_crew.return_value = mock_crew_instance
 
         generator: ResponseGenerator = ResponseGenerator()
@@ -162,9 +162,9 @@ class TestResponseGenerator:
         from backend.src.services.response_generator import ResponseGenerator
 
         mock_crew_instance: MagicMock = MagicMock()
-        mock_crew_instance.kickoff.return_value = MagicMock(
-            result="<p>The total revenue is <strong>$1,234.56</strong> across 42 transactions.</p>"
-        )
+        mock_result: MagicMock = MagicMock()
+        mock_result.raw = "<p>The total revenue is <strong>$1,234.56</strong> across 42 transactions.</p>"
+        mock_crew_instance.kickoff.return_value = mock_result
         mock_crew.return_value = mock_crew_instance
 
         generator: ResponseGenerator = ResponseGenerator()
@@ -203,9 +203,9 @@ class TestResponseGenerator:
         from backend.src.services.response_generator import ResponseGenerator
 
         mock_crew_instance: MagicMock = MagicMock()
-        mock_crew_instance.kickoff.return_value = MagicMock(
-            result="<p>No results found for your query. Try rephrasing your question or check your data.</p>"
-        )
+        mock_result: MagicMock = MagicMock()
+        mock_result.raw = "<p>No results found for your query. Try rephrasing your question or check your data.</p>"
+        mock_crew_instance.kickoff.return_value = mock_result
         mock_crew.return_value = mock_crew_instance
 
         generator: ResponseGenerator = ResponseGenerator()
@@ -271,7 +271,9 @@ class TestResponseGenerator:
         from backend.src.services.response_generator import ResponseGenerator
 
         mock_crew_instance: MagicMock = MagicMock()
-        mock_crew_instance.kickoff.return_value = MagicMock(result="<p>The average is 42</p>")
+        mock_result: MagicMock = MagicMock()
+        mock_result.raw = "<p>The average is 42</p>"
+        mock_crew_instance.kickoff.return_value = mock_result
         mock_crew.return_value = mock_crew_instance
 
         generator: ResponseGenerator = ResponseGenerator()
