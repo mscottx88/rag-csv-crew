@@ -546,6 +546,11 @@
 - [ ] T204-POLISH [P] Add structured logging for errors with stack traces in backend/src/main.py per FR-024
 - [ ] T204a-POLISH [P] Implement log rotation with RotatingFileHandler (100MB per file, 30/90 day retention for standard/security logs) in backend/src/utils/logging.py per FR-024a
 
+### LLM Provider Configuration
+
+- [ ] T204b-POLISH [P] Add GROQ LLM provider support in backend/src/services/text_to_sql.py and backend/src/services/response_generator.py using model openai/gpt-oss-120b with GROQ_API_KEY environment variable (alternative to Claude Opus)
+- [ ] T204c-POLISH [P] Add Google Gemini embeddings provider support in backend/src/services/vector_search.py using model gemini-embedding-001 (1536 dimensions) with GOOGLE_API_KEY environment variable (alternative to OpenAI text-embedding-3-small)
+
 ### Performance Optimization
 
 - [ ] T205-POLISH Implement connection pool tuning in backend/src/db/connection.py based on load test results
@@ -590,14 +595,14 @@
 
 ## Task Summary
 
-**Total Tasks**: 224 (increased from 129 due to TDD restructure)
+**Total Tasks**: 226 (increased from 224 due to alternative LLM/embedding provider tasks)
 - Phase 1 (Setup): 11 tasks (added constitution re-check gate)
 - Phase 2 (Foundational): 38 tasks (18 TEST, 1 VERIFY, 1 APPROVAL, 17 IMPL, 8 QA gates)
 - Phase 3 (User Story 1): 59 tasks (24 TEST, 1 VERIFY, 1 APPROVAL, 25 IMPL, 8 QA gates)
 - Phase 4 (User Story 2): 30 tasks (11 TEST, 1 VERIFY, 1 APPROVAL, 11 IMPL, 3 PERF, 3 QA gates)
 - Phase 5 (User Story 4): 47 tasks (18 TEST, 1 VERIFY, 1 APPROVAL, 20 IMPL, 4 PERF/QA gates)
 - Phase 6 (User Story 3): 23 tasks (8 TEST, 1 VERIFY, 1 APPROVAL, 8 IMPL, 3 PERF, 2 QA gates)
-- Phase 7 (Polish): 27 tasks (error handling, logging, optimization, security, documentation, final validation)
+- Phase 7 (Polish): 29 tasks (error handling, logging, LLM/embedding providers, optimization, security, documentation, final validation)
 
 **TDD Compliance**: ✅ All implementation tasks now have corresponding test tasks written FIRST
 **Quality Gates**: ✅ Moved into each phase (no longer deferred to end)
