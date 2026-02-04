@@ -22,6 +22,9 @@ import uuid
 import chardet
 from psycopg import Connection
 from psycopg.types.json import Jsonb
+from psycopg_pool import ConnectionPool
+
+from backend.src.services.vector_search import VectorSearchService
 
 
 def detect_csv_format(csv_file: BytesIO) -> dict[str, Any]:
@@ -678,3 +681,75 @@ def check_filename_conflict(
         "conflict": True,
         "suggested_filename": suggested_filename,
     }
+
+
+def generate_column_embeddings(
+    pool: ConnectionPool,
+    username: str,
+    dataset_id: str,
+    columns: list[dict[str, Any]]
+) -> None:
+    """Generate and store embeddings for column mappings.
+
+    Creates vector embeddings for each column using OpenAI text-embedding-3-small
+    and stores them in the column_mappings table for semantic search.
+
+    Args:
+        pool: Database connection pool
+        username: Username for schema isolation
+        dataset_id: Dataset UUID
+        columns: List of column dictionaries with name, data_type, description
+
+    Raises:
+        RuntimeError: If embedding generation or database update fails
+
+    Per FR-038: Semantic search using vector embeddings
+    """
+    vector_service: VectorSearchService = VectorSearchService(pool=pool)
+    schema_name: str = f"{username}_schema"
+
+    # Collect texts to embed (column_name + description if available)
+    texts_to_embed: list[str] = []
+    column_names: list[str] = []
+
+    for col in columns:
+        column_name: str = col.get("name", col.get("column_name", ""))
+        description: str = col.get("description", "")
+
+        # Create embedding text: "column_name description"
+        embedding_text: str = f"{column_name} {description}".strip()
+        texts_to_embed.append(embedding_text)
+        column_names.append(column_name)
+
+    # Generate embeddings in batch (more efficient)
+    try:
+        embeddings: list[list[float]] = vector_service.generate_embeddings_batch(
+            texts_to_embed
+        )
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to generate embeddings for dataset {dataset_id}: {e}"
+        ) from e
+
+    # Update column_mappings with embeddings
+    try:
+        with pool.connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(f"SET search_path TO {schema_name}, public")
+
+                update_sql: str = """
+                    UPDATE column_mappings
+                    SET embedding = %s
+                    WHERE dataset_id = %s AND column_name = %s
+                """
+
+                # Update each column with its embedding
+                for column_name, embedding in zip(column_names, embeddings):
+                    cur.execute(update_sql, (embedding, dataset_id, column_name))
+
+            conn.commit()
+
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to store embeddings for dataset {dataset_id}: {e}"
+        ) from e
