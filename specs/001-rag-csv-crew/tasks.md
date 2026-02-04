@@ -291,27 +291,27 @@
 
 #### Semantic Search Tests (US2)
 
-- [ ] T098-TEST [US2-TEST] Write unit tests for embedding generation service in tests/unit/services/test_vector_search_embeddings.py validating OpenAI text-embedding-3-small integration
-- [ ] T099-TEST [US2-TEST] Write integration tests for column mapping embeddings in tests/integration/test_column_embeddings.py validating embedding generation on CSV upload
-- [ ] T100-TEST [US2-TEST] Write integration tests for pgvector HNSW index in tests/integration/test_vector_index.py validating index creation, query performance
-- [ ] T101-TEST [US2-TEST] Write integration tests for vector similarity search in tests/integration/test_vector_similarity.py validating cosine distance queries, ranking per data-model.md
+- [X] T098-TEST [US2-TEST] Write unit tests for embedding generation service in tests/unit/services/test_vector_search_embeddings.py validating OpenAI text-embedding-3-small integration ✅
+- [X] T099-TEST [US2-TEST] Write integration tests for column mapping embeddings in tests/integration/test_column_embeddings.py validating embedding generation on CSV upload ✅
+- [X] T100-TEST [US2-TEST] Write integration tests for pgvector HNSW index in tests/integration/test_vector_index.py validating index creation, query performance ✅
+- [X] T101-TEST [US2-TEST] Write integration tests for vector similarity search in tests/integration/test_vector_similarity.py validating cosine distance queries, ranking per data-model.md ✅
 
 #### Hybrid Search Tests (US2)
 
-- [ ] T102-TEST [P] [US2-TEST] Write unit tests for Keyword Search agent in tests/unit/crew/test_keyword_agent.py validating full-text search using ts_rank
-- [ ] T103-TEST [P] [US2-TEST] Write unit tests for Vector Search agent in tests/unit/crew/test_vector_agent.py validating semantic similarity specialist
-- [ ] T104-TEST [US2-TEST] Write unit tests for full-text search service in tests/unit/services/test_fulltext_search.py validating _fulltext tsvector queries
-- [ ] T105-TEST [US2-TEST] Write integration tests for hybrid search orchestration in tests/integration/test_hybrid_search.py validating parallel execution (exact 40%, full-text 30%, vector 30%), result fusion, weighted scoring per FR-006
-- [ ] T106-TEST [US2-TEST] Write integration tests for result de-duplication in tests/integration/test_hybrid_deduplication.py validating combined results don't contain duplicates
+- [X] T102-TEST [P] [US2-TEST] Write unit tests for Keyword Search agent in tests/unit/crew/test_keyword_agent.py validating full-text search using ts_rank ✅
+- [X] T103-TEST [P] [US2-TEST] Write unit tests for Vector Search agent in tests/unit/crew/test_vector_agent.py validating semantic similarity specialist ✅
+- [X] T104-TEST [US2-TEST] Write unit tests for full-text search service in tests/unit/services/test_fulltext_search.py validating _fulltext tsvector queries ✅
+- [X] T105-TEST [US2-TEST] Write integration tests for hybrid search orchestration in tests/integration/test_hybrid_search.py validating parallel execution (exact 40%, full-text 30%, vector 30%), result fusion, weighted scoring per FR-006 ✅
+- [X] T106-TEST [US2-TEST] Write integration tests for result de-duplication in tests/integration/test_hybrid_deduplication.py validating combined results don't contain duplicates ✅
 
 #### Ambiguity Handling Tests (US2)
 
-- [ ] T107-TEST [US2-TEST] Write unit tests for low-confidence detection in tests/unit/services/test_confidence_detection.py validating 60% threshold per FR-038
-- [ ] T108-TEST [US2-TEST] Write unit tests for clarification request generation in tests/unit/services/test_clarification.py validating multiple interpretation suggestions
+- [X] T107-TEST [US2-TEST] Write unit tests for low-confidence detection in tests/unit/services/test_confidence_detection.py validating 60% threshold per FR-038 ✅
+- [X] T108-TEST [US2-TEST] Write unit tests for clarification request generation in tests/unit/services/test_clarification.py validating multiple interpretation suggestions ✅
 
 ### Phase 4B: Verify Tests FAIL
 
-- [ ] T109-VERIFY [US2-GATE] Run pytest on all Phase 4A tests → MUST see failures
+- [X] T109-VERIFY [US2-GATE] Run pytest on all Phase 4A tests → ✅ Verified: 4 import errors (modules not implemented yet - expected in TDD RED phase)
 
 ### Phase 4C: User Approval Gate
 
