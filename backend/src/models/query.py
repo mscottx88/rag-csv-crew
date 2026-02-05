@@ -12,14 +12,14 @@ Constitutional Requirements:
 """
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class QueryStatus(str, Enum):
+class QueryStatus(StrEnum):
     """Query processing status.
 
     Enum values match database CHECK constraint in data-model.md

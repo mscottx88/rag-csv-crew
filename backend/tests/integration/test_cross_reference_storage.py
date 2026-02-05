@@ -11,11 +11,9 @@ Requirements:
 - Validate relationship_type and confidence_score constraints
 """
 
-import pytest
-from typing import Any
-from psycopg_pool import ConnectionPool
-from psycopg import Connection
 
+from psycopg_pool import ConnectionPool
+import pytest
 from src.services.ingestion import IngestionService
 
 
@@ -43,7 +41,7 @@ class TestCrossReferenceStorage:
         #   - relationship_type = 'foreign_key'
         #   - confidence_score (0.9+)
         #   - detected_at timestamp
-        assert False, "Implementation needed: store_cross_reference method"
+        raise AssertionError("Implementation needed: store_cross_reference method")
 
     def test_unique_constraint_on_relationship(
         self,
@@ -56,7 +54,7 @@ class TestCrossReferenceStorage:
         # Try to insert duplicate cross-reference
         # Expected: Second insert updates existing row or is silently ignored
         # (UNIQUE constraint: source_dataset_id, source_column, target_dataset_id, target_column)
-        assert False, "Implementation needed: UNIQUE constraint handling"
+        raise AssertionError("Implementation needed: UNIQUE constraint handling")
 
     def test_relationship_type_validation(
         self,
@@ -69,7 +67,7 @@ class TestCrossReferenceStorage:
         # Try to store relationship with invalid type
         # Expected: CHECK constraint error or validation error
         # Allowed: 'foreign_key', 'shared_values', 'similar_values'
-        assert False, "Implementation needed: relationship_type CHECK constraint"
+        raise AssertionError("Implementation needed: relationship_type CHECK constraint")
 
     def test_confidence_score_validation(
         self,
@@ -82,7 +80,7 @@ class TestCrossReferenceStorage:
         # Try to store relationship with invalid confidence
         # Expected: CHECK constraint error
         # Valid range: 0.0 <= confidence_score <= 1.0
-        assert False, "Implementation needed: confidence_score CHECK constraint"
+        raise AssertionError("Implementation needed: confidence_score CHECK constraint")
 
     def test_cascade_delete_on_dataset_removal(
         self,
@@ -95,7 +93,7 @@ class TestCrossReferenceStorage:
         # Create cross-references, then delete source dataset
         # Expected: Related cross-references automatically deleted
         # (ON DELETE CASCADE on source_dataset_id and target_dataset_id)
-        assert False, "Implementation needed: verify CASCADE delete behavior"
+        raise AssertionError("Implementation needed: verify CASCADE delete behavior")
 
     def test_store_multiple_relationships_for_dataset(
         self,
@@ -107,7 +105,7 @@ class TestCrossReferenceStorage:
         # RED: Implementation needed
         # Upload dataset with multiple columns matching other datasets
         # Expected: Multiple cross_references rows created
-        assert False, "Implementation needed: multi-relationship storage"
+        raise AssertionError("Implementation needed: multi-relationship storage")
 
     def test_bidirectional_relationship_storage(
         self,
@@ -120,7 +118,7 @@ class TestCrossReferenceStorage:
         # If A.col1 references B.col2, should also store B.col2 references A.col1?
         # Or store once with proper source/target designation?
         # Expected: Clear directionality (foreign_key: many-to-one direction)
-        assert False, "Implementation needed: relationship directionality logic"
+        raise AssertionError("Implementation needed: relationship directionality logic")
 
     def test_query_cross_references_by_dataset(
         self,
@@ -132,7 +130,7 @@ class TestCrossReferenceStorage:
         # RED: Implementation needed
         # Query: Find all relationships for dataset_id
         # Expected: Use idx_cross_refs_source and idx_cross_refs_target indexes
-        assert False, "Implementation needed: cross-reference query methods"
+        raise AssertionError("Implementation needed: cross-reference query methods")
 
     def test_update_cross_reference_on_redetection(
         self,
@@ -144,4 +142,4 @@ class TestCrossReferenceStorage:
         # RED: Implementation needed
         # Re-upload dataset, re-run detection
         # Expected: Update confidence_score and detected_at timestamp
-        assert False, "Implementation needed: UPDATE on conflict logic"
+        raise AssertionError("Implementation needed: UPDATE on conflict logic")

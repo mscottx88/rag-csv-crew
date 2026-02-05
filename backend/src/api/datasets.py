@@ -397,7 +397,9 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
             if underlying_pool_for_xref is None:
                 raise RuntimeError("Connection pool not initialized")
 
-            from src.services.ingestion import IngestionService
+            from src.services.ingestion import (
+                IngestionService,
+            )
 
             ingestion_service: IngestionService = IngestionService(underlying_pool_for_xref)
             ref_count: int = ingestion_service.detect_and_store_cross_references(

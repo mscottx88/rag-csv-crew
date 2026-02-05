@@ -17,7 +17,6 @@ Constitutional Requirements:
 
 from typing import Any
 
-from psycopg import Connection
 from psycopg_pool import ConnectionPool
 
 
@@ -93,13 +92,12 @@ class CrossReferenceService:
                 "relationship_type": "foreign_key",
                 "confidence_score": confidence,
             }
-        elif overlap_ratio >= 0.3:
+        if overlap_ratio >= 0.3:
             return {
                 "relationship_type": "shared_values",
                 "confidence_score": confidence,
             }
-        else:
-            return None
+        return None
 
     def _normalize_values(self, values: list[Any]) -> set[Any]:
         """Normalize values for comparison (case-insensitive for strings).
@@ -256,52 +254,51 @@ class CrossReferenceService:
         user_schema: str = f"{username}_schema"
         cross_references: list[dict[str, Any]] = []
 
-        with self.pool.connection() as conn:
-            with conn.cursor() as cur:
-                # Set search path
-                cur.execute(f"SET search_path TO {user_schema}, public")
+        with self.pool.connection() as conn, conn.cursor() as cur:
+            # Set search path
+            cur.execute(f"SET search_path TO {user_schema}, public")
 
-                # Get columns from both datasets
-                source_columns: list[tuple[str, ...]] = self._get_columns(
-                    cur, source_dataset_id
-                )
-                target_columns: list[tuple[str, ...]] = self._get_columns(
-                    cur, target_dataset_id
-                )
+            # Get columns from both datasets
+            source_columns: list[tuple[str, ...]] = self._get_columns(
+                cur, source_dataset_id
+            )
+            target_columns: list[tuple[str, ...]] = self._get_columns(
+                cur, target_dataset_id
+            )
 
-                # Compare all column pairs
-                for source_col_name, source_col_type in source_columns:
-                    for target_col_name, target_col_type in target_columns:
-                        # Only compare columns of compatible types
-                        if not self._are_types_compatible(
-                            source_col_type, target_col_type
-                        ):
-                            continue
+            # Compare all column pairs
+            for source_col_name, source_col_type in source_columns:
+                for target_col_name, target_col_type in target_columns:
+                    # Only compare columns of compatible types
+                    if not self._are_types_compatible(
+                        source_col_type, target_col_type
+                    ):
+                        continue
 
-                        # Get sample values from both columns
-                        source_values: list[Any] = self._get_column_values(
-                            cur, source_dataset_id, source_col_name
+                    # Get sample values from both columns
+                    source_values: list[Any] = self._get_column_values(
+                        cur, source_dataset_id, source_col_name
+                    )
+                    target_values: list[Any] = self._get_column_values(
+                        cur, target_dataset_id, target_col_name
+                    )
+
+                    # Classify relationship
+                    result: dict[str, Any] | None = self.classify_relationship(
+                        source_values, target_values, use_fuzzy=True
+                    )
+
+                    if result and result["confidence_score"] >= min_confidence:
+                        cross_references.append(
+                            {
+                                "source_dataset_id": source_dataset_id,
+                                "source_column": source_col_name,
+                                "target_dataset_id": target_dataset_id,
+                                "target_column": target_col_name,
+                                "relationship_type": result["relationship_type"],
+                                "confidence_score": result["confidence_score"],
+                            }
                         )
-                        target_values: list[Any] = self._get_column_values(
-                            cur, target_dataset_id, target_col_name
-                        )
-
-                        # Classify relationship
-                        result: dict[str, Any] | None = self.classify_relationship(
-                            source_values, target_values, use_fuzzy=True
-                        )
-
-                        if result and result["confidence_score"] >= min_confidence:
-                            cross_references.append(
-                                {
-                                    "source_dataset_id": source_dataset_id,
-                                    "source_column": source_col_name,
-                                    "target_dataset_id": target_dataset_id,
-                                    "target_column": target_col_name,
-                                    "relationship_type": result["relationship_type"],
-                                    "confidence_score": result["confidence_score"],
-                                }
-                            )
 
         return cross_references
 
@@ -391,7 +388,4 @@ class CrossReferenceService:
             return True
         if type1 in text_types and type2 in text_types:
             return True
-        if type1 in date_types and type2 in date_types:
-            return True
-
-        return False
+        return bool(type1 in date_types and type2 in date_types)

@@ -12,10 +12,9 @@ Requirements:
 - Respect user dataset_ids filter if provided
 """
 
-import pytest
-from typing import Any
-from psycopg_pool import ConnectionPool
 
+from psycopg_pool import ConnectionPool
+import pytest
 from src.services.text_to_sql import TextToSQLService
 
 
@@ -38,7 +37,7 @@ class TestDatasetRelationshipResolution:
         query: str = "Show all customers"
         available_datasets: list[str] = ["customers", "orders", "products"]
 
-        # Expected: ["customers"]
+        # Expected: ["customers"]  # noqa: ERA001
         result: list[str] = text_to_sql_service.resolve_datasets(
             username=test_username,
             query_text=query,
@@ -46,7 +45,7 @@ class TestDatasetRelationshipResolution:
         )
 
         assert "customers" in result
-        assert False, "Implementation needed: resolve_datasets method"
+        raise AssertionError("Implementation needed: resolve_datasets method")
 
     def test_identify_multiple_datasets_from_question(
         self,
@@ -58,7 +57,7 @@ class TestDatasetRelationshipResolution:
         query: str = "Which customers have orders with high-value products?"
         available_datasets: list[str] = ["customers", "orders", "products"]
 
-        # Expected: ["customers", "orders", "products"]
+        # Expected: ["customers", "orders", "products"]  # noqa: ERA001
         result: list[str] = text_to_sql_service.resolve_datasets(
             username=test_username,
             query_text=query,
@@ -66,7 +65,7 @@ class TestDatasetRelationshipResolution:
         )
 
         assert set(result) == {"customers", "orders", "products"}
-        assert False, "Implementation needed: multi-dataset identification"
+        raise AssertionError("Implementation needed: multi-dataset identification")
 
     def test_follow_cross_reference_chain(
         self,
@@ -75,12 +74,11 @@ class TestDatasetRelationshipResolution:
     ) -> None:
         """Should follow cross-references to find related datasets."""
         # RED: Implementation needed
-        query: str = "Show customer names"  # Only mentions customers
         # But cross_references show: customers ↔ orders ↔ products
         # If query needs aggregation, may need to include related datasets
 
         # Expected: Follow relationship chain based on query intent
-        assert False, "Implementation needed: cross-reference traversal"
+        raise AssertionError("Implementation needed: cross-reference traversal")
 
     def test_respect_user_dataset_filter(
         self,
@@ -103,7 +101,7 @@ class TestDatasetRelationshipResolution:
 
         assert set(result) == {"customers", "orders"}
         assert "products" not in result
-        assert False, "Implementation needed: dataset_ids filtering"
+        raise AssertionError("Implementation needed: dataset_ids filtering")
 
     def test_fuzzy_match_dataset_names(
         self,
@@ -123,7 +121,7 @@ class TestDatasetRelationshipResolution:
         )
 
         assert "customers" in result
-        assert False, "Implementation needed: fuzzy dataset name matching"
+        raise AssertionError("Implementation needed: fuzzy dataset name matching")
 
     def test_identify_by_column_names(
         self,
@@ -144,7 +142,7 @@ class TestDatasetRelationshipResolution:
         )
 
         assert "orders" in result
-        assert False, "Implementation needed: column-based identification"
+        raise AssertionError("Implementation needed: column-based identification")
 
     def test_handle_ambiguous_references(
         self,
@@ -153,12 +151,10 @@ class TestDatasetRelationshipResolution:
     ) -> None:
         """Should handle ambiguous dataset references."""
         # RED: Implementation needed
-        query: str = "Show all data"  # Ambiguous - could be any dataset
-        available_datasets: list[str] = ["customers", "orders", "products"]
 
         # Expected: Return all datasets or ask for clarification?
         # Or use heuristics (most recently uploaded, most queried)?
-        assert False, "Implementation needed: ambiguity resolution strategy"
+        raise AssertionError("Implementation needed: ambiguity resolution strategy")
 
     def test_return_cross_references_for_resolved_datasets(
         self,
@@ -169,4 +165,4 @@ class TestDatasetRelationshipResolution:
         # RED: Implementation needed
         # After identifying datasets, return their relationships
         # Expected: List of cross_references for SQL JOIN generation
-        assert False, "Implementation needed: cross_references retrieval"
+        raise AssertionError("Implementation needed: cross_references retrieval")

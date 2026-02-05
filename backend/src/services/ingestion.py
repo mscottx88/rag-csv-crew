@@ -218,7 +218,7 @@ def _infer_value_type(value: str) -> str:
         # Check for date patterns: YYYY-MM-DD, MM/DD/YYYY, etc.
         try:
             # Try common date formats
-            from dateutil import parser
+            from dateutil import parser  # noqa: PLC0415 (lazy import, optional dependency)
 
             parsed: datetime = parser.parse(value)
             if parsed:
@@ -808,58 +808,59 @@ class IngestionService:
         Raises:
             RuntimeError: If cross-reference detection or storage fails
         """
-        from src.services.cross_reference import CrossReferenceService
+        from src.services.cross_reference import (
+            CrossReferenceService,
+        )
 
         try:
             cross_ref_service: CrossReferenceService = CrossReferenceService(self.pool)
             user_schema: str = f"{username}_schema"
             total_refs: int = 0
 
-            with self.pool.connection() as conn:
-                with conn.cursor() as cur:
-                    # Set search path
-                    cur.execute(f"SET search_path TO {user_schema}, public")
+            with self.pool.connection() as conn, conn.cursor() as cur:
+                # Set search path
+                cur.execute(f"SET search_path TO {user_schema}, public")
 
-                    # Get all existing datasets for this user
-                    cur.execute(
-                        "SELECT id FROM datasets WHERE id != %s",
-                        (new_dataset_id,),
+                # Get all existing datasets for this user
+                cur.execute(
+                    "SELECT id FROM datasets WHERE id != %s",
+                    (new_dataset_id,),
+                )
+                existing_datasets: list[tuple[str, ...]] = cur.fetchall()
+
+                # Detect cross-references with each existing dataset
+                for (existing_dataset_id,) in existing_datasets:
+                    # Check both directions
+                    refs_forward: list[dict[str, Any]] = (
+                        cross_ref_service.detect_cross_references(
+                            username=username,
+                            source_dataset_id=new_dataset_id,
+                            target_dataset_id=existing_dataset_id,
+                            min_confidence=0.3,
+                        )
                     )
-                    existing_datasets: list[tuple[str, ...]] = cur.fetchall()
 
-                    # Detect cross-references with each existing dataset
-                    for (existing_dataset_id,) in existing_datasets:
-                        # Check both directions
-                        refs_forward: list[dict[str, Any]] = (
-                            cross_ref_service.detect_cross_references(
-                                username=username,
-                                source_dataset_id=new_dataset_id,
-                                target_dataset_id=existing_dataset_id,
-                                min_confidence=0.3,
-                            )
+                    refs_backward: list[dict[str, Any]] = (
+                        cross_ref_service.detect_cross_references(
+                            username=username,
+                            source_dataset_id=existing_dataset_id,
+                            target_dataset_id=new_dataset_id,
+                            min_confidence=0.3,
                         )
+                    )
 
-                        refs_backward: list[dict[str, Any]] = (
-                            cross_ref_service.detect_cross_references(
-                                username=username,
-                                source_dataset_id=existing_dataset_id,
-                                target_dataset_id=new_dataset_id,
-                                min_confidence=0.3,
-                            )
-                        )
+                    # Store detected references
+                    for ref in refs_forward + refs_backward:
+                        self._store_cross_reference(conn, user_schema, ref)
+                        total_refs += 1
 
-                        # Store detected references
-                        for ref in refs_forward + refs_backward:
-                            self._store_cross_reference(conn, user_schema, ref)
-                            total_refs += 1
-
-                    conn.commit()
+                conn.commit()
 
             return total_refs
 
         except Exception as e:
             raise RuntimeError(
-                f"Failed to detect cross-references: {str(e)}"
+                f"Failed to detect cross-references: {e!s}"
             ) from e
 
     def _store_cross_reference(

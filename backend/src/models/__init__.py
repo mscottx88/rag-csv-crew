@@ -41,25 +41,25 @@ from src.models.user import (
 __all__: list[str] = [
     # Configuration models
     "AppConfig",
+    "AuthToken",
+    # Dataset models
+    "ColumnSchema",
     "DatabaseConfig",
+    "Dataset",
+    "DatasetCreate",
+    "DatasetList",
     "LLMConfig",
+    # Query and Response models
+    "Query",
+    "QueryCancel",
+    "QueryCreate",
+    "QueryHistory",
+    "QueryStatus",
+    "QueryWithResponse",
+    "Response",
     # User models
     "User",
     "UserBase",
     "UserCreate",
     "UserLogin",
-    "AuthToken",
-    # Dataset models
-    "ColumnSchema",
-    "Dataset",
-    "DatasetCreate",
-    "DatasetList",
-    # Query and Response models
-    "Query",
-    "QueryCreate",
-    "QueryCancel",
-    "QueryHistory",
-    "QueryStatus",
-    "QueryWithResponse",
-    "Response",
 ]

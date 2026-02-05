@@ -29,13 +29,14 @@ from fastapi.responses import JSONResponse
 env_path: Path = Path(__file__).parent.parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-from src.api.auth import router as auth_router
-from src.api.datasets import router as datasets_router
-from src.api.health import router as health_router
-from src.api.queries import router as queries_router
-from src.db.connection import initialize_global_pool, close_global_pool
-from src.models.config import AppConfig
-from src.utils.logging import (
+# Import after load_dotenv() to ensure environment variables are available
+from src.api.auth import router as auth_router  # noqa: E402
+from src.api.datasets import router as datasets_router  # noqa: E402
+from src.api.health import router as health_router  # noqa: E402
+from src.api.queries import router as queries_router  # noqa: E402
+from src.db.connection import close_global_pool, initialize_global_pool  # noqa: E402
+from src.models.config import AppConfig  # noqa: E402
+from src.utils.logging import (  # noqa: E402
     get_structured_logger,
     log_error,
     log_event,

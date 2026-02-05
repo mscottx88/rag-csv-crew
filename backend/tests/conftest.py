@@ -9,14 +9,14 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
+from collections.abc import Generator
 import os
+from typing import Any
 import uuid
-from typing import Any, Generator
 
-import pytest
 from psycopg import Connection, sql
 from psycopg_pool import ConnectionPool
-
+import pytest
 from src.models.config import DatabaseConfig
 
 
@@ -46,7 +46,7 @@ def test_database_config() -> DatabaseConfig:
 
 
 @pytest.fixture(scope="session")
-def db_pool_session(test_database_config: DatabaseConfig) -> Generator[ConnectionPool, None, None]:
+def db_pool_session(test_database_config: DatabaseConfig) -> Generator[ConnectionPool]:
     """Create session-scoped database connection pool.
 
     Creates a single connection pool shared across all tests in the session.
@@ -114,7 +114,7 @@ def test_username() -> str:
 
 
 @pytest.fixture
-def test_schema(db_pool: ConnectionPool, test_username: str) -> Generator[str, None, None]:
+def test_schema(db_pool: ConnectionPool, test_username: str) -> Generator[str]:
     """Create and cleanup test schema for a test.
 
     Creates a user-specific schema before the test runs, then drops it after.
@@ -214,7 +214,7 @@ def test_schema(db_pool: ConnectionPool, test_username: str) -> Generator[str, N
 @pytest.fixture
 def test_connection(
     db_pool: ConnectionPool, test_schema: str
-) -> Generator[Connection[Any], None, None]:
+) -> Generator[Connection[Any]]:
     """Create test database connection with schema set.
 
     Provides a single connection for a test with search_path set to the test schema.

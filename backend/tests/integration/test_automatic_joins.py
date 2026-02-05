@@ -14,10 +14,9 @@ Requirements:
 - Proper result aggregation across tables
 """
 
-import pytest
-from typing import Any
-from psycopg_pool import ConnectionPool
 
+from psycopg_pool import ConnectionPool
+import pytest
 from src.services.text_to_sql import TextToSQLService
 
 
@@ -38,14 +37,14 @@ class TestAutomaticJoinGeneration:
         """Should generate and execute JOIN query from natural language."""
         # RED: Implementation needed
         # Setup: Upload customers.csv and orders.csv with matching customer_id
-        # Query: "Which customers have the most orders?"
+        # Query: "Which customers have the most orders?"  # noqa: ERA001
         # Expected:
         # 1. Identify datasets: customers, orders
         # 2. Find cross_reference: orders.customer_id → customers.customer_id
         # 3. Generate SQL with INNER JOIN
         # 4. Execute query successfully
         # 5. Return aggregated results
-        assert False, "Implementation needed: end-to-end JOIN workflow"
+        raise AssertionError("Implementation needed: end-to-end JOIN workflow")
 
     def test_three_table_join_chain(
         self,
@@ -55,9 +54,9 @@ class TestAutomaticJoinGeneration:
         """Should handle three-table JOIN chains."""
         # RED: Implementation needed
         # Setup: customers, orders, products (orders links both)
-        # Query: "Which customers bought expensive products?"
+        # Query: "Which customers bought expensive products?"  # noqa: ERA001
         # Expected: customers ← orders → products (two JOINs)
-        assert False, "Implementation needed: multi-JOIN chain"
+        raise AssertionError("Implementation needed: multi-JOIN chain")
 
     def test_aggregation_across_joined_tables(
         self,
@@ -66,9 +65,9 @@ class TestAutomaticJoinGeneration:
     ) -> None:
         """Should aggregate data from multiple tables correctly."""
         # RED: Implementation needed
-        # Query: "What is the total revenue per customer?"
+        # Query: "What is the total revenue per customer?"  # noqa: ERA001
         # Expected: SUM(orders.amount) GROUP BY customers.customer_name
-        assert False, "Implementation needed: cross-table aggregation"
+        raise AssertionError("Implementation needed: cross-table aggregation")
 
     def test_filter_on_joined_table(
         self,
@@ -77,9 +76,9 @@ class TestAutomaticJoinGeneration:
     ) -> None:
         """Should apply WHERE clauses on joined tables."""
         # RED: Implementation needed
-        # Query: "Show orders for customers in California"
+        # Query: "Show orders for customers in California"  # noqa: ERA001
         # Expected: WHERE customers.state = 'CA'
-        assert False, "Implementation needed: JOIN with filters"
+        raise AssertionError("Implementation needed: JOIN with filters")
 
     def test_left_join_for_optional_relationships(
         self,
@@ -88,10 +87,10 @@ class TestAutomaticJoinGeneration:
     ) -> None:
         """Should use LEFT JOIN when relationship is optional."""
         # RED: Implementation needed
-        # Query: "Show all products with their category if available"
+        # Query: "Show all products with their category if available"  # noqa: ERA001
         # Some products have no category
         # Expected: LEFT JOIN to include products without categories
-        assert False, "Implementation needed: LEFT JOIN selection logic"
+        raise AssertionError("Implementation needed: LEFT JOIN selection logic")
 
     def test_handle_no_matching_cross_reference(
         self,
@@ -102,7 +101,7 @@ class TestAutomaticJoinGeneration:
         # RED: Implementation needed
         # Query mentions multiple datasets but no relationship exists
         # Expected: Generate separate queries or return error message
-        assert False, "Implementation needed: no-relationship fallback"
+        raise AssertionError("Implementation needed: no-relationship fallback")
 
     def test_performance_with_large_joined_datasets(
         self,
@@ -114,7 +113,7 @@ class TestAutomaticJoinGeneration:
         # Setup: 100K rows in each table
         # Query: JOIN query across both
         # Expected: Completes in < 5 seconds (uses indexes)
-        assert False, "Implementation needed: performance optimization"
+        raise AssertionError("Implementation needed: performance optimization")
 
     def test_correct_column_aliasing(
         self,
@@ -125,7 +124,7 @@ class TestAutomaticJoinGeneration:
         # RED: Implementation needed
         # Both tables have 'id' and 'name' columns
         # Expected: Result uses table.column format or aliases
-        assert False, "Implementation needed: column name disambiguation"
+        raise AssertionError("Implementation needed: column name disambiguation")
 
     def test_return_metadata_about_used_datasets(
         self,
@@ -136,7 +135,7 @@ class TestAutomaticJoinGeneration:
         # RED: Implementation needed
         # After executing JOIN query
         # Expected: Response includes datasets: ["customers", "orders"]
-        assert False, "Implementation needed: dataset metadata in response"
+        raise AssertionError("Implementation needed: dataset metadata in response")
 
     def test_sql_injection_prevention_in_joins(
         self,
@@ -147,4 +146,4 @@ class TestAutomaticJoinGeneration:
         # RED: Implementation needed
         # Malicious query with SQL injection attempt
         # Expected: Safe parameterization, no injection
-        assert False, "Implementation needed: security validation for JOINs"
+        raise AssertionError("Implementation needed: security validation for JOINs")

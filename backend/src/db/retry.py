@@ -22,7 +22,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-def retry_with_backoff(
+def retry_with_backoff[T](
     operation: Callable[[], T],
     max_retries: int = 3,
     initial_delay: float = 1.0,
@@ -118,7 +118,7 @@ def retry_with_backoff(
             raise
 
 
-def retry_connection(
+def retry_connection[T](
     connect_fn: Callable[[], T],
     context: str = "database",
 ) -> T:

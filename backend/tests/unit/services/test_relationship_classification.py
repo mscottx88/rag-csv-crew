@@ -9,9 +9,9 @@ Tests classification of detected relationships into:
 Confidence scores based on overlap percentage and relationship characteristics.
 """
 
-import pytest
 from typing import Any
 
+import pytest
 from src.services.cross_reference import CrossReferenceService
 
 
@@ -41,7 +41,7 @@ class TestRelationshipTypeClassification:
 
         assert result["relationship_type"] == "foreign_key"
         assert result["confidence_score"] >= 0.9
-        assert False, "Implementation needed: classify_relationship method"
+        raise AssertionError("Implementation needed: classify_relationship method")
 
     def test_classify_foreign_key_with_cardinality(
         self,
@@ -52,7 +52,7 @@ class TestRelationshipTypeClassification:
         # Source has high cardinality (many unique values)
         # Target has low cardinality (few unique values, repeated)
         # Expected: foreign_key if source cardinality > target cardinality * ratio
-        assert False, "Implementation needed: cardinality analysis"
+        raise AssertionError("Implementation needed: cardinality analysis")
 
     def test_classify_shared_values_partial_overlap(
         self,
@@ -63,14 +63,14 @@ class TestRelationshipTypeClassification:
         source_values: list[str] = ["A", "B", "C", "D"]
         target_values: list[str] = ["B", "C", "E", "F"]
 
-        # Expected: shared_values (50% overlap)
+        # Expected: shared_values (50% overlap)  # noqa: ERA001
         result: dict[str, Any] = cross_ref_service.classify_relationship(
             source_values, target_values
         )
 
         assert result["relationship_type"] == "shared_values"
         assert 0.4 <= result["confidence_score"] <= 0.7
-        assert False, "Implementation needed: partial overlap classification"
+        raise AssertionError("Implementation needed: partial overlap classification")
 
     def test_classify_similar_values_fuzzy_matches(
         self,
@@ -88,7 +88,7 @@ class TestRelationshipTypeClassification:
 
         assert result["relationship_type"] == "similar_values"
         assert 0.3 <= result["confidence_score"] <= 0.6
-        assert False, "Implementation needed: fuzzy string matching"
+        raise AssertionError("Implementation needed: fuzzy string matching")
 
     def test_confidence_score_based_on_overlap_percentage(
         self,
@@ -100,7 +100,7 @@ class TestRelationshipTypeClassification:
         # 75% overlap → confidence = 0.75
         # 50% overlap → confidence = 0.50
         # 25% overlap → confidence = 0.25
-        assert False, "Implementation needed: confidence calculation formula"
+        raise AssertionError("Implementation needed: confidence calculation formula")
 
     def test_confidence_adjusted_by_sample_size(
         self,
@@ -111,7 +111,7 @@ class TestRelationshipTypeClassification:
         # Small samples (< 10 values) → reduce confidence
         # Large samples (> 100 values) → increase confidence
         # Expected: Confidence modifier based on statistical significance
-        assert False, "Implementation needed: sample size adjustment"
+        raise AssertionError("Implementation needed: sample size adjustment")
 
     def test_no_relationship_below_threshold(
         self,
@@ -128,7 +128,7 @@ class TestRelationshipTypeClassification:
         )
 
         assert result is None
-        assert False, "Implementation needed: threshold filtering"
+        raise AssertionError("Implementation needed: threshold filtering")
 
     def test_handle_null_values(
         self,
@@ -145,7 +145,7 @@ class TestRelationshipTypeClassification:
         )
 
         assert result["confidence_score"] == 1.0  # All non-null values match
-        assert False, "Implementation needed: null value handling"
+        raise AssertionError("Implementation needed: null value handling")
 
     def test_case_insensitive_string_comparison(
         self,
@@ -156,10 +156,10 @@ class TestRelationshipTypeClassification:
         source_values: list[str] = ["Apple", "Banana", "Cherry"]
         target_values: list[str] = ["apple", "BANANA", "cherry"]
 
-        # Expected: 100% overlap (case-insensitive)
+        # Expected: 100% overlap (case-insensitive)  # noqa: ERA001
         result: dict[str, Any] = cross_ref_service.classify_relationship(
             source_values, target_values
         )
 
         assert result["confidence_score"] >= 0.95
-        assert False, "Implementation needed: case-insensitive comparison"
+        raise AssertionError("Implementation needed: case-insensitive comparison")
