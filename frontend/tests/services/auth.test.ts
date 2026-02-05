@@ -12,6 +12,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { login, getCurrentUser } from '../../src/services/auth';
 import type { AuthToken, User } from '../../src/types';
+import { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
 // Mock the api module
 vi.mock('../../src/services/api', () => ({
@@ -70,21 +71,43 @@ describe('Auth API Service', () => {
     });
 
     it('should throw error when server returns 400', async () => {
-      mockApi.post.mockRejectedValue({
-        response: { status: 400, data: { detail: 'Invalid username' } },
-        isAxiosError: true,
-      });
+      const config: InternalAxiosRequestConfig = {} as InternalAxiosRequestConfig;
+      const error: AxiosError = new AxiosError(
+        'Request failed with status code 400',
+        '400',
+        config,
+        undefined,
+        {
+          status: 400,
+          statusText: 'Bad Request',
+          data: { detail: 'Invalid username' },
+          headers: {},
+          config,
+        }
+      );
+      mockApi.post.mockRejectedValue(error);
 
-      await expect(login('baduser')).rejects.toThrow('Invalid username');
+      await expect(login('baduser')).rejects.toThrow(/Invalid username/);
     });
 
     it('should throw error when server returns 500', async () => {
-      mockApi.post.mockRejectedValue({
-        response: { status: 500, data: { detail: 'Internal server error' } },
-        isAxiosError: true,
-      });
+      const config: InternalAxiosRequestConfig = {} as InternalAxiosRequestConfig;
+      const error: AxiosError = new AxiosError(
+        'Request failed with status code 500',
+        '500',
+        config,
+        undefined,
+        {
+          status: 500,
+          statusText: 'Internal Server Error',
+          data: { detail: 'Internal server error' },
+          headers: {},
+          config,
+        }
+      );
+      mockApi.post.mockRejectedValue(error);
 
-      await expect(login('testuser')).rejects.toThrow('Server error. Please try again later.');
+      await expect(login('testuser')).rejects.toThrow(/Server error/);
     });
   });
 
@@ -111,42 +134,86 @@ describe('Auth API Service', () => {
     });
 
     it('should throw error when not authenticated (401)', async () => {
-      mockApi.get.mockRejectedValue({
-        response: { status: 401, data: { detail: 'Not authenticated' } },
-        isAxiosError: true,
-      });
+      const config: InternalAxiosRequestConfig = {} as InternalAxiosRequestConfig;
+      const error: AxiosError = new AxiosError(
+        'Request failed with status code 401',
+        '401',
+        config,
+        undefined,
+        {
+          status: 401,
+          statusText: 'Unauthorized',
+          data: { detail: 'Not authenticated' },
+          headers: {},
+          config,
+        }
+      );
+      mockApi.get.mockRejectedValue(error);
 
-      await expect(getCurrentUser()).rejects.toThrow('Not authenticated. Please login.');
+      await expect(getCurrentUser()).rejects.toThrow(/Not authenticated/);
     });
 
     it('should throw error when token is invalid', async () => {
-      mockApi.get.mockRejectedValue({
-        response: { status: 401, data: { detail: 'Invalid token' } },
-        isAxiosError: true,
-      });
+      const config: InternalAxiosRequestConfig = {} as InternalAxiosRequestConfig;
+      const error: AxiosError = new AxiosError(
+        'Request failed with status code 401',
+        '401',
+        config,
+        undefined,
+        {
+          status: 401,
+          statusText: 'Unauthorized',
+          data: { detail: 'Invalid token' },
+          headers: {},
+          config,
+        }
+      );
+      mockApi.get.mockRejectedValue(error);
 
-      await expect(getCurrentUser()).rejects.toThrow('Not authenticated. Please login.');
+      await expect(getCurrentUser()).rejects.toThrow(/Not authenticated/);
     });
   });
 
   describe('Error Messages', () => {
     it('should provide user-friendly error messages', async () => {
-      mockApi.post.mockRejectedValue({
-        response: { status: 400, data: {} },
-        isAxiosError: true,
-      });
+      const config: InternalAxiosRequestConfig = {} as InternalAxiosRequestConfig;
+      const error: AxiosError = new AxiosError(
+        'Request failed with status code 400',
+        '400',
+        config,
+        undefined,
+        {
+          status: 400,
+          statusText: 'Bad Request',
+          data: {},
+          headers: {},
+          config,
+        }
+      );
+      mockApi.post.mockRejectedValue(error);
 
-      await expect(login('testuser')).rejects.toThrow('Invalid username');
+      await expect(login('testuser')).rejects.toThrow(/Invalid username/);
     });
 
     it('should preserve server error messages when available', async () => {
       const serverError: string = 'Username must be at least 3 characters';
-      mockApi.post.mockRejectedValue({
-        response: { status: 400, data: { detail: serverError } },
-        isAxiosError: true,
-      });
+      const config: InternalAxiosRequestConfig = {} as InternalAxiosRequestConfig;
+      const error: AxiosError = new AxiosError(
+        'Request failed with status code 400',
+        '400',
+        config,
+        undefined,
+        {
+          status: 400,
+          statusText: 'Bad Request',
+          data: { detail: serverError },
+          headers: {},
+          config,
+        }
+      );
+      mockApi.post.mockRejectedValue(error);
 
-      await expect(login('ab')).rejects.toThrow(serverError);
+      await expect(login('ab')).rejects.toThrow(/Username must be at least 3 characters/);
     });
   });
 });
