@@ -359,7 +359,7 @@ def get_query(
         ) from exc
 
 
-@router.get("", response_model=QueryHistory)
+@router.get("/history", response_model=QueryHistory)
 def get_query_history(
     page: int = 1,
     page_size: int = 50,

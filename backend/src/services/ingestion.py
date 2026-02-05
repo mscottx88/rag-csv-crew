@@ -338,7 +338,7 @@ def create_dataset_table(  # pylint: disable=too-many-locals
     # Create table
     create_table_sql: str = f"""
         CREATE TABLE IF NOT EXISTS {full_table_name} (
-            {', '.join(column_defs)}
+            {", ".join(column_defs)}
         )
     """
 
@@ -684,10 +684,7 @@ def check_filename_conflict(
 
 
 def generate_column_embeddings(
-    pool: ConnectionPool,
-    username: str,
-    dataset_id: str,
-    columns: list[dict[str, Any]]
+    pool: ConnectionPool, username: str, dataset_id: str, columns: list[dict[str, Any]]
 ) -> None:
     """Generate and store embeddings for column mappings.
 
@@ -725,32 +722,40 @@ def generate_column_embeddings(
             embeddings.append(embedding)
             column_names.append(column_name)
         except Exception as e:
-            raise RuntimeError(
-                f"Failed to generate embedding for column {column_name}: {e}"
-            ) from e
+            raise RuntimeError(f"Failed to generate embedding for column {column_name}: {e}") from e
 
-    # Update column_mappings with embeddings
+    # Insert column_mappings with embeddings
     try:
         with pool.connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(f"SET search_path TO {schema_name}, public")
 
-                update_sql: str = """
-                    UPDATE column_mappings
-                    SET embedding = %s
-                    WHERE dataset_id = %s AND column_name = %s
+                # Insert new rows with embeddings (UPSERT pattern)
+                insert_sql: str = """
+                    INSERT INTO column_mappings (dataset_id, column_name, data_type, description, embedding)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (dataset_id, column_name)
+                    DO UPDATE SET embedding = EXCLUDED.embedding
                 """
 
-                # Update each column with its embedding
-                for column_name, embedding in zip(column_names, embeddings, strict=False):
-                    cur.execute(update_sql, (embedding, dataset_id, column_name))
+                # Insert each column with its embedding
+                for col in columns:
+                    column_name: str = col.get("name", col.get("column_name", ""))
+                    if column_name in column_names:
+                        # Find the embedding for this column
+                        embedding_idx: int = column_names.index(column_name)
+                        embedding: list[float] = embeddings[embedding_idx]
+                        data_type: str = col.get("type", col.get("data_type", "TEXT"))
+                        description: str = col.get("description", "")
+
+                        cur.execute(
+                            insert_sql, (dataset_id, column_name, data_type, description, embedding)
+                        )
 
             conn.commit()
 
     except Exception as e:
-        raise RuntimeError(
-            f"Failed to store embeddings for dataset {dataset_id}: {e}"
-        ) from e
+        raise RuntimeError(f"Failed to store embeddings for dataset {dataset_id}: {e}") from e
 
 
 class IngestionService:
@@ -769,10 +774,7 @@ class IngestionService:
         self.pool: ConnectionPool = pool
 
     def generate_column_embeddings(
-        self,
-        username: str,
-        dataset_id: str,
-        columns: list[dict[str, Any]]
+        self, username: str, dataset_id: str, columns: list[dict[str, Any]]
     ) -> None:
         """Generate and store embeddings for column mappings.
 
@@ -787,8 +789,5 @@ class IngestionService:
             RuntimeError: If embedding generation or database update fails
         """
         generate_column_embeddings(
-            pool=self.pool,
-            username=username,
-            dataset_id=dataset_id,
-            columns=columns
+            pool=self.pool, username=username, dataset_id=dataset_id, columns=columns
         )
