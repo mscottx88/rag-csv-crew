@@ -12,151 +12,311 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { list, upload, get, deleteDataset } from '../../src/services/datasets';
+import type { Dataset, DatasetList } from '../../src/types';
+
+// Mock the api module
+vi.mock('../../src/services/api', () => ({
+  default: {
+    get: vi.fn(),
+    post: vi.fn(),
+    delete: vi.fn(),
+  },
+}));
 
 describe('Datasets API Service', () => {
-  beforeEach(() => {
+  let mockApi: {
+    get: ReturnType<typeof vi.fn>;
+    post: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
+  };
+
+  beforeEach(async () => {
     vi.clearAllMocks();
+    const apiModule: typeof import('../../src/services/api') = await import('../../src/services/api');
+    mockApi = apiModule.default as unknown as {
+      get: ReturnType<typeof vi.fn>;
+      post: ReturnType<typeof vi.fn>;
+      delete: ReturnType<typeof vi.fn>;
+    };
   });
 
   describe('list', () => {
     it('should send GET request to /datasets', async () => {
-      // Should call GET /datasets
-      expect(true).toBe(false); // RED: Implementation needed
+      const mockResponse: DatasetList = { datasets: [], total: 0 };
+      mockApi.get.mockResolvedValue({ data: mockResponse });
+
+      await list();
+
+      expect(mockApi.get).toHaveBeenCalledWith('/datasets');
     });
 
     it('should return DatasetList with datasets array', async () => {
-      // Expected response structure:
-      // {
-      //   datasets: Dataset[],
-      //   total: number
-      // }
-      expect(true).toBe(false); // RED: Implementation needed
+      const mockResponse: DatasetList = {
+        datasets: [
+          {
+            id: '123',
+            filename: 'test.csv',
+            row_count: 100,
+            column_count: 5,
+            columns: [],
+            created_at: '2026-01-01T00:00:00Z',
+            owner: 'testuser',
+          },
+        ],
+        total: 1,
+      };
+      mockApi.get.mockResolvedValue({ data: mockResponse });
+
+      const result: DatasetList = await list();
+
+      expect(result).toEqual(mockResponse);
+      expect(result.datasets).toHaveLength(1);
+      expect(result.total).toBe(1);
     });
 
     it('should handle empty dataset list', async () => {
-      // Should return empty array when no datasets
-      expect(true).toBe(false); // RED: Implementation needed
+      const mockResponse: DatasetList = { datasets: [], total: 0 };
+      mockApi.get.mockResolvedValue({ data: mockResponse });
+
+      const result: DatasetList = await list();
+
+      expect(result.datasets).toEqual([]);
+      expect(result.total).toBe(0);
     });
 
     it('should include dataset metadata (id, filename, row_count, column_count)', async () => {
-      // Each dataset should have required fields
-      expect(true).toBe(false); // RED: Implementation needed
+      const mockResponse: DatasetList = {
+        datasets: [
+          {
+            id: '123',
+            filename: 'test.csv',
+            row_count: 100,
+            column_count: 5,
+            columns: [],
+            created_at: '2026-01-01T00:00:00Z',
+            owner: 'testuser',
+          },
+        ],
+        total: 1,
+      };
+      mockApi.get.mockResolvedValue({ data: mockResponse });
+
+      const result: DatasetList = await list();
+      const dataset: Dataset = result.datasets[0];
+
+      expect(dataset.id).toBe('123');
+      expect(dataset.filename).toBe('test.csv');
+      expect(dataset.row_count).toBe(100);
+      expect(dataset.column_count).toBe(5);
     });
   });
 
   describe('upload', () => {
     it('should send POST request to /datasets with multipart/form-data', async () => {
-      const mockFile = new File(['content'], 'test.csv', { type: 'text/csv' });
+      const mockFile: File = new File(['content'], 'test.csv', { type: 'text/csv' });
+      const mockResponse: Dataset = {
+        id: '123',
+        filename: 'test.csv',
+        row_count: 10,
+        column_count: 3,
+        columns: [],
+        created_at: '2026-01-01T00:00:00Z',
+        owner: 'testuser',
+      };
+      mockApi.post.mockResolvedValue({ data: mockResponse });
 
-      // Should use FormData and set Content-Type to multipart/form-data
-      expect(true).toBe(false); // RED: Implementation needed
+      await upload(mockFile);
+
+      expect(mockApi.post).toHaveBeenCalledWith(
+        '/datasets',
+        expect.any(FormData),
+        expect.objectContaining({
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+      );
     });
 
     it('should accept onProgress callback for upload progress', async () => {
-      const mockFile = new File(['content'], 'test.csv', { type: 'text/csv' });
-      const onProgress = vi.fn();
+      const mockFile: File = new File(['content'], 'test.csv', { type: 'text/csv' });
+      const onProgress: ReturnType<typeof vi.fn> = vi.fn();
+      const mockResponse: Dataset = {
+        id: '123',
+        filename: 'test.csv',
+        row_count: 10,
+        column_count: 3,
+        columns: [],
+        created_at: '2026-01-01T00:00:00Z',
+        owner: 'testuser',
+      };
 
-      // Should call onProgress with percentages (0-100)
-      expect(true).toBe(false); // RED: Implementation needed
+      mockApi.post.mockImplementation((url: string, data: unknown, config?: { onUploadProgress?: (event: { loaded: number; total: number }) => void }) => {
+        // Simulate progress
+        if (config?.onUploadProgress) {
+          config.onUploadProgress({ loaded: 50, total: 100 });
+          config.onUploadProgress({ loaded: 100, total: 100 });
+        }
+        return Promise.resolve({ data: mockResponse });
+      });
+
+      await upload(mockFile, onProgress);
+
+      expect(onProgress).toHaveBeenCalledWith({ loaded: 50, total: 100, percentage: 50 });
+      expect(onProgress).toHaveBeenCalledWith({ loaded: 100, total: 100, percentage: 100 });
     });
 
     it('should return Dataset object on successful upload', async () => {
-      const mockFile = new File(['content'], 'test.csv', { type: 'text/csv' });
+      const mockFile: File = new File(['content'], 'test.csv', { type: 'text/csv' });
+      const mockResponse: Dataset = {
+        id: '123',
+        filename: 'test.csv',
+        row_count: 10,
+        column_count: 3,
+        columns: [],
+        created_at: '2026-01-01T00:00:00Z',
+        owner: 'testuser',
+      };
+      mockApi.post.mockResolvedValue({ data: mockResponse });
 
-      // Expected response structure:
-      // {
-      //   id: string,
-      //   filename: string,
-      //   row_count: number,
-      //   column_count: number,
-      //   columns: ColumnSchema[],
-      //   created_at: string
-      // }
-      expect(true).toBe(false); // RED: Implementation needed
+      const result: Dataset = await upload(mockFile);
+
+      expect(result).toEqual(mockResponse);
+      expect(result.id).toBe('123');
+      expect(result.filename).toBe('test.csv');
     });
 
     it('should handle file validation errors (400)', async () => {
-      const mockFile = new File(['invalid'], 'test.txt', { type: 'text/plain' });
+      const mockFile: File = new File(['invalid'], 'test.txt', { type: 'text/plain' });
 
-      // Should throw error for invalid file type
-      expect(true).toBe(false); // RED: Implementation needed
+      await expect(upload(mockFile)).rejects.toThrow('Only CSV files are allowed');
     });
 
     it('should handle filename conflicts (409)', async () => {
-      const mockFile = new File(['content'], 'existing.csv', { type: 'text/csv' });
+      const mockFile: File = new File(['content'], 'existing.csv', { type: 'text/csv' });
+      mockApi.post.mockRejectedValue({
+        response: { status: 409, data: { detail: 'File already exists' } },
+        isAxiosError: true,
+      });
 
-      // Should throw error indicating filename conflict
-      expect(true).toBe(false); // RED: Implementation needed
+      await expect(upload(mockFile)).rejects.toMatchObject({
+        status: 409,
+        message: 'File already exists',
+        filename: 'existing.csv',
+      });
     });
 
     it('should handle upload cancellation', async () => {
-      // Should support aborting upload
-      expect(true).toBe(false); // RED: Implementation needed
+      const mockFile: File = new File(['content'], 'test.csv', { type: 'text/csv' });
+      mockApi.post.mockRejectedValue(new Error('Upload canceled'));
+
+      await expect(upload(mockFile)).rejects.toThrow('Upload canceled');
     });
   });
 
   describe('get', () => {
     it('should send GET request to /datasets/{id}', async () => {
-      const datasetId = '123e4567-e89b-12d3-a456-426614174000';
+      const datasetId: string = '123e4567-e89b-12d3-a456-426614174000';
+      const mockResponse: Dataset = {
+        id: datasetId,
+        filename: 'test.csv',
+        row_count: 100,
+        column_count: 5,
+        columns: [],
+        created_at: '2026-01-01T00:00:00Z',
+        owner: 'testuser',
+      };
+      mockApi.get.mockResolvedValue({ data: mockResponse });
 
-      // Should call GET /datasets/{id}
-      expect(true).toBe(false); // RED: Implementation needed
+      await get(datasetId);
+
+      expect(mockApi.get).toHaveBeenCalledWith(`/datasets/${datasetId}`);
     });
 
     it('should return Dataset object with full details', async () => {
-      const datasetId = '123e4567-e89b-12d3-a456-426614174000';
+      const datasetId: string = '123e4567-e89b-12d3-a456-426614174000';
+      const mockResponse: Dataset = {
+        id: datasetId,
+        filename: 'test.csv',
+        row_count: 100,
+        column_count: 5,
+        columns: [
+          { name: 'id', data_type: 'integer' },
+          { name: 'name', data_type: 'text' },
+        ],
+        created_at: '2026-01-01T00:00:00Z',
+        owner: 'testuser',
+      };
+      mockApi.get.mockResolvedValue({ data: mockResponse });
 
-      // Should include columns array with schema
-      expect(true).toBe(false); // RED: Implementation needed
+      const result: Dataset = await get(datasetId);
+
+      expect(result).toEqual(mockResponse);
+      expect(result.columns).toHaveLength(2);
     });
 
     it('should throw 404 error for non-existent dataset', async () => {
-      const datasetId = 'non-existent-id';
+      const datasetId: string = 'non-existent-id';
+      mockApi.get.mockRejectedValue({
+        response: { status: 404, data: { detail: 'Dataset not found' } },
+        isAxiosError: true,
+      });
 
-      // Should handle 404 Not Found
-      expect(true).toBe(false); // RED: Implementation needed
+      await expect(get(datasetId)).rejects.toThrow('Dataset not found');
     });
   });
 
   describe('delete', () => {
     it('should send DELETE request to /datasets/{id}', async () => {
-      const datasetId = '123e4567-e89b-12d3-a456-426614174000';
+      const datasetId: string = '123e4567-e89b-12d3-a456-426614174000';
+      mockApi.delete.mockResolvedValue({ status: 204 });
 
-      // Should call DELETE /datasets/{id}
-      expect(true).toBe(false); // RED: Implementation needed
+      await deleteDataset(datasetId);
+
+      expect(mockApi.delete).toHaveBeenCalledWith(`/datasets/${datasetId}`);
     });
 
     it('should return success on 204 No Content', async () => {
-      const datasetId = '123e4567-e89b-12d3-a456-426614174000';
+      const datasetId: string = '123e4567-e89b-12d3-a456-426614174000';
+      mockApi.delete.mockResolvedValue({ status: 204 });
 
-      // Should complete successfully
-      expect(true).toBe(false); // RED: Implementation needed
+      await expect(deleteDataset(datasetId)).resolves.toBeUndefined();
     });
 
     it('should throw 404 error for non-existent dataset', async () => {
-      const datasetId = 'non-existent-id';
+      const datasetId: string = 'non-existent-id';
+      mockApi.delete.mockRejectedValue({
+        response: { status: 404, data: { detail: 'Dataset not found' } },
+        isAxiosError: true,
+      });
 
-      // Should handle 404 Not Found
-      expect(true).toBe(false); // RED: Implementation needed
+      await expect(deleteDataset(datasetId)).rejects.toThrow('Dataset not found');
     });
 
     it('should throw 403 error if not owner', async () => {
-      const datasetId = 'someone-elses-dataset';
+      const datasetId: string = 'someone-elses-dataset';
+      mockApi.delete.mockRejectedValue({
+        response: { status: 403, data: { detail: 'Forbidden' } },
+        isAxiosError: true,
+      });
 
-      // Should handle 403 Forbidden
-      expect(true).toBe(false); // RED: Implementation needed
+      await expect(deleteDataset(datasetId)).rejects.toThrow('You do not have permission to delete this dataset');
     });
   });
 
   describe('Error Handling', () => {
     it('should map API errors to user-friendly messages', async () => {
-      // Should provide clear error messages
-      expect(true).toBe(false); // RED: Implementation needed
+      mockApi.get.mockRejectedValue({
+        response: { status: 500, data: {} },
+        isAxiosError: true,
+      });
+
+      await expect(list()).rejects.toBeTruthy();
     });
 
     it('should handle network errors gracefully', async () => {
-      // Should handle connection failures
-      expect(true).toBe(false); // RED: Implementation needed
+      mockApi.get.mockRejectedValue(new Error('Network error'));
+
+      await expect(list()).rejects.toThrow('Network error');
     });
   });
 });

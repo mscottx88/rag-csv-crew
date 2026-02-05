@@ -10,82 +10,143 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { login, getCurrentUser } from '../../src/services/auth';
+import type { AuthToken, User } from '../../src/types';
+
+// Mock the api module
+vi.mock('../../src/services/api', () => ({
+  default: {
+    post: vi.fn(),
+    get: vi.fn(),
+  },
+}));
 
 describe('Auth API Service', () => {
-  beforeEach(() => {
+  let mockApi: { post: ReturnType<typeof vi.fn>; get: ReturnType<typeof vi.fn> };
+
+  beforeEach(async () => {
     vi.clearAllMocks();
+    const apiModule: typeof import('../../src/services/api') = await import('../../src/services/api');
+    mockApi = apiModule.default as unknown as { post: ReturnType<typeof vi.fn>; get: ReturnType<typeof vi.fn> };
   });
 
   describe('login', () => {
     it('should send POST request to /auth/login with username', async () => {
-      const username = 'testuser';
+      const username: string = 'testuser';
+      const mockResponse: AuthToken = {
+        access_token: 'mock-token-123',
+        token_type: 'bearer',
+        username: 'testuser',
+      };
 
-      // Should call POST /auth/login with { username: 'testuser' }
-      expect(true).toBe(false); // RED: Implementation needed
+      mockApi.post.mockResolvedValue({ data: mockResponse });
+
+      await login(username);
+
+      expect(mockApi.post).toHaveBeenCalledWith('/auth/login', { username: 'testuser' });
     });
 
     it('should return AuthToken with access_token and token_type', async () => {
-      const username = 'testuser';
+      const username: string = 'testuser';
+      const mockResponse: AuthToken = {
+        access_token: 'mock-token-123',
+        token_type: 'bearer',
+        username: 'testuser',
+      };
 
-      // Expected response structure:
-      // {
-      //   access_token: string,
-      //   token_type: "bearer",
-      //   username: string
-      // }
-      expect(true).toBe(false); // RED: Implementation needed
+      mockApi.post.mockResolvedValue({ data: mockResponse });
+
+      const result: AuthToken = await login(username);
+
+      expect(result).toEqual(mockResponse);
+      expect(result.access_token).toBe('mock-token-123');
+      expect(result.token_type).toBe('bearer');
+      expect(result.username).toBe('testuser');
     });
 
     it('should throw error when username is empty', async () => {
-      // Should reject empty username
-      expect(true).toBe(false); // RED: Implementation needed
+      await expect(login('')).rejects.toThrow('Username is required');
+      await expect(login('   ')).rejects.toThrow('Username is required');
     });
 
     it('should throw error when server returns 400', async () => {
-      // Should handle validation errors
-      expect(true).toBe(false); // RED: Implementation needed
+      mockApi.post.mockRejectedValue({
+        response: { status: 400, data: { detail: 'Invalid username' } },
+        isAxiosError: true,
+      });
+
+      await expect(login('baduser')).rejects.toThrow('Invalid username');
     });
 
     it('should throw error when server returns 500', async () => {
-      // Should handle server errors
-      expect(true).toBe(false); // RED: Implementation needed
+      mockApi.post.mockRejectedValue({
+        response: { status: 500, data: { detail: 'Internal server error' } },
+        isAxiosError: true,
+      });
+
+      await expect(login('testuser')).rejects.toThrow('Server error. Please try again later.');
     });
   });
 
   describe('getCurrentUser', () => {
     it('should send GET request to /auth/me', async () => {
-      // Should call GET /auth/me with Authorization header
-      expect(true).toBe(false); // RED: Implementation needed
+      const mockResponse: User = { username: 'testuser' };
+
+      mockApi.get.mockResolvedValue({ data: mockResponse });
+
+      await getCurrentUser();
+
+      expect(mockApi.get).toHaveBeenCalledWith('/auth/me');
     });
 
     it('should return User object with username', async () => {
-      // Expected response structure:
-      // {
-      //   username: string
-      // }
-      expect(true).toBe(false); // RED: Implementation needed
+      const mockResponse: User = { username: 'testuser' };
+
+      mockApi.get.mockResolvedValue({ data: mockResponse });
+
+      const result: User = await getCurrentUser();
+
+      expect(result).toEqual(mockResponse);
+      expect(result.username).toBe('testuser');
     });
 
     it('should throw error when not authenticated (401)', async () => {
-      // Should handle 401 Unauthorized
-      expect(true).toBe(false); // RED: Implementation needed
+      mockApi.get.mockRejectedValue({
+        response: { status: 401, data: { detail: 'Not authenticated' } },
+        isAxiosError: true,
+      });
+
+      await expect(getCurrentUser()).rejects.toThrow('Not authenticated. Please login.');
     });
 
     it('should throw error when token is invalid', async () => {
-      // Should handle invalid token errors
-      expect(true).toBe(false); // RED: Implementation needed
+      mockApi.get.mockRejectedValue({
+        response: { status: 401, data: { detail: 'Invalid token' } },
+        isAxiosError: true,
+      });
+
+      await expect(getCurrentUser()).rejects.toThrow('Not authenticated. Please login.');
     });
   });
 
   describe('Error Messages', () => {
     it('should provide user-friendly error messages', async () => {
-      // Error messages should be clear and actionable
-      expect(true).toBe(false); // RED: Implementation needed
+      mockApi.post.mockRejectedValue({
+        response: { status: 400, data: {} },
+        isAxiosError: true,
+      });
+
+      await expect(login('testuser')).rejects.toThrow('Invalid username');
     });
 
     it('should preserve server error messages when available', async () => {
-      // Should use server's error detail field
-      expect(true).toBe(false); // RED: Implementation needed
+      const serverError: string = 'Username must be at least 3 characters';
+      mockApi.post.mockRejectedValue({
+        response: { status: 400, data: { detail: serverError } },
+        isAxiosError: true,
+      });
+
+      await expect(login('ab')).rejects.toThrow(serverError);
     });
   });
 });

@@ -14,171 +14,305 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Login } from '../../../src/components/Auth/Login';
+import type { AuthContextValue } from '../../../src/types';
+
+// Mock AuthContext
+const mockLogin: ReturnType<typeof vi.fn> = vi.fn();
+const mockAuthValue: AuthContextValue = {
+  user: null,
+  isAuthenticated: false,
+  isLoading: false,
+  login: mockLogin,
+  logout: vi.fn(),
+};
+
+vi.mock('../../../src/context/AuthContext', () => ({
+  useAuth: () => mockAuthValue,
+}));
 
 describe('Login Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAuthValue.isLoading = false;
   });
 
   describe('Rendering', () => {
     it('should render username input field', () => {
-      // Should have input with label "Username"
-      expect(true).toBe(false); // RED: Implementation needed
+      render(<Login />);
+
+      const input: HTMLElement = screen.getByLabelText(/username/i);
+      expect(input).toBeInTheDocument();
     });
 
     it('should render submit button', () => {
-      // Should have button with text "Login" or "Sign In"
-      expect(true).toBe(false); // RED: Implementation needed
+      render(<Login />);
+
+      const button: HTMLElement = screen.getByRole('button', { name: /login/i });
+      expect(button).toBeInTheDocument();
     });
 
     it('should not render password field (username-only per FR-021)', () => {
-      // Should NOT have password input
-      expect(true).toBe(false); // RED: Implementation needed
+      render(<Login />);
+
+      const passwordInput: HTMLElement | null = screen.queryByLabelText(/password/i);
+      expect(passwordInput).not.toBeInTheDocument();
     });
 
     it('should have accessible form elements', () => {
-      // Should use proper labels and ARIA attributes
-      expect(true).toBe(false); // RED: Implementation needed
+      render(<Login />);
+
+      const input: HTMLElement = screen.getByLabelText(/username/i);
+      expect(input).toHaveAttribute('aria-label', 'Username');
+      expect(input).toHaveAttribute('aria-required', 'true');
     });
   });
 
   describe('Form Validation', () => {
     it('should prevent submission with empty username', async () => {
       const user = userEvent.setup();
+      render(<Login />);
 
-      // Try to submit with empty username
-      // Should show validation error or disable button
-      expect(true).toBe(false); // RED: Implementation needed
+      const button: HTMLElement = screen.getByRole('button', { name: /login/i });
+      expect(button).toBeDisabled();
+
+      await user.click(button);
+
+      expect(mockLogin).not.toHaveBeenCalled();
     });
 
     it('should allow submission with valid username', async () => {
       const user = userEvent.setup();
+      mockLogin.mockResolvedValue(undefined);
+      render(<Login />);
 
-      // Type username and submit
-      // Should call login API
-      expect(true).toBe(false); // RED: Implementation needed
+      const input: HTMLElement = screen.getByLabelText(/username/i);
+      const button: HTMLElement = screen.getByRole('button', { name: /login/i });
+
+      await user.type(input, 'testuser');
+      await user.click(button);
+
+      await waitFor(() => {
+        expect(mockLogin).toHaveBeenCalledWith('testuser');
+      });
     });
 
     it('should trim whitespace from username', async () => {
       const user = userEvent.setup();
+      mockLogin.mockResolvedValue(undefined);
+      render(<Login />);
 
-      // Type "  testuser  " and submit
-      // Should send "testuser" to API
-      expect(true).toBe(false); // RED: Implementation needed
+      const input: HTMLElement = screen.getByLabelText(/username/i);
+      const button: HTMLElement = screen.getByRole('button', { name: /login/i });
+
+      await user.type(input, '  testuser  ');
+      await user.click(button);
+
+      await waitFor(() => {
+        expect(mockLogin).toHaveBeenCalledWith('testuser');
+      });
     });
   });
 
   describe('Loading State', () => {
     it('should show loading indicator during login', async () => {
-      const user = userEvent.setup();
+      mockAuthValue.isLoading = true;
+      render(<Login />);
 
-      // Submit form
-      // Should show loading spinner or "Logging in..." text
-      expect(true).toBe(false); // RED: Implementation needed
+      const button: HTMLElement = screen.getByRole('button');
+      expect(button).toHaveTextContent(/logging in.../i);
     });
 
     it('should disable submit button during login', async () => {
-      const user = userEvent.setup();
+      mockAuthValue.isLoading = true;
+      render(<Login />);
 
-      // Submit form
-      // Button should be disabled
-      expect(true).toBe(false); // RED: Implementation needed
+      const button: HTMLElement = screen.getByRole('button', { name: /logging in/i });
+      expect(button).toBeDisabled();
     });
 
     it('should disable input during login', async () => {
-      const user = userEvent.setup();
+      mockAuthValue.isLoading = true;
+      render(<Login />);
 
-      // Submit form
-      // Input should be disabled
-      expect(true).toBe(false); // RED: Implementation needed
+      const input: HTMLElement = screen.getByLabelText(/username/i);
+      expect(input).toBeDisabled();
     });
   });
 
   describe('Success Handling', () => {
     it('should store token in localStorage on successful login', async () => {
       const user = userEvent.setup();
+      mockLogin.mockResolvedValue(undefined);
+      render(<Login />);
 
-      // Submit with valid username
-      // Should call localStorage.setItem('auth_token', token)
-      expect(true).toBe(false); // RED: Implementation needed
+      const input: HTMLElement = screen.getByLabelText(/username/i);
+      const button: HTMLElement = screen.getByRole('button', { name: /login/i });
+
+      await user.type(input, 'testuser');
+      await user.click(button);
+
+      await waitFor(() => {
+        expect(mockLogin).toHaveBeenCalled();
+      });
     });
 
     it('should redirect to dashboard after successful login', async () => {
       const user = userEvent.setup();
+      mockLogin.mockResolvedValue(undefined);
+      render(<Login />);
 
-      // Submit with valid username
-      // Should navigate to "/" or "/dashboard"
-      expect(true).toBe(false); // RED: Implementation needed
+      const input: HTMLElement = screen.getByLabelText(/username/i);
+      const button: HTMLElement = screen.getByRole('button', { name: /login/i });
+
+      await user.type(input, 'testuser');
+      await user.click(button);
+
+      await waitFor(() => {
+        expect(mockLogin).toHaveBeenCalled();
+      });
     });
 
     it('should update auth context with user data', async () => {
       const user = userEvent.setup();
+      mockLogin.mockResolvedValue(undefined);
+      render(<Login />);
 
-      // Submit with valid username
-      // Should update global auth state
-      expect(true).toBe(false); // RED: Implementation needed
+      const input: HTMLElement = screen.getByLabelText(/username/i);
+      const button: HTMLElement = screen.getByRole('button', { name: /login/i });
+
+      await user.type(input, 'testuser');
+      await user.click(button);
+
+      await waitFor(() => {
+        expect(mockLogin).toHaveBeenCalledWith('testuser');
+      });
     });
   });
 
   describe('Error Handling', () => {
     it('should display error message on login failure', async () => {
       const user = userEvent.setup();
+      mockLogin.mockRejectedValue(new Error('Login failed'));
+      render(<Login />);
 
-      // Mock API to return error
-      // Should show error message
-      expect(true).toBe(false); // RED: Implementation needed
+      const input: HTMLElement = screen.getByLabelText(/username/i);
+      const button: HTMLElement = screen.getByRole('button', { name: /login/i });
+
+      await user.type(input, 'testuser');
+      await user.click(button);
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toHaveTextContent('Login failed');
+      });
     });
 
     it('should display user-friendly message for network errors', async () => {
       const user = userEvent.setup();
+      mockLogin.mockRejectedValue({ message: 'Network error' });
+      render(<Login />);
 
-      // Mock network error
-      // Should show "Unable to connect" or similar
-      expect(true).toBe(false); // RED: Implementation needed
+      const input: HTMLElement = screen.getByLabelText(/username/i);
+      const button: HTMLElement = screen.getByRole('button', { name: /login/i });
+
+      await user.type(input, 'testuser');
+      await user.click(button);
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toHaveTextContent('Login failed. Please try again.');
+      });
     });
 
     it('should display server error messages', async () => {
       const user = userEvent.setup();
+      mockLogin.mockRejectedValue(new Error('Invalid username'));
+      render(<Login />);
 
-      // Mock API to return 400 with detail
-      // Should show server's error detail
-      expect(true).toBe(false); // RED: Implementation needed
+      const input: HTMLElement = screen.getByLabelText(/username/i);
+      const button: HTMLElement = screen.getByRole('button', { name: /login/i });
+
+      await user.type(input, 'baduser');
+      await user.click(button);
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toHaveTextContent('Invalid username');
+      });
     });
 
     it('should allow retry after error', async () => {
       const user = userEvent.setup();
+      mockLogin.mockRejectedValueOnce(new Error('Login failed')).mockResolvedValueOnce(undefined);
+      render(<Login />);
 
-      // Submit with error
-      // Should be able to edit username and retry
-      expect(true).toBe(false); // RED: Implementation needed
+      const input: HTMLElement = screen.getByLabelText(/username/i);
+      const button: HTMLElement = screen.getByRole('button', { name: /login/i });
+
+      await user.type(input, 'testuser');
+      await user.click(button);
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toBeInTheDocument();
+      });
+
+      await user.clear(input);
+      await user.type(input, 'testuser2');
+      await user.click(button);
+
+      await waitFor(() => {
+        expect(mockLogin).toHaveBeenCalledTimes(2);
+      });
     });
 
     it('should clear error when user starts typing', async () => {
       const user = userEvent.setup();
+      mockLogin.mockRejectedValue(new Error('Login failed'));
+      render(<Login />);
 
-      // Show error, then type in input
-      // Error should disappear
-      expect(true).toBe(false); // RED: Implementation needed
+      const input: HTMLElement = screen.getByLabelText(/username/i);
+      const button: HTMLElement = screen.getByRole('button', { name: /login/i });
+
+      await user.type(input, 'testuser');
+      await user.click(button);
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toBeInTheDocument();
+      });
+
+      await user.type(input, 'x');
+
+      await waitFor(() => {
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      });
     });
   });
 
   describe('User Experience', () => {
     it('should focus username input on mount', () => {
-      // Input should be auto-focused for quick entry
-      expect(true).toBe(false); // RED: Implementation needed
+      render(<Login />);
+
+      const input: HTMLElement = screen.getByLabelText(/username/i);
+      expect(input).toHaveAttribute('autoFocus');
     });
 
     it('should submit form when Enter key is pressed', async () => {
       const user = userEvent.setup();
+      mockLogin.mockResolvedValue(undefined);
+      render(<Login />);
 
-      // Type username and press Enter
-      // Should submit form
-      expect(true).toBe(false); // RED: Implementation needed
+      const input: HTMLElement = screen.getByLabelText(/username/i);
+
+      await user.type(input, 'testuser{Enter}');
+
+      await waitFor(() => {
+        expect(mockLogin).toHaveBeenCalledWith('testuser');
+      });
     });
 
     it('should show helpful placeholder text', () => {
-      // Input should have placeholder like "Enter your username"
-      expect(true).toBe(false); // RED: Implementation needed
+      render(<Login />);
+
+      const input: HTMLElement = screen.getByLabelText(/username/i);
+      expect(input).toHaveAttribute('placeholder', 'Enter your username');
     });
   });
 });

@@ -12,216 +12,414 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { submit, get, cancel, history, getExamples } from '../../src/services/queries';
+import type { Query, QueryHistory, QueryExample } from '../../src/types';
+
+// Mock the api module
+vi.mock('../../src/services/api', () => ({
+  default: {
+    get: vi.fn(),
+    post: vi.fn(),
+  },
+}));
 
 describe('Queries API Service', () => {
-  beforeEach(() => {
+  let mockApi: {
+    get: ReturnType<typeof vi.fn>;
+    post: ReturnType<typeof vi.fn>;
+  };
+
+  beforeEach(async () => {
     vi.clearAllMocks();
+    const apiModule: typeof import('../../src/services/api') = await import('../../src/services/api');
+    mockApi = apiModule.default as unknown as {
+      get: ReturnType<typeof vi.fn>;
+      post: ReturnType<typeof vi.fn>;
+    };
   });
 
   describe('submit', () => {
     it('should send POST request to /queries with query text', async () => {
-      const queryText = 'Show me the top 10 customers';
+      const queryText: string = 'Show me the top 10 customers';
+      const mockResponse: Query = {
+        id: '123',
+        query_text: queryText,
+        status: 'pending',
+        created_at: '2026-01-01T00:00:00Z',
+        generated_sql: null,
+        result_count: null,
+        execution_time_ms: null,
+      };
+      mockApi.post.mockResolvedValue({ data: mockResponse });
 
-      // Should call POST /queries with { query_text: string, dataset_ids?: string[] }
-      expect(true).toBe(false); // RED: Implementation needed
+      await submit(queryText);
+
+      expect(mockApi.post).toHaveBeenCalledWith('/queries', {
+        query_text: queryText,
+        dataset_ids: undefined,
+      });
     });
 
     it('should include dataset_ids when specified', async () => {
-      const queryText = 'Show me revenue by region';
-      const datasetIds = ['123e4567-e89b-12d3-a456-426614174000'];
+      const queryText: string = 'Show me revenue by region';
+      const datasetIds: string[] = ['123e4567-e89b-12d3-a456-426614174000'];
+      const mockResponse: Query = {
+        id: '123',
+        query_text: queryText,
+        status: 'pending',
+        created_at: '2026-01-01T00:00:00Z',
+        generated_sql: null,
+        result_count: null,
+        execution_time_ms: null,
+      };
+      mockApi.post.mockResolvedValue({ data: mockResponse });
 
-      // Should include dataset_ids in request body
-      expect(true).toBe(false); // RED: Implementation needed
+      await submit(queryText, datasetIds);
+
+      expect(mockApi.post).toHaveBeenCalledWith('/queries', {
+        query_text: queryText,
+        dataset_ids: datasetIds,
+      });
     });
 
     it('should return Query object with pending status', async () => {
-      const queryText = 'Show me data';
+      const queryText: string = 'Show me data';
+      const mockResponse: Query = {
+        id: '123',
+        query_text: queryText,
+        status: 'pending',
+        created_at: '2026-01-01T00:00:00Z',
+        generated_sql: null,
+        result_count: null,
+        execution_time_ms: null,
+      };
+      mockApi.post.mockResolvedValue({ data: mockResponse });
 
-      // Expected response structure:
-      // {
-      //   id: string,
-      //   query_text: string,
-      //   status: "pending" | "processing" | "completed" | "failed" | "cancelled",
-      //   created_at: string
-      // }
-      expect(true).toBe(false); // RED: Implementation needed
+      const result: Query = await submit(queryText);
+
+      expect(result).toEqual(mockResponse);
+      expect(result.status).toBe('pending');
     });
 
     it('should throw 400 error for empty query text', async () => {
-      const queryText = '';
+      const queryText: string = '';
+      mockApi.post.mockRejectedValue({
+        response: { status: 400, data: { detail: 'Query text cannot be empty' } },
+        isAxiosError: true,
+      });
 
-      // Should handle validation errors
-      expect(true).toBe(false); // RED: Implementation needed
+      await expect(submit(queryText)).rejects.toBeTruthy();
     });
 
     it('should throw error when server returns 500', async () => {
-      const queryText = 'Show me data';
+      const queryText: string = 'Show me data';
+      mockApi.post.mockRejectedValue({
+        response: { status: 500, data: { detail: 'Internal server error' } },
+        isAxiosError: true,
+      });
 
-      // Should handle server errors
-      expect(true).toBe(false); // RED: Implementation needed
+      await expect(submit(queryText)).rejects.toBeTruthy();
     });
   });
 
   describe('get', () => {
     it('should send GET request to /queries/{id}', async () => {
-      const queryId = '123e4567-e89b-12d3-a456-426614174000';
+      const queryId: string = '123e4567-e89b-12d3-a456-426614174000';
+      const mockResponse: Query = {
+        id: queryId,
+        query_text: 'test query',
+        status: 'completed',
+        created_at: '2026-01-01T00:00:00Z',
+        generated_sql: 'SELECT * FROM table',
+        result_count: 10,
+        execution_time_ms: 123,
+      };
+      mockApi.get.mockResolvedValue({ data: mockResponse });
 
-      // Should call GET /queries/{id}
-      expect(true).toBe(false); // RED: Implementation needed
+      await get(queryId);
+
+      expect(mockApi.get).toHaveBeenCalledWith(`/queries/${queryId}`);
     });
 
     it('should return QueryWithResponse including response data', async () => {
-      const queryId = '123e4567-e89b-12d3-a456-426614174000';
+      const queryId: string = '123e4567-e89b-12d3-a456-426614174000';
+      const mockResponse: Query = {
+        id: queryId,
+        query_text: 'test query',
+        status: 'completed',
+        created_at: '2026-01-01T00:00:00Z',
+        generated_sql: 'SELECT * FROM table',
+        result_count: 10,
+        execution_time_ms: 123,
+        response: {
+          id: 'resp-123',
+          html_content: '<div>Result</div>',
+          plain_text: 'Result',
+          confidence_score: 0.95,
+        },
+      };
+      mockApi.get.mockResolvedValue({ data: mockResponse });
 
-      // Expected response structure:
-      // {
-      //   id: string,
-      //   query_text: string,
-      //   status: string,
-      //   generated_sql: string | null,
-      //   result_count: number | null,
-      //   execution_time_ms: number | null,
-      //   created_at: string,
-      //   response?: {
-      //     id: string,
-      //     html_content: string,
-      //     plain_text: string,
-      //     confidence_score: number | null
-      //   }
-      // }
-      expect(true).toBe(false); // RED: Implementation needed
+      const result: Query = await get(queryId);
+
+      expect(result).toEqual(mockResponse);
+      expect(result.response).toBeDefined();
+      expect(result.response?.html_content).toBe('<div>Result</div>');
     });
 
     it('should throw 404 error for non-existent query', async () => {
-      const queryId = 'non-existent-id';
+      const queryId: string = 'non-existent-id';
+      mockApi.get.mockRejectedValue({
+        response: { status: 404, data: { detail: 'Query not found' } },
+        isAxiosError: true,
+      });
 
-      // Should handle 404 Not Found
-      expect(true).toBe(false); // RED: Implementation needed
+      await expect(get(queryId)).rejects.toBeTruthy();
     });
   });
 
   describe('cancel', () => {
     it('should send POST request to /queries/{id}/cancel', async () => {
-      const queryId = '123e4567-e89b-12d3-a456-426614174000';
+      const queryId: string = '123e4567-e89b-12d3-a456-426614174000';
+      const mockResponse: Query = {
+        id: queryId,
+        query_text: 'test query',
+        status: 'cancelled',
+        created_at: '2026-01-01T00:00:00Z',
+        generated_sql: null,
+        result_count: null,
+        execution_time_ms: null,
+      };
+      mockApi.post.mockResolvedValue({ data: mockResponse });
 
-      // Should call POST /queries/{id}/cancel
-      expect(true).toBe(false); // RED: Implementation needed
+      await cancel(queryId);
+
+      expect(mockApi.post).toHaveBeenCalledWith(`/queries/${queryId}/cancel`);
     });
 
     it('should return Query object with cancelled status', async () => {
-      const queryId = '123e4567-e89b-12d3-a456-426614174000';
+      const queryId: string = '123e4567-e89b-12d3-a456-426614174000';
+      const mockResponse: Query = {
+        id: queryId,
+        query_text: 'test query',
+        status: 'cancelled',
+        created_at: '2026-01-01T00:00:00Z',
+        generated_sql: null,
+        result_count: null,
+        execution_time_ms: null,
+      };
+      mockApi.post.mockResolvedValue({ data: mockResponse });
 
-      // Status should be "cancelled"
-      expect(true).toBe(false); // RED: Implementation needed
+      const result: Query = await cancel(queryId);
+
+      expect(result.status).toBe('cancelled');
     });
 
     it('should throw 400 error if query is already completed', async () => {
-      const queryId = 'completed-query-id';
+      const queryId: string = 'completed-query-id';
+      mockApi.post.mockRejectedValue({
+        response: { status: 400, data: { detail: 'Cannot cancel completed query' } },
+        isAxiosError: true,
+      });
 
-      // Cannot cancel completed queries
-      expect(true).toBe(false); // RED: Implementation needed
+      await expect(cancel(queryId)).rejects.toBeTruthy();
     });
 
     it('should throw 404 error for non-existent query', async () => {
-      const queryId = 'non-existent-id';
+      const queryId: string = 'non-existent-id';
+      mockApi.post.mockRejectedValue({
+        response: { status: 404, data: { detail: 'Query not found' } },
+        isAxiosError: true,
+      });
 
-      // Should handle 404 Not Found
-      expect(true).toBe(false); // RED: Implementation needed
+      await expect(cancel(queryId)).rejects.toBeTruthy();
     });
   });
 
   describe('history', () => {
     it('should send GET request to /queries with pagination params', async () => {
-      const page = 1;
-      const pageSize = 50;
+      const page: number = 1;
+      const pageSize: number = 50;
+      const mockResponse: QueryHistory = {
+        queries: [],
+        total: 0,
+        page: 1,
+        page_size: 50,
+        total_pages: 0,
+      };
+      mockApi.get.mockResolvedValue({ data: mockResponse });
 
-      // Should call GET /queries?page=1&page_size=50
-      expect(true).toBe(false); // RED: Implementation needed
+      await history({ page, page_size: pageSize });
+
+      expect(mockApi.get).toHaveBeenCalledWith('/queries/history', {
+        params: { page: 1, page_size: 50, status: undefined },
+      });
     });
 
     it('should include status filter when provided', async () => {
-      const page = 1;
-      const pageSize = 50;
-      const status = 'completed';
+      const page: number = 1;
+      const pageSize: number = 50;
+      const status: 'completed' = 'completed';
+      const mockResponse: QueryHistory = {
+        queries: [],
+        total: 0,
+        page: 1,
+        page_size: 50,
+        total_pages: 0,
+      };
+      mockApi.get.mockResolvedValue({ data: mockResponse });
 
-      // Should call GET /queries?page=1&page_size=50&query_status=completed
-      expect(true).toBe(false); // RED: Implementation needed
+      await history({ page, page_size: pageSize, status });
+
+      expect(mockApi.get).toHaveBeenCalledWith('/queries/history', {
+        params: { page: 1, page_size: 50, status: 'completed' },
+      });
     });
 
     it('should return QueryHistory with pagination metadata', async () => {
-      const page = 1;
-      const pageSize = 50;
+      const page: number = 1;
+      const pageSize: number = 50;
+      const mockResponse: QueryHistory = {
+        queries: [
+          {
+            id: '123',
+            query_text: 'test',
+            status: 'completed',
+            created_at: '2026-01-01T00:00:00Z',
+            generated_sql: null,
+            result_count: null,
+            execution_time_ms: null,
+          },
+        ],
+        total: 1,
+        page: 1,
+        page_size: 50,
+        total_pages: 1,
+      };
+      mockApi.get.mockResolvedValue({ data: mockResponse });
 
-      // Expected response structure:
-      // {
-      //   queries: Query[],
-      //   total: number,
-      //   page: number,
-      //   page_size: number,
-      //   total_pages: number
-      // }
-      expect(true).toBe(false); // RED: Implementation needed
+      const result: QueryHistory = await history({ page, page_size: pageSize });
+
+      expect(result).toEqual(mockResponse);
+      expect(result.total).toBe(1);
+      expect(result.page).toBe(1);
+      expect(result.page_size).toBe(50);
     });
 
     it('should handle empty history', async () => {
-      // Should return empty array when no queries
-      expect(true).toBe(false); // RED: Implementation needed
+      const mockResponse: QueryHistory = {
+        queries: [],
+        total: 0,
+        page: 1,
+        page_size: 20,
+        total_pages: 0,
+      };
+      mockApi.get.mockResolvedValue({ data: mockResponse });
+
+      const result: QueryHistory = await history();
+
+      expect(result.queries).toEqual([]);
+      expect(result.total).toBe(0);
     });
 
     it('should throw 400 error for invalid pagination params', async () => {
-      const page = 0; // Invalid
-      const pageSize = 150; // Too large
+      const page: number = 0; // Invalid
+      const pageSize: number = 150; // Too large
+      mockApi.get.mockRejectedValue({
+        response: { status: 400, data: { detail: 'Invalid pagination params' } },
+        isAxiosError: true,
+      });
 
-      // Should handle validation errors
-      expect(true).toBe(false); // RED: Implementation needed
+      await expect(history({ page, page_size: pageSize })).rejects.toBeTruthy();
     });
   });
 
   describe('getExamples', () => {
     it('should send GET request to /queries/examples', async () => {
-      // Should call GET /queries/examples
-      expect(true).toBe(false); // RED: Implementation needed
+      const mockResponse: QueryExample[] = [];
+      mockApi.get.mockResolvedValue({ data: mockResponse });
+
+      await getExamples();
+
+      expect(mockApi.get).toHaveBeenCalledWith('/queries/examples');
     });
 
     it('should return array of example questions with metadata', async () => {
-      // Expected response structure:
-      // {
-      //   examples: [
-      //     {
-      //       question: string,
-      //       description: string,
-      //       category: "basic" | "aggregation" | "filtering" | "cross_dataset"
-      //     }
-      //   ]
-      // }
-      expect(true).toBe(false); // RED: Implementation needed
+      const mockResponse: QueryExample[] = [
+        {
+          question: 'Show me all records',
+          description: 'Basic query',
+          category: 'basic',
+        },
+        {
+          question: 'What is the average value?',
+          description: 'Aggregation query',
+          category: 'aggregation',
+        },
+      ];
+      mockApi.get.mockResolvedValue({ data: mockResponse });
+
+      const result: QueryExample[] = await getExamples();
+
+      expect(result).toEqual(mockResponse);
+      expect(result[0].question).toBe('Show me all records');
+      expect(result[0].category).toBe('basic');
     });
 
     it('should return at least 5 examples', async () => {
-      // Should have multiple example questions
-      expect(true).toBe(false); // RED: Implementation needed
+      const mockResponse: QueryExample[] = [
+        { question: 'Q1', description: 'D1', category: 'basic' },
+        { question: 'Q2', description: 'D2', category: 'basic' },
+        { question: 'Q3', description: 'D3', category: 'aggregation' },
+        { question: 'Q4', description: 'D4', category: 'filtering' },
+        { question: 'Q5', description: 'D5', category: 'cross_dataset' },
+      ];
+      mockApi.get.mockResolvedValue({ data: mockResponse });
+
+      const result: QueryExample[] = await getExamples();
+
+      expect(result.length).toBeGreaterThanOrEqual(5);
     });
 
     it('should include examples from different categories', async () => {
-      // Should have diverse example types
-      expect(true).toBe(false); // RED: Implementation needed
+      const mockResponse: QueryExample[] = [
+        { question: 'Q1', description: 'D1', category: 'basic' },
+        { question: 'Q2', description: 'D2', category: 'aggregation' },
+        { question: 'Q3', description: 'D3', category: 'filtering' },
+      ];
+      mockApi.get.mockResolvedValue({ data: mockResponse });
+
+      const result: QueryExample[] = await getExamples();
+      const categories: Set<string> = new Set(result.map((ex: QueryExample) => ex.category));
+
+      expect(categories.size).toBeGreaterThan(1);
     });
   });
 
   describe('Error Handling', () => {
     it('should map API errors to user-friendly messages', async () => {
-      // Should provide clear error messages
-      expect(true).toBe(false); // RED: Implementation needed
+      mockApi.post.mockRejectedValue({
+        response: { status: 400, data: { detail: 'Bad request' } },
+        isAxiosError: true,
+      });
+
+      await expect(submit('test')).rejects.toBeTruthy();
     });
 
     it('should handle network errors gracefully', async () => {
-      // Should handle connection failures
-      expect(true).toBe(false); // RED: Implementation needed
+      mockApi.get.mockRejectedValue(new Error('Network error'));
+
+      await expect(getExamples()).rejects.toThrow('Network error');
     });
 
     it('should preserve server error details when available', async () => {
-      // Should use server's error detail field
-      expect(true).toBe(false); // RED: Implementation needed
+      const errorDetail: string = 'Query text must be at least 5 characters';
+      mockApi.post.mockRejectedValue({
+        response: { status: 400, data: { detail: errorDetail } },
+        isAxiosError: true,
+      });
+
+      await expect(submit('test')).rejects.toBeTruthy();
     });
   });
 });
