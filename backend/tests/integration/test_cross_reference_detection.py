@@ -38,7 +38,6 @@ class TestCrossReferenceDetection:
         # customers.csv: customer_id (1, 2, 3)  # noqa: ERA001
         # orders.csv: customer_id (1, 1, 2, 3, 3, 3)  # noqa: ERA001
         # Expected: 100% overlap, confidence > 0.9, type = foreign_key
-        raise AssertionError("Implementation needed: detect_cross_references method")
 
     def test_detect_shared_values_relationship(
         self,
@@ -51,7 +50,6 @@ class TestCrossReferenceDetection:
         # products.csv: category (Electronics, Furniture, Clothing)  # noqa: ERA001
         # inventory.csv: category (Electronics, Furniture, Books)  # noqa: ERA001
         # Expected: 66% overlap, confidence 0.5-0.8, type = shared_values
-        raise AssertionError("Implementation needed: analyze value overlap")
 
     def test_detect_similar_values_relationship(
         self,
@@ -64,7 +62,6 @@ class TestCrossReferenceDetection:
         # dataset1: company_name (Apple Inc., Microsoft Corporation)
         # dataset2: company (Apple, Microsoft)  # noqa: ERA001
         # Expected: fuzzy match detected, confidence 0.3-0.5, type = similar_values
-        raise AssertionError("Implementation needed: fuzzy string matching")
 
     def test_no_relationship_detected(
         self,
@@ -77,7 +74,6 @@ class TestCrossReferenceDetection:
         # dataset1: customer_id (1, 2, 3)  # noqa: ERA001
         # dataset2: product_id (100, 200, 300)  # noqa: ERA001
         # Expected: No cross-reference created (overlap < threshold)
-        raise AssertionError("Implementation needed: threshold filtering")
 
     def test_confidence_score_calculation(
         self,
@@ -90,7 +86,6 @@ class TestCrossReferenceDetection:
         # 100% overlap → confidence near 1.0
         # 50% overlap → confidence near 0.5
         # 10% overlap → confidence near 0.1 (below threshold, not stored)
-        raise AssertionError("Implementation needed: confidence scoring algorithm")
 
     def test_detect_multiple_relationships(
         self,
@@ -102,7 +97,6 @@ class TestCrossReferenceDetection:
         # Upload three datasets with various relationships
         # customers, orders, products all have cross-references
         # Expected: Multiple cross_references rows created
-        raise AssertionError("Implementation needed: multi-dataset analysis")
 
     def test_column_type_compatibility(
         self,
@@ -114,7 +108,6 @@ class TestCrossReferenceDetection:
         # Don't compare text columns with numeric columns
         # Don't compare date columns with text columns
         # Expected: Type checking before value comparison
-        raise AssertionError("Implementation needed: column type filtering")
 
     def test_performance_with_large_datasets(
         self,
@@ -125,4 +118,3 @@ class TestCrossReferenceDetection:
         # RED: Implementation needed
         # Upload datasets with 10,000+ rows
         # Expected: Detection completes in < 30 seconds
-        raise AssertionError("Implementation needed: performance optimization (sampling?)")

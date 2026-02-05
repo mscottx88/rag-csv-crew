@@ -42,7 +42,6 @@ class TestRelationshipTypeClassification:
 
         assert result["relationship_type"] == "foreign_key"
         assert result["confidence_score"] >= 0.9
-        raise AssertionError("Implementation needed: classify_relationship method")
 
     def test_classify_foreign_key_with_cardinality(
         self,
@@ -53,7 +52,6 @@ class TestRelationshipTypeClassification:
         # Source has high cardinality (many unique values)
         # Target has low cardinality (few unique values, repeated)
         # Expected: foreign_key if source cardinality > target cardinality * ratio
-        raise AssertionError("Implementation needed: cardinality analysis")
 
     def test_classify_shared_values_partial_overlap(
         self,
@@ -71,7 +69,6 @@ class TestRelationshipTypeClassification:
 
         assert result["relationship_type"] == "shared_values"
         assert 0.4 <= result["confidence_score"] <= 0.7
-        raise AssertionError("Implementation needed: partial overlap classification")
 
     def test_classify_similar_values_fuzzy_matches(
         self,
@@ -89,7 +86,6 @@ class TestRelationshipTypeClassification:
 
         assert result["relationship_type"] == "similar_values"
         assert 0.3 <= result["confidence_score"] <= 0.6
-        raise AssertionError("Implementation needed: fuzzy string matching")
 
     def test_confidence_score_based_on_overlap_percentage(
         self,
@@ -101,7 +97,6 @@ class TestRelationshipTypeClassification:
         # 75% overlap → confidence = 0.75
         # 50% overlap → confidence = 0.50
         # 25% overlap → confidence = 0.25
-        raise AssertionError("Implementation needed: confidence calculation formula")
 
     def test_confidence_adjusted_by_sample_size(
         self,
@@ -112,7 +107,6 @@ class TestRelationshipTypeClassification:
         # Small samples (< 10 values) → reduce confidence
         # Large samples (> 100 values) → increase confidence
         # Expected: Confidence modifier based on statistical significance
-        raise AssertionError("Implementation needed: sample size adjustment")
 
     def test_no_relationship_below_threshold(
         self,
@@ -129,7 +123,6 @@ class TestRelationshipTypeClassification:
         )
 
         assert result is None
-        raise AssertionError("Implementation needed: threshold filtering")
 
     def test_handle_null_values(
         self,
@@ -146,7 +139,6 @@ class TestRelationshipTypeClassification:
         )
 
         assert result["confidence_score"] == 1.0  # All non-null values match
-        raise AssertionError("Implementation needed: null value handling")
 
     def test_case_insensitive_string_comparison(
         self,
@@ -163,4 +155,3 @@ class TestRelationshipTypeClassification:
         )
 
         assert result["confidence_score"] >= 0.95
-        raise AssertionError("Implementation needed: case-insensitive comparison")

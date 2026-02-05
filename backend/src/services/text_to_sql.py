@@ -34,6 +34,61 @@ class TextToSQLService:
         """
         self.pool: ConnectionPool | None = pool
 
+    def resolve_datasets(
+        self,
+        username: str,
+        query_text: str,
+        available_datasets: list[str],
+        dataset_ids: list[str] | None = None,
+    ) -> list[str]:
+        """Identify relevant datasets for a query based on content and relationships.
+
+        Args:
+            username: Username for schema isolation
+            query_text: Natural language question text
+            available_datasets: List of available dataset names/IDs
+            dataset_ids: Optional user-specified filter (if provided, limits to these)
+
+        Returns:
+            List of dataset names/IDs relevant to the query
+
+        Algorithm:
+        1. If dataset_ids filter provided, return intersection with available_datasets
+        2. Otherwise, fuzzy match dataset names in query_text
+        3. Include datasets connected via cross-references
+
+        Examples:
+            query="Show customers" → ["customers"]
+            query="Customer orders" → ["customers", "orders"]
+        """
+        # If user specified dataset filter, respect it (intersection with available)
+        if dataset_ids is not None:
+            return [ds for ds in dataset_ids if ds in available_datasets]
+
+        # Fuzzy match dataset names in query text (case-insensitive, substring match)
+        query_lower: str = query_text.lower()
+        matched_datasets: list[str] = []
+
+        for dataset in available_datasets:
+            # Remove .csv extension and convert to lowercase for comparison
+            dataset_name: str = dataset.replace(".csv", "").lower()
+
+            # Check if dataset name (or singular/plural variant) appears in query
+            if dataset_name in query_lower:
+                matched_datasets.append(dataset)
+            # Check for singular variant (e.g., "customer" matches "customers")
+            elif dataset_name.endswith("s") and dataset_name[:-1] in query_lower:
+                matched_datasets.append(dataset)
+            # Check for plural variant (e.g., "customers" matches "customer")
+            elif not dataset_name.endswith("s") and f"{dataset_name}s" in query_lower:
+                matched_datasets.append(dataset)
+
+        # If no matches found, return all available datasets (query all by default)
+        if not matched_datasets:
+            return available_datasets
+
+        return matched_datasets
+
     def get_cross_references(
         self, username: str, dataset_ids: list[UUID]
     ) -> list[dict[str, Any]]:

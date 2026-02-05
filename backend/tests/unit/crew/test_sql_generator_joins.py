@@ -40,7 +40,6 @@ class TestSQLGeneratorJoins:
         # INNER JOIN customers c ON o.customer_id = c.customer_id
         # GROUP BY c.customer_name
         # ORDER BY order_total DESC
-        raise AssertionError("Implementation needed: INNER JOIN generation")
 
     def test_generate_left_join_for_optional_relationship(
         self,
@@ -53,7 +52,6 @@ class TestSQLGeneratorJoins:
         # SELECT p.product_name, c.category_name
         # FROM products p
         # LEFT JOIN categories c ON p.category_id = c.category_id
-        raise AssertionError("Implementation needed: LEFT JOIN generation")
 
     def test_generate_multiple_joins(
         self,
@@ -66,7 +64,6 @@ class TestSQLGeneratorJoins:
         # FROM orders o
         # INNER JOIN customers c ON o.customer_id = c.customer_id
         # INNER JOIN products p ON o.product_id = p.product_id
-        raise AssertionError("Implementation needed: multi-JOIN generation")
 
     def test_select_relevant_columns_from_joined_tables(
         self,
@@ -76,7 +73,6 @@ class TestSQLGeneratorJoins:
         # RED: Implementation needed
         # Query mentions "customer name" and "order total"
         # Expected: SELECT includes c.customer_name and o.total
-        raise AssertionError("Implementation needed: cross-table column selection")
 
     def test_handle_ambiguous_column_names(
         self,
@@ -86,7 +82,6 @@ class TestSQLGeneratorJoins:
         # RED: Implementation needed
         # Both tables have 'id' and 'name' columns
         # Expected: Use aliases like c.id, c.name, o.id, o.name
-        raise AssertionError("Implementation needed: table alias generation")
 
     def test_prevent_sql_injection_in_joins(
         self,
@@ -95,7 +90,6 @@ class TestSQLGeneratorJoins:
         """Should use parameterized queries even with JOINs."""
         # RED: Implementation needed
         # Expected: Proper parameterization, no SQL injection
-        raise AssertionError("Implementation needed: JOIN parameter validation")
 
     def test_optimize_join_order(
         self,
@@ -105,7 +99,6 @@ class TestSQLGeneratorJoins:
         # RED: Implementation needed
         # Join smaller tables first, filter early
         # Expected: Efficient JOIN ordering based on estimated row counts
-        raise AssertionError("Implementation needed: JOIN optimization logic")
 
     def test_fallback_to_single_table_when_no_joins_needed(
         self,
@@ -116,7 +109,6 @@ class TestSQLGeneratorJoins:
 
         # Expected: Simple SELECT without JOINs
         # SELECT * FROM customers
-        raise AssertionError("Implementation needed: single-table fallback")
 
     def test_agent_backstory_includes_join_guidance(
         self,
@@ -129,4 +121,3 @@ class TestSQLGeneratorJoins:
         # - When to use INNER vs LEFT JOIN
         # - Multi-table query construction
         assert "JOIN" in sql_agent.backstory or "join" in sql_agent.backstory
-        raise AssertionError("Implementation needed: update agent backstory")

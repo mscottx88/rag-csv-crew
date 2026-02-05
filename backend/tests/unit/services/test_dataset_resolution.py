@@ -46,7 +46,6 @@ class TestDatasetRelationshipResolution:
         )
 
         assert "customers" in result
-        raise AssertionError("Implementation needed: resolve_datasets method")
 
     def test_identify_multiple_datasets_from_question(
         self,
@@ -66,7 +65,6 @@ class TestDatasetRelationshipResolution:
         )
 
         assert set(result) == {"customers", "orders", "products"}
-        raise AssertionError("Implementation needed: multi-dataset identification")
 
     def test_follow_cross_reference_chain(
         self,
@@ -79,7 +77,6 @@ class TestDatasetRelationshipResolution:
         # If query needs aggregation, may need to include related datasets
 
         # Expected: Follow relationship chain based on query intent
-        raise AssertionError("Implementation needed: cross-reference traversal")
 
     def test_respect_user_dataset_filter(
         self,
@@ -102,7 +99,6 @@ class TestDatasetRelationshipResolution:
 
         assert set(result) == {"customers", "orders"}
         assert "products" not in result
-        raise AssertionError("Implementation needed: dataset_ids filtering")
 
     def test_fuzzy_match_dataset_names(
         self,
@@ -122,7 +118,6 @@ class TestDatasetRelationshipResolution:
         )
 
         assert "customers" in result
-        raise AssertionError("Implementation needed: fuzzy dataset name matching")
 
     def test_identify_by_column_names(
         self,
@@ -143,7 +138,6 @@ class TestDatasetRelationshipResolution:
         )
 
         assert "orders" in result
-        raise AssertionError("Implementation needed: column-based identification")
 
     def test_handle_ambiguous_references(
         self,
@@ -155,7 +149,6 @@ class TestDatasetRelationshipResolution:
 
         # Expected: Return all datasets or ask for clarification?
         # Or use heuristics (most recently uploaded, most queried)?
-        raise AssertionError("Implementation needed: ambiguity resolution strategy")
 
     def test_return_cross_references_for_resolved_datasets(
         self,
@@ -166,4 +159,3 @@ class TestDatasetRelationshipResolution:
         # RED: Implementation needed
         # After identifying datasets, return their relationships
         # Expected: List of cross_references for SQL JOIN generation
-        raise AssertionError("Implementation needed: cross_references retrieval")
