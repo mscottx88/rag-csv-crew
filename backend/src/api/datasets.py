@@ -19,6 +19,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from psycopg_pool import ConnectionPool
 
 from src.api.dependencies import get_current_user
 from src.api.utils import get_pool_with_error_handling
@@ -29,6 +30,7 @@ from src.services.ingestion import (
     create_dataset_table,
     detect_csv_format,
     detect_csv_schema,
+    generate_column_embeddings,
     ingest_csv_data,
     store_dataset_metadata,
 )
@@ -355,6 +357,39 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to ingest CSV data: {e!s}",
             ) from e
+
+        # Generate embeddings for semantic search
+        try:
+            # Access underlying ConnectionPool from DatabaseConnectionPool wrapper
+            underlying_pool: ConnectionPool | None = pool._pool  # pylint: disable=protected-access
+            if underlying_pool is None:
+                raise RuntimeError("Connection pool not initialized")
+            generate_column_embeddings(
+                pool=underlying_pool,
+                username=username,
+                dataset_id=dataset_id,
+                columns=schema["columns"],
+            )
+            log_event(
+                logger=logger,
+                level="info",
+                event="embeddings_generated",
+                user=username,
+                extra={"dataset_id": dataset_id, "column_count": column_count},
+            )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # JUSTIFICATION: Embedding generation is optional - we intentionally catch all
+            # exceptions (API failures, network issues, database errors) to prevent blocking
+            # CSV upload. Dataset will be functional without embeddings (no semantic search).
+            log_event(
+                logger=logger,
+                level="warning",
+                event="embedding_generation_failed",
+                user=username,
+                extra={"dataset_id": dataset_id, "error": str(e)},
+            )
+            # Don't fail the upload if embeddings fail - log and continue
+            # Semantic search won't work for this dataset, but basic functionality will
 
         # Fetch complete dataset record
         try:
