@@ -24,7 +24,7 @@ from psycopg import Connection
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
-from backend.src.services.vector_search import VectorSearchService
+from src.services.vector_search import VectorSearchService
 
 
 def detect_csv_format(csv_file: BytesIO) -> dict[str, Any]:
@@ -808,7 +808,7 @@ class IngestionService:
         Raises:
             RuntimeError: If cross-reference detection or storage fails
         """
-        from backend.src.services.cross_reference import CrossReferenceService
+        from src.services.cross_reference import CrossReferenceService
 
         try:
             cross_ref_service: CrossReferenceService = CrossReferenceService(self.pool)

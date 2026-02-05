@@ -14,7 +14,7 @@ import pytest
 from typing import Any
 from crewai import Agent
 
-from backend.src.crew.agents import create_sql_generator_agent
+from src.crew.agents import create_sql_generator_agent
 
 
 @pytest.fixture

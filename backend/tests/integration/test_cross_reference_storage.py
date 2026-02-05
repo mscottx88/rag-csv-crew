@@ -16,7 +16,7 @@ from typing import Any
 from psycopg_pool import ConnectionPool
 from psycopg import Connection
 
-from backend.src.services.ingestion import IngestionService
+from src.services.ingestion import IngestionService
 
 
 @pytest.fixture

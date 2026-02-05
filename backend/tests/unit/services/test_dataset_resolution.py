@@ -16,7 +16,7 @@ import pytest
 from typing import Any
 from psycopg_pool import ConnectionPool
 
-from backend.src.services.text_to_sql import TextToSQLService
+from src.services.text_to_sql import TextToSQLService
 
 
 @pytest.fixture
