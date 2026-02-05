@@ -391,6 +391,39 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
             # Don't fail the upload if embeddings fail - log and continue
             # Semantic search won't work for this dataset, but basic functionality will
 
+        # Detect cross-references with existing datasets
+        try:
+            underlying_pool_for_xref: ConnectionPool | None = pool._pool  # pylint: disable=protected-access
+            if underlying_pool_for_xref is None:
+                raise RuntimeError("Connection pool not initialized")
+
+            from backend.src.services.ingestion import IngestionService
+
+            ingestion_service: IngestionService = IngestionService(underlying_pool_for_xref)
+            ref_count: int = ingestion_service.detect_and_store_cross_references(
+                username=username,
+                new_dataset_id=dataset_id,
+            )
+            log_event(
+                logger=logger,
+                level="info",
+                event="cross_references_detected",
+                user=username,
+                extra={"dataset_id": dataset_id, "reference_count": ref_count},
+            )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # JUSTIFICATION: Cross-reference detection is optional - we intentionally catch all
+            # exceptions to prevent blocking CSV upload. Dataset will be functional without
+            # cross-references (no automatic JOIN generation for multi-table queries).
+            log_event(
+                logger=logger,
+                level="warning",
+                event="cross_reference_detection_failed",
+                user=username,
+                extra={"dataset_id": dataset_id, "error": str(e)},
+            )
+            # Don't fail the upload if cross-reference detection fails
+
         # Fetch complete dataset record
         try:
             with conn.cursor() as cur:

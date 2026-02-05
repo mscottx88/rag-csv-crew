@@ -792,3 +792,117 @@ class IngestionService:
         generate_column_embeddings(
             pool=self.pool, username=username, dataset_id=dataset_id, columns=columns
         )
+
+    def detect_and_store_cross_references(
+        self, username: str, new_dataset_id: str
+    ) -> int:
+        """Detect and store cross-references between new dataset and existing datasets.
+
+        Args:
+            username: Username for schema isolation
+            new_dataset_id: ID of newly uploaded dataset
+
+        Returns:
+            Number of cross-references detected and stored
+
+        Raises:
+            RuntimeError: If cross-reference detection or storage fails
+        """
+        from backend.src.services.cross_reference import CrossReferenceService
+
+        try:
+            cross_ref_service: CrossReferenceService = CrossReferenceService(self.pool)
+            user_schema: str = f"{username}_schema"
+            total_refs: int = 0
+
+            with self.pool.connection() as conn:
+                with conn.cursor() as cur:
+                    # Set search path
+                    cur.execute(f"SET search_path TO {user_schema}, public")
+
+                    # Get all existing datasets for this user
+                    cur.execute(
+                        "SELECT id FROM datasets WHERE id != %s",
+                        (new_dataset_id,),
+                    )
+                    existing_datasets: list[tuple[str, ...]] = cur.fetchall()
+
+                    # Detect cross-references with each existing dataset
+                    for (existing_dataset_id,) in existing_datasets:
+                        # Check both directions
+                        refs_forward: list[dict[str, Any]] = (
+                            cross_ref_service.detect_cross_references(
+                                username=username,
+                                source_dataset_id=new_dataset_id,
+                                target_dataset_id=existing_dataset_id,
+                                min_confidence=0.3,
+                            )
+                        )
+
+                        refs_backward: list[dict[str, Any]] = (
+                            cross_ref_service.detect_cross_references(
+                                username=username,
+                                source_dataset_id=existing_dataset_id,
+                                target_dataset_id=new_dataset_id,
+                                min_confidence=0.3,
+                            )
+                        )
+
+                        # Store detected references
+                        for ref in refs_forward + refs_backward:
+                            self._store_cross_reference(conn, user_schema, ref)
+                            total_refs += 1
+
+                    conn.commit()
+
+            return total_refs
+
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to detect cross-references: {str(e)}"
+            ) from e
+
+    def _store_cross_reference(
+        self, conn: Any, user_schema: str, ref: dict[str, Any]
+    ) -> None:
+        """Store a single cross-reference in the database.
+
+        Args:
+            conn: Database connection
+            user_schema: User schema name
+            ref: Cross-reference dictionary with keys:
+                source_dataset_id, source_column, target_dataset_id,
+                target_column, relationship_type, confidence_score
+
+        Raises:
+            Exception: If database insert fails
+        """
+        with conn.cursor() as cur:
+            cur.execute(f"SET search_path TO {user_schema}, public")
+
+            # Insert cross-reference (UPSERT to handle duplicates)
+            cur.execute(
+                """
+                INSERT INTO cross_references (
+                    source_dataset_id,
+                    source_column,
+                    target_dataset_id,
+                    target_column,
+                    relationship_type,
+                    confidence_score
+                )
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (source_dataset_id, source_column, target_dataset_id, target_column)
+                DO UPDATE SET
+                    relationship_type = EXCLUDED.relationship_type,
+                    confidence_score = EXCLUDED.confidence_score
+                """,
+                (
+                    ref["source_dataset_id"],
+                    ref["source_column"],
+                    ref["target_dataset_id"],
+                    ref["target_column"],
+                    ref["relationship_type"],
+                    ref["confidence_score"],
+                ),
+            )
