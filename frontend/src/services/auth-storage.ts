@@ -64,7 +64,7 @@ export const parseJwtPayload = (token: string): Record<string, unknown> | null =
       return null;
     }
 
-    const payload: string = parts[1];
+    const payload: string = parts[1]!; // Safe: we checked length === 3
     const decoded: string = atob(payload);
     const parsed: Record<string, unknown> = JSON.parse(decoded);
     return parsed;

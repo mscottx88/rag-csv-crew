@@ -25,7 +25,7 @@ export const Datasets: React.FC = () => {
     console.log('Conflict detected for:', filename);
   };
 
-  const handleConflictResolve = (dataset: Dataset): void => {
+  const handleConflictResolve = (_dataset: Dataset): void => {
     setConflictFile(null);
     setRefreshTrigger((prev: number): number => prev + 1);
   };

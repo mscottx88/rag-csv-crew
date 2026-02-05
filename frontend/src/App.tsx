@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider, ProtectedRoute } from './context/AuthContext';
 import { Header } from './components/Layout/Header';
 import { Sidebar } from './components/Layout/Sidebar';

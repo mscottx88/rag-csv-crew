@@ -141,9 +141,9 @@ export const QueryHistory: React.FC<QueryHistoryProps> = ({ onQuerySelect, refre
               {renderStatusBadge(query.status)}
             </div>
             <div className="history-item-meta">
-              <span className="history-date">{formatDate(query.created_at)}</span>
-              {query.row_count !== undefined && (
-                <span className="history-rows">{query.row_count} rows</span>
+              <span className="history-date">{formatDate(query.submitted_at)}</span>
+              {query.result_count !== undefined && (
+                <span className="history-rows">{query.result_count} rows</span>
               )}
               {query.execution_time_ms !== undefined && (
                 <span className="history-time">{query.execution_time_ms}ms</span>

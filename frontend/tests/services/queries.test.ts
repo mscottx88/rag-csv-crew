@@ -245,7 +245,6 @@ describe('Queries API Service', () => {
         total: 0,
         page: 1,
         page_size: 50,
-        total_pages: 0,
       };
       mockApi.get.mockResolvedValue({ data: mockResponse });
 
@@ -265,7 +264,6 @@ describe('Queries API Service', () => {
         total: 0,
         page: 1,
         page_size: 50,
-        total_pages: 0,
       };
       mockApi.get.mockResolvedValue({ data: mockResponse });
 
@@ -287,14 +285,13 @@ describe('Queries API Service', () => {
             status: 'completed',
             created_at: '2026-01-01T00:00:00Z',
             generated_sql: null,
-            result_count: null,
-            execution_time_ms: null,
+            result_count: undefined,
+            execution_time_ms: undefined,
           },
         ],
         total: 1,
         page: 1,
         page_size: 50,
-        total_pages: 1,
       };
       mockApi.get.mockResolvedValue({ data: mockResponse });
 
@@ -312,7 +309,6 @@ describe('Queries API Service', () => {
         total: 0,
         page: 1,
         page_size: 20,
-        total_pages: 0,
       };
       mockApi.get.mockResolvedValue({ data: mockResponse });
 
@@ -347,14 +343,14 @@ describe('Queries API Service', () => {
     it('should return array of example questions with metadata', async () => {
       const mockResponse: QueryExample[] = [
         {
-          question: 'Show me all records',
+          id: 'ex1',
+          text: 'Show me all records',
           description: 'Basic query',
-          category: 'basic',
         },
         {
-          question: 'What is the average value?',
+          id: 'ex2',
+          text: 'What is the average value?',
           description: 'Aggregation query',
-          category: 'aggregation',
         },
       ];
       mockApi.get.mockResolvedValue({ data: mockResponse });
@@ -362,17 +358,17 @@ describe('Queries API Service', () => {
       const result: QueryExample[] = await getExamples();
 
       expect(result).toEqual(mockResponse);
-      expect(result[0].question).toBe('Show me all records');
-      expect(result[0].category).toBe('basic');
+      expect(result[0].text).toBe('Show me all records');
+      expect(result[0].description).toBe('Basic query');
     });
 
     it('should return at least 5 examples', async () => {
       const mockResponse: QueryExample[] = [
-        { question: 'Q1', description: 'D1', category: 'basic' },
-        { question: 'Q2', description: 'D2', category: 'basic' },
-        { question: 'Q3', description: 'D3', category: 'aggregation' },
-        { question: 'Q4', description: 'D4', category: 'filtering' },
-        { question: 'Q5', description: 'D5', category: 'cross_dataset' },
+        { id: 'ex1', text: 'Q1', description: 'D1' },
+        { id: 'ex2', text: 'Q2', description: 'D2' },
+        { id: 'ex3', text: 'Q3', description: 'D3' },
+        { id: 'ex4', text: 'Q4', description: 'D4' },
+        { id: 'ex5', text: 'Q5', description: 'D5' },
       ];
       mockApi.get.mockResolvedValue({ data: mockResponse });
 
@@ -383,16 +379,16 @@ describe('Queries API Service', () => {
 
     it('should include examples from different categories', async () => {
       const mockResponse: QueryExample[] = [
-        { question: 'Q1', description: 'D1', category: 'basic' },
-        { question: 'Q2', description: 'D2', category: 'aggregation' },
-        { question: 'Q3', description: 'D3', category: 'filtering' },
+        { id: 'ex1', text: 'Q1', description: 'D1' },
+        { id: 'ex2', text: 'Q2', description: 'D2' },
+        { id: 'ex3', text: 'Q3', description: 'D3' },
       ];
       mockApi.get.mockResolvedValue({ data: mockResponse });
 
       const result: QueryExample[] = await getExamples();
-      const categories: Set<string> = new Set(result.map((ex: QueryExample) => ex.category));
+      const descriptions: Set<string> = new Set(result.map((ex: QueryExample) => ex.description));
 
-      expect(categories.size).toBeGreaterThan(1);
+      expect(descriptions.size).toBeGreaterThan(1);
     });
   });
 
