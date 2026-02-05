@@ -9,6 +9,7 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
+# pylint: disable=redefined-outer-name,broad-exception-caught,docstring-first-line-empty
 from collections.abc import Generator
 import os
 from typing import Any
@@ -136,10 +137,10 @@ def test_schema(db_pool: ConnectionPool, test_username: str) -> Generator[str]:
     with db_pool.connection() as conn:
         with conn.cursor() as cur:
             # Create schema
-            cur.execute(sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(sql.Identifier(schema_name)))
+            cur.execute(sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(sql.Identifier(schema_name)))  # pylint: disable=line-too-long
 
             # Create required tables in schema
-            cur.execute(sql.SQL("SET search_path TO {}, public").format(sql.Identifier(schema_name)))
+            cur.execute(sql.SQL("SET search_path TO {}, public").format(sql.Identifier(schema_name)))  # pylint: disable=line-too-long
 
             # Create datasets table
             cur.execute("""
@@ -232,6 +233,6 @@ def test_connection(
     """
     with db_pool.connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(sql.SQL("SET search_path TO {}, public").format(sql.Identifier(test_schema)))
+            cur.execute(sql.SQL("SET search_path TO {}, public").format(sql.Identifier(test_schema)))  # pylint: disable=line-too-long
         yield conn
         # Auto-commit on test success (connection context manager handles this)

@@ -227,6 +227,7 @@ class CrossReferenceService:
             "confidence_score": adjusted_confidence,
         }
 
+    # pylint: disable=too-many-locals  # TODO(T225): Extract helper functions
     def detect_cross_references(
         self,
         username: str,

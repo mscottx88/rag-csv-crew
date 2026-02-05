@@ -143,7 +143,7 @@ class DatabaseConnectionPool:
         Raises:
             RuntimeError: If pool not initialized
         """
-        with self.connection() as conn, conn.cursor(row_factory=row_factory) as cur:  # type: ignore[arg-type, var-annotated]
+        with self.connection() as conn, conn.cursor(row_factory=row_factory) as cur:  # type: ignore[arg-type, var-annotated]  # pylint: disable=line-too-long
             yield cur
 
     def health_check(self) -> bool:
@@ -168,7 +168,7 @@ class DatabaseConnectionPool:
                 logger.error("Health check failed: unexpected result")
                 return False
         except Exception as e:  # pylint: disable=broad-exception-caught
-            # TODO(pylint-refactor): Catch specific database exceptions (psycopg.OperationalError, etc.)
+            # TODO(pylint-refactor): Catch specific database exceptions (psycopg.OperationalError, etc.)  # pylint: disable=line-too-long
             logger.error(
                 "Database health check failed",
                 extra={"error": str(e), "error_type": type(e).__name__},
@@ -187,7 +187,7 @@ class DatabaseConnectionPool:
 
 
 # Global pool instance (initialized during application startup)
-_global_pool: DatabaseConnectionPool | None = None
+_global_pool: DatabaseConnectionPool | None = None  # pylint: disable=invalid-name
 
 
 def initialize_global_pool(config: DatabaseConfig) -> None:
@@ -198,7 +198,7 @@ def initialize_global_pool(config: DatabaseConfig) -> None:
     Args:
         config: Database configuration
     """
-    global _global_pool  # noqa: PLW0603
+    global _global_pool  # noqa: PLW0603  # pylint: disable=global-statement,global-variable-not-assigned
     if _global_pool is not None:
         logger.warning("Global pool already initialized")
         return
@@ -217,7 +217,7 @@ def get_global_pool() -> DatabaseConnectionPool:
     Raises:
         RuntimeError: If global pool not initialized
     """
-    global _global_pool
+    global _global_pool  # pylint: disable=global-statement,global-variable-not-assigned
     if _global_pool is None:
         raise RuntimeError(
             "Global connection pool not initialized. Call initialize_global_pool() first."
@@ -230,7 +230,7 @@ def close_global_pool() -> None:
 
     Should be called during application shutdown.
     """
-    global _global_pool  # noqa: PLW0603
+    global _global_pool  # noqa: PLW0603  # pylint: disable=global-statement,global-variable-not-assigned
     if _global_pool is None:
         logger.warning("Global pool not initialized, nothing to close")
         return

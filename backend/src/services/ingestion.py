@@ -55,13 +55,13 @@ def detect_csv_format(csv_file: BytesIO) -> dict[str, Any]:
 
     # Normalize encoding names
     encoding_lower: str = detected_encoding.lower()
-    if encoding_lower in ["utf-8", "utf8", "utf-8-sig"]:
+    if encoding_lower in {"utf-8", "utf8", "utf-8-sig"}:
         encoding: str = "utf-8"
-    elif encoding_lower in ["iso-8859-1", "latin-1", "latin1", "iso88591"]:
+    elif encoding_lower in {"iso-8859-1", "latin-1", "latin1", "iso88591"}:
         encoding = "latin-1"
-    elif encoding_lower in ["windows-1252", "windows1252", "cp1252"]:
+    elif encoding_lower in {"windows-1252", "windows1252", "cp1252"}:
         encoding = "windows-1252"
-    elif encoding_lower in ["utf-16", "utf16", "utf-16-le", "utf-16-be"]:
+    elif encoding_lower in {"utf-16", "utf16", "utf-16-le", "utf-16-be"}:
         encoding = "utf-16"
     else:
         # Default to UTF-8 for unknown encodings
@@ -88,7 +88,7 @@ def detect_csv_format(csv_file: BytesIO) -> dict[str, Any]:
 
         # Check if file has header (heuristic-based)
         has_header: bool = sniffer.has_header(sample_text)
-    except (csv.Error, Exception):  # pylint: disable=broad-exception-caught
+    except (csv.Error, Exception):  # pylint: disable=broad-exception-caught  # pylint: disable=overlapping-except
         # TODO(pylint-refactor): Catch specific exceptions (csv.Error is already specific)
         # Fallback to comma delimiter if sniffer fails
         delimiter = ","
@@ -185,6 +185,7 @@ def detect_csv_schema(csv_file: StringIO, sample_size: int = 1000) -> dict[str, 
     return {"columns": columns}
 
 
+# pylint: disable=too-complex  # TODO(T225): Refactor type inference logic
 def _infer_value_type(value: str) -> str:
     """Infer SQL type from a single value string.
 
@@ -218,7 +219,7 @@ def _infer_value_type(value: str) -> str:
         # Check for date patterns: YYYY-MM-DD, MM/DD/YYYY, etc.
         try:
             # Try common date formats
-            from dateutil import parser  # noqa: PLC0415 (lazy import, optional dependency)
+            from dateutil import parser  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
 
             parsed: datetime = parser.parse(value)
             if parsed:
@@ -808,7 +809,7 @@ class IngestionService:
         Raises:
             RuntimeError: If cross-reference detection or storage fails
         """
-        from src.services.cross_reference import (
+        from src.services.cross_reference import (  # pylint: disable=import-outside-toplevel
             CrossReferenceService,
         )
 

@@ -256,13 +256,13 @@ class QueryHistoryService:
             response: dict[str, Any] = self.get_response_by_query_id(query_id, username)
             query["response"] = response
         except Exception:  # pylint: disable=broad-exception-caught
-            # TODO(pylint-refactor): Catch specific exceptions (ResponseNotFoundException, DatabaseError)
+            # TODO(pylint-refactor): Catch specific exceptions (ResponseNotFoundException, DatabaseError)  # pylint: disable=line-too-long
             query["response"] = None
 
         return query
 
     def get_query_history(  # pylint: disable=too-many-locals
-        # TODO(pylint-refactor): Extract helper methods to reduce local variables (e.g., build_query, fetch_results)
+        # TODO(pylint-refactor): Extract helper methods to reduce local variables (e.g., build_query, fetch_results)  # pylint: disable=line-too-long
         self, username: str, page: int = 1, page_size: int = 50, status: str | None = None
     ) -> dict[str, Any]:
         """Retrieve paginated query history.

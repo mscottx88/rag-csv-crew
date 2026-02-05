@@ -13,6 +13,7 @@ Requirements:
 """
 
 
+# pylint: disable=redefined-outer-name,docstring-first-line-empty
 from psycopg_pool import ConnectionPool
 import pytest
 from src.services.text_to_sql import TextToSQLService

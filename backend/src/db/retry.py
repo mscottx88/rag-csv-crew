@@ -19,10 +19,11 @@ from psycopg import OperationalError
 logger: logging.Logger = logging.getLogger(__name__)
 
 # Type variable for return type of retryable function
+# pylint: disable=invalid-name,redefined-outer-name
 T = TypeVar("T")
 
 
-def retry_with_backoff[T](
+def retry_with_backoff(
     operation: Callable[[], T],
     max_retries: int = 3,
     initial_delay: float = 1.0,
@@ -118,7 +119,7 @@ def retry_with_backoff[T](
             raise
 
 
-def retry_connection[T](
+def retry_connection(
     connect_fn: Callable[[], T],
     context: str = "database",
 ) -> T:

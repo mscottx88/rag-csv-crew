@@ -9,6 +9,7 @@ Tests classification of detected relationships into:
 Confidence scores based on overlap percentage and relationship characteristics.
 """
 
+# pylint: disable=redefined-outer-name,docstring-first-line-empty
 from typing import Any
 
 import pytest

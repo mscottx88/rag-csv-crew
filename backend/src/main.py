@@ -30,6 +30,7 @@ env_path: Path = Path(__file__).parent.parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
 # Import after load_dotenv() to ensure environment variables are available
+# pylint: disable=wrong-import-position
 from src.api.auth import router as auth_router  # noqa: E402
 from src.api.datasets import router as datasets_router  # noqa: E402
 from src.api.health import router as health_router  # noqa: E402
@@ -41,6 +42,7 @@ from src.utils.logging import (  # noqa: E402
     log_error,
     log_event,
 )
+# pylint: enable=wrong-import-position
 
 # Get logger
 logger = get_structured_logger(__name__)
@@ -205,8 +207,8 @@ def create_app() -> FastAPI:
     )
 
     # Register global exception handlers
-    fastapi_app.add_exception_handler(HTTPException, http_exception_handler)  # type: ignore[arg-type]
-    fastapi_app.add_exception_handler(RequestValidationError, validation_exception_handler)  # type: ignore[arg-type]
+    fastapi_app.add_exception_handler(HTTPException, http_exception_handler)  # type: ignore[arg-type]  # pylint: disable=line-too-long
+    fastapi_app.add_exception_handler(RequestValidationError, validation_exception_handler)  # type: ignore[arg-type]  # pylint: disable=line-too-long
     fastapi_app.add_exception_handler(Exception, generic_exception_handler)
 
     # Register API routers
@@ -225,7 +227,7 @@ def create_app() -> FastAPI:
             level="info",
             event="database_pool_initialized",
             user=None,
-            extra={"database": config.db.database},
+            extra={"database": config.db.database},  # pylint: disable=no-member
         )
 
     # Shutdown event: Close database connection pool

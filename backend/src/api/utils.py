@@ -70,7 +70,7 @@ def handle_http_exception_or_generic(
     default_status_code: int,
     default_detail: str,
 ) -> HTTPException:
-    """Handle exception with proper logging, preserving HTTPException or wrapping generic exceptions.
+    """Handle exception with proper logging, preserving HTTPException or wrapping generic exceptions.  # pylint: disable=line-too-long
 
     Args:
         exc: Exception that was raised

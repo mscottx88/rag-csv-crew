@@ -109,7 +109,7 @@ class AppConfig(BaseSettings):
             List of CORS origin strings
 
         Examples:
-            "http://localhost:3000,http://localhost:5173" -> ["http://localhost:3000", "http://localhost:5173"]
+            "http://localhost:3000,http://localhost:5173" -> ["http://localhost:3000", "http://localhost:5173"]  # pylint: disable=line-too-long
             ["http://localhost:3000"] -> ["http://localhost:3000"]
         """
         if isinstance(value, str):

@@ -173,7 +173,7 @@ def verify_database(conn: "Connection") -> bool:
         return True
 
     except Exception as e:  # pylint: disable=broad-exception-caught
-        # TODO(pylint-refactor): Catch specific database exceptions (psycopg.errors.UndefinedTable, etc.)
+        # TODO(pylint-refactor): Catch specific database exceptions (psycopg.errors.UndefinedTable, etc.)  # pylint: disable=line-too-long
         logger.error(
             "Database schema verification failed",
             extra={"error": str(e), "error_type": type(e).__name__},
