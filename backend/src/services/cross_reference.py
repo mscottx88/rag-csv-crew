@@ -320,7 +320,7 @@ class CrossReferenceService:
             SELECT column_name, data_type
             FROM column_mappings
             WHERE dataset_id = %s
-            AND column_name NOT LIKE '_%'  -- Exclude metadata columns
+            AND column_name NOT LIKE '_%%'  -- Exclude metadata columns (escape %% for psycopg)
             ORDER BY column_name
             """,
             (dataset_id,),
