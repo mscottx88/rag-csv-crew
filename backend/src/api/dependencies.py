@@ -15,7 +15,7 @@ import os
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError  # type: ignore[import-untyped]
+from jose import JWTError
 
 from src.services.auth import validate_jwt_token
 

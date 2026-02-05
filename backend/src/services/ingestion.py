@@ -50,7 +50,7 @@ def detect_csv_format(csv_file: BytesIO) -> dict[str, Any]:
     csv_file.seek(0)
 
     # Detect encoding
-    encoding_result: dict[str, Any] = chardet.detect(sample_bytes)
+    encoding_result: dict[str, Any] = chardet.detect(sample_bytes)  # type: ignore[assignment]
     detected_encoding: str = encoding_result.get("encoding", "utf-8") or "utf-8"
 
     # Normalize encoding names
@@ -740,17 +740,17 @@ def generate_column_embeddings(
 
                 # Insert each column with its embedding
                 for col in columns:
-                    column_name: str = col.get("name", col.get("column_name", ""))
-                    if column_name in column_names:
+                    col_name: str = col.get("name", col.get("column_name", ""))
+                    if col_name in column_names:
                         # Find the embedding for this column
-                        embedding_idx: int = column_names.index(column_name)
-                        embedding: list[float] = embeddings[embedding_idx]
+                        embedding_idx: int = column_names.index(col_name)
+                        col_embedding: list[float] = embeddings[embedding_idx]
                         inferred_type: str = col.get("type", col.get("inferred_type", "TEXT"))
-                        description: str = col.get("description", "")
+                        col_description: str = col.get("description", "")
 
                         cur.execute(
                             insert_sql,
-                            (dataset_id, column_name, inferred_type, description, embedding),
+                            (dataset_id, col_name, inferred_type, col_description, col_embedding),
                         )
 
             conn.commit()

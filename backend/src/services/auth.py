@@ -14,7 +14,7 @@ Constitutional Requirements:
 from datetime import UTC, datetime, timedelta
 import uuid
 
-from jose import JWTError, jwt  # type: ignore[import-untyped]
+from jose import JWTError, jwt
 
 
 def generate_jwt_token(

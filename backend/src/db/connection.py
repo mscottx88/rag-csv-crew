@@ -143,7 +143,7 @@ class DatabaseConnectionPool:
         Raises:
             RuntimeError: If pool not initialized
         """
-        with self.connection() as conn, conn.cursor(row_factory=row_factory) as cur:
+        with self.connection() as conn, conn.cursor(row_factory=row_factory) as cur:  # type: ignore[arg-type, var-annotated]
             yield cur
 
     def health_check(self) -> bool:

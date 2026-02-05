@@ -15,7 +15,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError  # type: ignore[import-untyped]
+from jose import JWTError
 from pydantic import ValidationError
 
 from src.api.dependencies import get_current_user
