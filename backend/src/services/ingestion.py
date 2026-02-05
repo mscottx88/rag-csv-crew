@@ -732,7 +732,7 @@ def generate_column_embeddings(
 
                 # Insert new rows with embeddings (UPSERT pattern)
                 insert_sql: str = """
-                    INSERT INTO column_mappings (dataset_id, column_name, data_type, description, embedding)
+                    INSERT INTO column_mappings (dataset_id, column_name, inferred_type, description, embedding)
                     VALUES (%s, %s, %s, %s, %s)
                     ON CONFLICT (dataset_id, column_name)
                     DO UPDATE SET embedding = EXCLUDED.embedding
@@ -745,11 +745,12 @@ def generate_column_embeddings(
                         # Find the embedding for this column
                         embedding_idx: int = column_names.index(column_name)
                         embedding: list[float] = embeddings[embedding_idx]
-                        data_type: str = col.get("type", col.get("data_type", "TEXT"))
+                        inferred_type: str = col.get("type", col.get("inferred_type", "TEXT"))
                         description: str = col.get("description", "")
 
                         cur.execute(
-                            insert_sql, (dataset_id, column_name, data_type, description, embedding)
+                            insert_sql,
+                            (dataset_id, column_name, inferred_type, description, embedding),
                         )
 
             conn.commit()
