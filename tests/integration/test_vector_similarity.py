@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backend.src.db.schema_manager import SchemaManager
+from backend.src.services.schema_manager import SchemaManager
 from backend.src.services.vector_search import VectorSearchService
 
 
@@ -124,7 +124,7 @@ class TestVectorSimilarity:
         - Results include distance scores
         - Distances are in valid range
         """
-        from backend.src.db.schema_manager import SchemaManager
+        from backend.src.services.schema_manager import SchemaManager
         from backend.src.services.vector_search import VectorSearchService
 
         schema_manager: SchemaManager = SchemaManager(test_db_connection)
@@ -203,7 +203,7 @@ class TestVectorSimilarity:
         - Filter restricts results to specified datasets
         - Ranking is correct within filtered set
         """
-        from backend.src.db.schema_manager import SchemaManager
+        from backend.src.services.schema_manager import SchemaManager
         from backend.src.services.vector_search import VectorSearchService
 
         schema_manager: SchemaManager = SchemaManager(test_db_connection)
@@ -273,7 +273,7 @@ class TestVectorSimilarity:
         - Empty result set handled gracefully
         - No errors on empty database
         """
-        from backend.src.db.schema_manager import SchemaManager
+        from backend.src.services.schema_manager import SchemaManager
         from backend.src.services.vector_search import VectorSearchService
 
         schema_manager: SchemaManager = SchemaManager(test_db_connection)

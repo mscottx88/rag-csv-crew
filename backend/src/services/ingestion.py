@@ -24,7 +24,7 @@ from psycopg import Connection
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
-from src.services.vector_search import VectorSearchService
+from backend.src.services.vector_search import VectorSearchService
 
 
 def detect_csv_format(csv_file: BytesIO) -> dict[str, Any]:

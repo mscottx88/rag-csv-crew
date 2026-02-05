@@ -18,16 +18,16 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError  # type: ignore[import-untyped]
 from pydantic import ValidationError
 
-from src.api.dependencies import get_current_user
-from src.api.utils import get_pool_with_error_handling
-from src.db.connection import DatabaseConnectionPool
-from src.models.user import AuthToken, User, UserLogin
-from src.services.auth import generate_jwt_token
-from src.services.schema_manager import (
+from backend.src.api.dependencies import get_current_user
+from backend.src.api.utils import get_pool_with_error_handling
+from backend.src.db.connection import DatabaseConnectionPool
+from backend.src.models.user import AuthToken, User, UserLogin
+from backend.src.services.auth import generate_jwt_token
+from backend.src.services.schema_manager import (
     ensure_user_schema_exists,
     update_last_login,
 )
-from src.utils.logging import get_structured_logger, log_event
+from backend.src.utils.logging import get_structured_logger, log_event
 
 # Initialize router and logger
 router: APIRouter = APIRouter(prefix="/auth", tags=["Authentication"])

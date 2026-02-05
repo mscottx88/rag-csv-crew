@@ -17,7 +17,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError  # type: ignore[import-untyped]
 
-from src.services.auth import validate_jwt_token
+from backend.src.services.auth import validate_jwt_token
 
 # Bearer scheme for JWT token extraction
 bearer_scheme: HTTPBearer = HTTPBearer()

@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 
 from psycopg import Connection, errors
 
-from src.db.schemas import (
+from backend.src.db.schemas import (
     COLUMN_MAPPINGS_DATASET_INDEX_SQL,
     COLUMN_MAPPINGS_EMBEDDING_INDEX_SQL,
     COLUMN_MAPPINGS_TABLE_SQL,

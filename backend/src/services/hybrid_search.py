@@ -20,7 +20,7 @@ from typing import Any
 
 from psycopg_pool import ConnectionPool
 
-from src.services.vector_search import VectorSearchService
+from backend.src.services.vector_search import VectorSearchService
 
 
 class HybridSearchService:

@@ -369,15 +369,15 @@
 #### Frontend Core Tests (US4)
 
 - [ ] T128-TEST [P] [US4-TEST] Write unit tests for Axios API client in frontend/tests/services/api.test.ts validating base URL, Bearer auth interceptor
-- [ ] T129-TEST [P] [US4-TEST] Write unit tests for auth API service in frontend/tests/services/auth.test.ts validating login, getCurrentUser
-- [ ] T130-TEST [P] [US4-TEST] Write unit tests for datasets API service in frontend/tests/services/datasets.test.ts validating list, upload, get, delete
+- [x] T129-TEST [P] [US4-TEST] Write unit tests for auth API service in frontend/tests/services/auth.test.ts validating login, getCurrentUser
+- [x] T130-TEST [P] [US4-TEST] Write unit tests for datasets API service in frontend/tests/services/datasets.test.ts validating list, upload, get, delete
 - [ ] T131-TEST [P] [US4-TEST] Write unit tests for queries API service in frontend/tests/services/queries.test.ts validating submit, get, cancel, history, examples
 
 #### Authentication UI Tests (US4)
 
-- [ ] T132-TEST [US4-TEST] Write component tests for Login in frontend/tests/components/Auth/Login.test.tsx validating username-only input, submission per FR-021
+- [x] T132-TEST [US4-TEST] Write component tests for Login in frontend/tests/components/Auth/Login.test.tsx validating username-only input, submission per FR-021
 - [ ] T133-TEST [US4-TEST] Write unit tests for JWT token storage in frontend/tests/services/auth-storage.test.ts validating localStorage operations
-- [ ] T134-TEST [US4-TEST] Write integration tests for authentication context in frontend/tests/context/auth-context.test.tsx validating global state
+- [x] T134-TEST [US4-TEST] Write integration tests for authentication context in frontend/tests/context/auth-context.test.tsx validating global state
 
 #### Dataset Management UI Tests (US4)
 
@@ -397,7 +397,7 @@
 
 - [ ] T143-TEST [P] [US4-TEST] Write component tests for Header in frontend/tests/components/Layout/Header.test.tsx validating username display, logout
 - [ ] T144-TEST [P] [US4-TEST] Write component tests for Sidebar in frontend/tests/components/Layout/Sidebar.test.tsx validating navigation links
-- [ ] T145-TEST [US4-TEST] Write integration tests for App routing in frontend/tests/App.test.tsx validating route navigation
+- [x] T145-TEST [US4-TEST] Write integration tests for App routing in frontend/tests/App.test.tsx validating route navigation
 
 ### Phase 5B: Verify Tests FAIL
 
@@ -471,15 +471,15 @@
 
 #### Cross-Reference Tests (US3)
 
-- [ ] T175-TEST [US3-TEST] Write integration tests for cross-reference detection in tests/integration/test_cross_reference_detection.py validating column value overlap analysis
-- [ ] T176-TEST [US3-TEST] Write unit tests for relationship type classification in tests/unit/services/test_relationship_classification.py validating foreign_key, shared_values, similar_values with confidence scores
-- [ ] T177-TEST [US3-TEST] Write integration tests for cross-reference storage in tests/integration/test_cross_reference_storage.py validating insert into cross_references table per data-model.md
+- [x] T175-TEST [US3-TEST] Write integration tests for cross-reference detection in tests/integration/test_cross_reference_detection.py validating column value overlap analysis
+- [x] T176-TEST [US3-TEST] Write unit tests for relationship type classification in tests/unit/services/test_relationship_classification.py validating foreign_key, shared_values, similar_values with confidence scores
+- [x] T177-TEST [US3-TEST] Write integration tests for cross-reference storage in tests/integration/test_cross_reference_storage.py validating insert into cross_references table per data-model.md
 
 #### Multi-Dataset Query Tests (US3)
 
-- [ ] T178-TEST [US3-TEST] Write unit tests for enhanced SQL Generator agent in tests/unit/crew/test_sql_generator_joins.py validating multi-table JOIN generation using cross_references
-- [ ] T179-TEST [US3-TEST] Write unit tests for dataset relationship resolution in tests/unit/services/test_dataset_resolution.py validating identification of relevant datasets based on question
-- [ ] T180-TEST [US3-TEST] Write integration tests for automatic JOIN generation in tests/integration/test_automatic_joins.py validating JOIN clause generation using cross_references
+- [x] T178-TEST [US3-TEST] Write unit tests for enhanced SQL Generator agent in tests/unit/crew/test_sql_generator_joins.py validating multi-table JOIN generation using cross_references
+- [x] T179-TEST [US3-TEST] Write unit tests for dataset relationship resolution in tests/unit/services/test_dataset_resolution.py validating identification of relevant datasets based on question
+- [x] T180-TEST [US3-TEST] Write integration tests for automatic JOIN generation in tests/integration/test_automatic_joins.py validating JOIN clause generation using cross_references
 
 #### Multi-Dataset UI Tests (US3)
 

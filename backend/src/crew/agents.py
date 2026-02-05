@@ -14,7 +14,7 @@ from typing import Any
 
 from crewai import Agent
 
-from src.utils.llm_config import get_llm_for_crew
+from backend.src.utils.llm_config import get_llm_for_crew
 
 
 def create_sql_generator_agent() -> Agent:

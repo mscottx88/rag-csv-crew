@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from backend.src.db.schema_manager import SchemaManager
+from backend.src.services.schema_manager import SchemaManager
 
 
 @pytest.mark.integration

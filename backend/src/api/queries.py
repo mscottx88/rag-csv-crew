@@ -17,14 +17,14 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from src.api.dependencies import get_current_user
-from src.db.connection import get_global_pool
-from src.models.query import Query, QueryCreate, QueryHistory, QueryWithResponse
-from src.services.hybrid_search import HybridSearchService
-from src.services.query_execution import QueryExecutionService
-from src.services.query_history import QueryHistoryService
-from src.services.response_generator import ResponseGenerator
-from src.services.text_to_sql import TextToSQLService
+from backend.src.api.dependencies import get_current_user
+from backend.src.db.connection import get_global_pool
+from backend.src.models.query import Query, QueryCreate, QueryHistory, QueryWithResponse
+from backend.src.services.hybrid_search import HybridSearchService
+from backend.src.services.query_execution import QueryExecutionService
+from backend.src.services.query_history import QueryHistoryService
+from backend.src.services.response_generator import ResponseGenerator
+from backend.src.services.text_to_sql import TextToSQLService
 
 router: APIRouter = APIRouter(prefix="/queries", tags=["Queries"])
 
