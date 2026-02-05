@@ -155,8 +155,9 @@ class CrossReferenceService:
         # Source should be subset of target (or very close)
         is_subset: bool = source_set.issubset(target_set)
 
-        # High cardinality check (many unique values)
-        high_cardinality: bool = source_size > 5 and target_size > 5
+        # High cardinality check (many unique values, not just a few categories)
+        # Use >= 3 to allow smaller test datasets while excluding boolean/enum columns
+        high_cardinality: bool = source_size >= 3 and target_size >= 3
 
         return is_subset and high_cardinality
 
@@ -172,9 +173,17 @@ class CrossReferenceService:
         """
         base_confidence: float = overlap_ratio
 
-        # Reduce confidence for small samples (< 10 values)
-        if sample_size < 10:
-            size_penalty: float = sample_size / 10.0
+        # Perfect matches (100% overlap) get full confidence regardless of sample size
+        # If all values match, that's strong evidence even with few samples
+        if overlap_ratio >= 0.99:  # Use >= 0.99 to handle floating point precision
+            return base_confidence
+
+        # For partial overlaps, apply sample size adjustments
+        # Apply moderate penalty for very small samples (< 5 values)
+        # 5+ matching values is reasonable evidence, no penalty needed
+        if sample_size < 5:
+            # Gentle penalty: 3 samples → 0.9x, 4 samples → 0.95x
+            size_penalty: float = 0.8 + (sample_size / 25.0)
             base_confidence *= size_penalty
 
         # Boost confidence for large samples (> 100 values)

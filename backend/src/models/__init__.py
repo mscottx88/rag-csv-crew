@@ -10,18 +10,18 @@ Models:
 - query: Query processing (Query, QueryStatus, Response, QueryWithResponse)
 """
 
-from backend.src.models.config import (
+from src.models.config import (
     AppConfig,
     DatabaseConfig,
     LLMConfig,
 )
-from backend.src.models.dataset import (
+from src.models.dataset import (
     ColumnSchema,
     Dataset,
     DatasetCreate,
     DatasetList,
 )
-from backend.src.models.query import (
+from src.models.query import (
     Query,
     QueryCancel,
     QueryCreate,
@@ -30,7 +30,7 @@ from backend.src.models.query import (
     QueryWithResponse,
     Response,
 )
-from backend.src.models.user import (
+from src.models.user import (
     AuthToken,
     User,
     UserBase,

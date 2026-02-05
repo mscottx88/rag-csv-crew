@@ -12,7 +12,7 @@ Confidence scores based on overlap percentage and relationship characteristics.
 import pytest
 from typing import Any
 
-from backend.src.services.cross_reference import CrossReferenceService
+from src.services.cross_reference import CrossReferenceService
 
 
 @pytest.fixture

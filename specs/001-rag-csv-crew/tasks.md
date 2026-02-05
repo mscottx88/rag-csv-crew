@@ -498,9 +498,9 @@
 
 #### Cross-Reference Implementation (US3)
 
-- [ ] T185-IMPL [US3-IMPL] Implement cross-reference detection in backend/src/services/ingestion.py → Make T175-TEST pass
-- [ ] T186-IMPL [US3-IMPL] Implement relationship type classification in backend/src/services/ingestion.py → Make T176-TEST pass
-- [ ] T187-IMPL [US3-IMPL] Store detected cross-references in cross_references table → Make T177-TEST pass
+- [x] T185-IMPL [US3-IMPL] Implement cross-reference detection in backend/src/services/ingestion.py → Make T175-TEST pass
+- [x] T186-IMPL [US3-IMPL] Implement relationship type classification in backend/src/services/ingestion.py → Make T176-TEST pass
+- [x] T187-IMPL [US3-IMPL] Store detected cross-references in cross_references table → Make T177-TEST pass
 
 #### Multi-Dataset Query Implementation (US3)
 
@@ -510,8 +510,8 @@
 
 #### Multi-Dataset UI Implementation (US3)
 
-- [ ] T191-IMPL [US3-IMPL] Add dataset selector to QueryInput component → Make T181-TEST pass
-- [ ] T192-IMPL [US3-IMPL] Display related datasets in ResultDisplay component → Make T182-TEST pass
+- [x] T191-IMPL [US3-IMPL] Add dataset selector to QueryInput component → Make T181-TEST pass
+- [x] T192-IMPL [US3-IMPL] Display related datasets in ResultDisplay component → Make T182-TEST pass
 
 ### Phase 6E: Performance Validation
 

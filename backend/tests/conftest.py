@@ -17,7 +17,7 @@ import pytest
 from psycopg import Connection, sql
 from psycopg_pool import ConnectionPool
 
-from backend.src.models.config import DatabaseConfig
+from src.models.config import DatabaseConfig
 
 
 @pytest.fixture(scope="session")
