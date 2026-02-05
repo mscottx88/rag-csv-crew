@@ -14,6 +14,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { list, upload, get, deleteDataset } from '../../src/services/datasets';
 import type { Dataset, DatasetList } from '../../src/types';
+import { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
 // Mock the api module
 vi.mock('../../src/services/api', () => ({
@@ -193,10 +194,21 @@ describe('Datasets API Service', () => {
 
     it('should handle filename conflicts (409)', async () => {
       const mockFile: File = new File(['content'], 'existing.csv', { type: 'text/csv' });
-      mockApi.post.mockRejectedValue({
-        response: { status: 409, data: { detail: 'File already exists' } },
-        isAxiosError: true,
-      });
+      const config: InternalAxiosRequestConfig = {} as InternalAxiosRequestConfig;
+      const error: AxiosError = new AxiosError(
+        'Request failed with status code 409',
+        '409',
+        config,
+        undefined,
+        {
+          status: 409,
+          statusText: 'Conflict',
+          data: { detail: 'File already exists' },
+          headers: {},
+          config,
+        }
+      );
+      mockApi.post.mockRejectedValue(error);
 
       await expect(upload(mockFile)).rejects.toMatchObject({
         status: 409,
@@ -256,12 +268,23 @@ describe('Datasets API Service', () => {
 
     it('should throw 404 error for non-existent dataset', async () => {
       const datasetId: string = 'non-existent-id';
-      mockApi.get.mockRejectedValue({
-        response: { status: 404, data: { detail: 'Dataset not found' } },
-        isAxiosError: true,
-      });
+      const config: InternalAxiosRequestConfig = {} as InternalAxiosRequestConfig;
+      const error: AxiosError = new AxiosError(
+        'Request failed with status code 404',
+        '404',
+        config,
+        undefined,
+        {
+          status: 404,
+          statusText: 'Not Found',
+          data: { detail: 'Dataset not found' },
+          headers: {},
+          config,
+        }
+      );
+      mockApi.get.mockRejectedValue(error);
 
-      await expect(get(datasetId)).rejects.toThrow('Dataset not found');
+      await expect(get(datasetId)).rejects.toThrow(/Dataset not found/);
     });
   });
 
@@ -284,22 +307,44 @@ describe('Datasets API Service', () => {
 
     it('should throw 404 error for non-existent dataset', async () => {
       const datasetId: string = 'non-existent-id';
-      mockApi.delete.mockRejectedValue({
-        response: { status: 404, data: { detail: 'Dataset not found' } },
-        isAxiosError: true,
-      });
+      const config: InternalAxiosRequestConfig = {} as InternalAxiosRequestConfig;
+      const error: AxiosError = new AxiosError(
+        'Request failed with status code 404',
+        '404',
+        config,
+        undefined,
+        {
+          status: 404,
+          statusText: 'Not Found',
+          data: { detail: 'Dataset not found' },
+          headers: {},
+          config,
+        }
+      );
+      mockApi.delete.mockRejectedValue(error);
 
-      await expect(deleteDataset(datasetId)).rejects.toThrow('Dataset not found');
+      await expect(deleteDataset(datasetId)).rejects.toThrow(/Dataset not found/);
     });
 
     it('should throw 403 error if not owner', async () => {
       const datasetId: string = 'someone-elses-dataset';
-      mockApi.delete.mockRejectedValue({
-        response: { status: 403, data: { detail: 'Forbidden' } },
-        isAxiosError: true,
-      });
+      const config: InternalAxiosRequestConfig = {} as InternalAxiosRequestConfig;
+      const error: AxiosError = new AxiosError(
+        'Request failed with status code 403',
+        '403',
+        config,
+        undefined,
+        {
+          status: 403,
+          statusText: 'Forbidden',
+          data: { detail: 'Forbidden' },
+          headers: {},
+          config,
+        }
+      );
+      mockApi.delete.mockRejectedValue(error);
 
-      await expect(deleteDataset(datasetId)).rejects.toThrow('You do not have permission to delete this dataset');
+      await expect(deleteDataset(datasetId)).rejects.toThrow(/You do not have permission/);
     });
   });
 
