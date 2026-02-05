@@ -24,13 +24,13 @@ from psycopg_pool import ConnectionPool
 class CrossReferenceService:
     """Service for detecting and classifying relationships between dataset columns."""
 
-    def __init__(self, pool: ConnectionPool) -> None:
+    def __init__(self, pool: ConnectionPool | None = None) -> None:
         """Initialize CrossReferenceService.
 
         Args:
-            pool: Database connection pool
+            pool: Database connection pool (optional for unit testing)
         """
-        self.pool: ConnectionPool = pool
+        self.pool: ConnectionPool | None = pool
 
     def classify_relationship(
         self,
@@ -239,8 +239,11 @@ class CrossReferenceService:
             List of detected cross-references with metadata
 
         Raises:
-            ValueError: If datasets not found or invalid parameters
+            ValueError: If datasets not found or invalid parameters or pool not configured
         """
+        if self.pool is None:
+            raise ValueError("ConnectionPool required for detect_cross_references")
+
         user_schema: str = f"{username}_schema"
         cross_references: list[dict[str, Any]] = []
 
