@@ -18,14 +18,7 @@ from typing import Any, Literal
 
 from openai import OpenAI
 from psycopg_pool import ConnectionPool
-
-# Google Gemini imports (optional - only if GOOGLE_API_KEY is set)
-try:
-    from google import genai
-
-    GOOGLE_AVAILABLE: bool = True
-except ImportError:
-    GOOGLE_AVAILABLE = False
+from google import genai
 
 
 class VectorSearchService:
@@ -54,12 +47,13 @@ class VectorSearchService:
         google_api_key: str | None = os.getenv("GOOGLE_API_KEY")
         openai_api_key: str | None = os.getenv("OPENAI_API_KEY")
 
-        if google_api_key and GOOGLE_AVAILABLE:
+        if google_api_key:
             # Initialize Google Gemini client (new google.genai package)
             self.client: Any = genai.Client(api_key=google_api_key)
             self.provider: Literal["google", "openai"] = "google"
-            self.model: str = "models/text-embedding-004"
-            self.native_dim: int = 768  # Google text-embedding-004 native dimensions
+            # Use embedding-001 (768d native, available in v1beta)
+            self.model: str = "models/embedding-001"
+            self.native_dim: int = 768  # Google embedding-001 native dimensions
             self.embedding_dim: int = 1536  # Padded to match database schema
         elif openai_api_key:
             # Initialize OpenAI client (synchronous)
@@ -129,7 +123,9 @@ class VectorSearchService:
             embedding = self._pad_embedding(embedding)
         else:
             # Call OpenAI API (synchronous) - pass string directly for single input
-            response = self.client.embeddings.create(model=self.model, input=normalized_text)
+            response = self.client.embeddings.create(
+                model=self.model, input=normalized_text
+            )
             embedding = response.data[0].embedding
 
         # Validate dimensionality
