@@ -19,9 +19,9 @@ from typing import Any, Literal
 from openai import OpenAI
 from psycopg_pool import ConnectionPool
 
-# Google Generative AI imports (optional - only if GOOGLE_API_KEY is set)
+# Google Gemini imports (optional - only if GOOGLE_API_KEY is set)
 try:
-    import google.generativeai as genai  # type: ignore[import-untyped]
+    from google import genai
 
     GOOGLE_AVAILABLE: bool = True
 except ImportError:
@@ -56,11 +56,10 @@ class VectorSearchService:
         openai_api_key: str | None = os.getenv("OPENAI_API_KEY")
 
         if google_api_key and GOOGLE_AVAILABLE:
-            # Initialize Google Gemini client
-            genai.configure(api_key=google_api_key)
+            # Initialize Google Gemini client (new google.genai package)
+            self.client: Any = genai.Client(api_key=google_api_key)
             self.provider: Literal["google", "openai"] = "google"
-            self.model: str = "models/embedding-001"
-            self.client: Any = None  # Google uses module-level API
+            self.model: str = "models/text-embedding-004"
         elif openai_api_key:
             # Initialize OpenAI client (synchronous)
             self.client = OpenAI(api_key=openai_api_key)
@@ -103,11 +102,11 @@ class VectorSearchService:
 
         # Call appropriate provider API
         if self.provider == "google":
-            # Call Google Gemini API (synchronous)
-            response: Any = genai.embed_content(
-                model=self.model, content=normalized_text, task_type="retrieval_document"
+            # Call Google Gemini API (synchronous, new google.genai package)
+            response: Any = self.client.models.embed_content(
+                model=self.model, contents=normalized_text
             )
-            embedding: list[float] = response["embedding"]
+            embedding: list[float] = response.embeddings[0].values
         else:
             # Call OpenAI API (synchronous) - pass string directly for single input
             response = self.client.embeddings.create(model=self.model, input=normalized_text)
@@ -149,14 +148,14 @@ class VectorSearchService:
         # Call appropriate provider API with batch
         embeddings: list[list[float]]
         if self.provider == "google":
-            # Google Gemini batch embeddings (synchronous)
-            # NOTE: Google API processes batch as separate calls internally
+            # Google Gemini batch embeddings (synchronous, new google.genai package)
+            # Process batch as individual calls (API limitation)
             embeddings = []
             for normalized_text in normalized_texts:
-                gemini_response: Any = genai.embed_content(
-                    model=self.model, content=normalized_text, task_type="retrieval_document"
+                gemini_response: Any = self.client.models.embed_content(
+                    model=self.model, contents=normalized_text
                 )
-                embeddings.append(gemini_response["embedding"])
+                embeddings.append(gemini_response.embeddings[0].values)
         else:
             # Call OpenAI API with batch (synchronous) - pass list for batch
             openai_response: Any = self.client.embeddings.create(
