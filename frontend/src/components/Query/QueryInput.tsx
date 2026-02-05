@@ -5,7 +5,8 @@
 
 import React, { useState, useEffect, FormEvent, ChangeEvent } from 'react';
 import * as queriesService from '../../services/queries';
-import type { Query, QueryExample } from '../../types';
+import * as datasetsService from '../../services/datasets';
+import type { Query, QueryExample, Dataset } from '../../types';
 import './QueryInput.css';
 
 interface QueryInputProps {
@@ -19,18 +20,25 @@ export const QueryInput: React.FC<QueryInputProps> = ({ onSubmit, isProcessing =
   const [examples, setExamples] = useState<QueryExample[]>([]);
   const [error, setError] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const [selectedDatasetIds, setSelectedDatasetIds] = useState<string[]>([]);
 
   useEffect(() => {
-    const loadExamples = async (): Promise<void> => {
+    const loadData = async (): Promise<void> => {
       try {
+        // Load example queries
         const exampleList: QueryExample[] = await queriesService.getExamples();
         setExamples(exampleList);
+
+        // Load available datasets
+        const datasetList = await datasetsService.list();
+        setDatasets(datasetList.datasets);
       } catch (err) {
-        console.error('Failed to load example queries:', err);
+        console.error('Failed to load data:', err);
       }
     };
 
-    void loadExamples();
+    void loadData();
   }, []);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
@@ -45,9 +53,14 @@ export const QueryInput: React.FC<QueryInputProps> = ({ onSubmit, isProcessing =
     setSubmitting(true);
 
     try {
-      const query: Query = await queriesService.submit(queryText.trim());
+      // Pass selected dataset IDs if any are selected (empty array means "all datasets")
+      const datasetIdsToSubmit: string[] | undefined =
+        selectedDatasetIds.length > 0 ? selectedDatasetIds : undefined;
+
+      const query: Query = await queriesService.submit(queryText.trim(), datasetIdsToSubmit);
       onSubmit(query);
       setQueryText(''); // Clear input after submission
+      // Keep dataset selection for next query (user preference)
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);
@@ -75,6 +88,28 @@ export const QueryInput: React.FC<QueryInputProps> = ({ onSubmit, isProcessing =
     }
   };
 
+  const handleDatasetToggle = (datasetId: string): void => {
+    setSelectedDatasetIds((prev: string[]) => {
+      if (prev.includes(datasetId)) {
+        // Remove dataset from selection
+        return prev.filter((id: string) => id !== datasetId);
+      } else {
+        // Add dataset to selection
+        return [...prev, datasetId];
+      }
+    });
+  };
+
+  const handleSelectAllDatasets = (): void => {
+    if (selectedDatasetIds.length === datasets.length) {
+      // Deselect all
+      setSelectedDatasetIds([]);
+    } else {
+      // Select all
+      setSelectedDatasetIds(datasets.map((d: Dataset) => d.id));
+    }
+  };
+
   return (
     <div className="query-input">
       <h2>Ask a Question</h2>
@@ -93,6 +128,42 @@ export const QueryInput: React.FC<QueryInputProps> = ({ onSubmit, isProcessing =
             aria-required="true"
           />
         </div>
+
+        {datasets.length > 0 && (
+          <div className="form-group">
+            <label htmlFor="dataset-selector">Target Datasets (optional)</label>
+            <p className="help-text">
+              Select specific datasets to query, or leave empty to search all datasets
+            </p>
+            <div className="dataset-selector">
+              <button
+                type="button"
+                onClick={handleSelectAllDatasets}
+                className="select-all-button"
+                disabled={submitting || isProcessing}
+              >
+                {selectedDatasetIds.length === datasets.length ? 'Deselect All' : 'Select All'}
+              </button>
+              <div className="dataset-list">
+                {datasets.map((dataset: Dataset) => (
+                  <label key={dataset.id} className="dataset-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={selectedDatasetIds.includes(dataset.id)}
+                      onChange={(): void => handleDatasetToggle(dataset.id)}
+                      disabled={submitting || isProcessing}
+                      aria-label={`Select dataset ${dataset.filename}`}
+                    />
+                    <span className="dataset-name">{dataset.filename}</span>
+                    <span className="dataset-meta">
+                      ({dataset.row_count.toLocaleString()} rows)
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="error-message" role="alert">

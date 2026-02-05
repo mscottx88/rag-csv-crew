@@ -4,15 +4,16 @@
  */
 
 import React from 'react';
-import type { Query } from '../../types';
+import type { Query, Dataset } from '../../types';
 import './ResultDisplay.css';
 
 interface ResultDisplayProps {
   query: Query;
+  datasets?: Dataset[];
   onCancel?: () => void;
 }
 
-export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, onCancel }) => {
+export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, datasets, onCancel }) => {
   const renderStatus = (): JSX.Element => {
     switch (query.status) {
       case 'pending':
@@ -28,6 +29,31 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, onCancel })
       default:
         return <div className="status-badge">Unknown</div>;
     }
+  };
+
+  const renderDatasets = (): JSX.Element | null => {
+    if (!query.dataset_ids || query.dataset_ids.length === 0) {
+      return (
+        <div className="query-datasets">
+          <span className="datasets-label">Datasets:</span>
+          <span className="datasets-value">All datasets</span>
+        </div>
+      );
+    }
+
+    // Find dataset names from IDs
+    const datasetNames: string[] = query.dataset_ids
+      .map((id: string) => {
+        const dataset: Dataset | undefined = datasets?.find((d: Dataset) => d.id === id);
+        return dataset?.filename || id;
+      });
+
+    return (
+      <div className="query-datasets">
+        <span className="datasets-label">Datasets:</span>
+        <span className="datasets-value">{datasetNames.join(', ')}</span>
+      </div>
+    );
   };
 
   const renderMetadata = (): JSX.Element | null => {
@@ -120,6 +146,8 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, onCancel })
       <div className="result-query">
         <strong>Query:</strong> {query.query_text}
       </div>
+
+      {renderDatasets()}
 
       {renderMetadata()}
 

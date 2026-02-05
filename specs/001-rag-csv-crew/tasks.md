@@ -504,9 +504,9 @@
 
 #### Multi-Dataset Query Implementation (US3)
 
-- [ ] T188-IMPL [US3-IMPL] Enhance SQL Generator agent in backend/src/crew/agents.py to support JOINs → Make T178-TEST pass
-- [ ] T189-IMPL [US3-IMPL] Implement dataset relationship resolution in backend/src/services/text_to_sql.py → Make T179-TEST pass
-- [ ] T190-IMPL [US3-IMPL] Implement automatic JOIN generation in backend/src/services/text_to_sql.py → Make T180-TEST pass
+- [x] T188-IMPL [US3-IMPL] Enhance SQL Generator agent in backend/src/crew/agents.py to support JOINs → Make T178-TEST pass
+- [x] T189-IMPL [US3-IMPL] Implement dataset relationship resolution in backend/src/services/text_to_sql.py → Make T179-TEST pass
+- [x] T190-IMPL [US3-IMPL] Implement automatic JOIN generation in backend/src/services/text_to_sql.py → Make T180-TEST pass
 
 #### Multi-Dataset UI Implementation (US3)
 

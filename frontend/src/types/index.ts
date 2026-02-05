@@ -68,6 +68,7 @@ export interface Query {
   id: string;
   query_text: string;
   status: QueryStatus;
+  dataset_ids?: string[];
   submitted_at: string;
   completed_at?: string;
   execution_time_ms?: number;
