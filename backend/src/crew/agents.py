@@ -37,7 +37,7 @@ def create_sql_generator_agent() -> Agent:
         role="Database Query Specialist",
         goal=(
             "Convert natural language questions into accurate, secure SQL queries "
-            "that retrieve the requested data"
+            "that retrieve the requested data, including multi-table JOINs when needed"
         ),
         backstory="""You are an expert database analyst who specializes in understanding
         user questions and translating them into precise SQL queries. You have deep knowledge
@@ -47,8 +47,15 @@ def create_sql_generator_agent() -> Agent:
         placeholder syntax (%s for PostgreSQL) to prevent SQL injection attacks. NEVER
         concatenate user input directly into SQL strings.
 
-        You understand data relationships, can identify appropriate JOIN conditions, and
-        write queries that are both efficient and easy to understand.""",
+        MULTI-TABLE QUERY EXPERTISE: When provided with cross-reference relationships between
+        datasets, you excel at generating JOIN queries. You understand relationship types:
+        - foreign_key relationships: Use INNER JOIN or LEFT JOIN for primary-foreign key references
+        - shared_values relationships: Use INNER JOIN on columns with overlapping categorical values
+        - similar_values relationships: Consider as potential JOIN candidates but verify semantics
+
+        You leverage confidence scores to prioritize which relationships to use when multiple
+        options are available. You write queries that are both efficient and easy to understand,
+        properly disambiguating column names with table aliases when necessary.""",
         verbose=True,
         allow_delegation=False,
         tools=[],  # Tools will be added for schema inspection if needed

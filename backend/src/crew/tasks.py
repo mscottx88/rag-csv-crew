@@ -17,7 +17,10 @@ from crewai import Agent, Task
 
 
 def create_sql_generation_task(
-    agent: Agent, query_text: str, dataset_ids: list[UUID] | None
+    agent: Agent,
+    query_text: str,
+    dataset_ids: list[UUID] | None,
+    cross_references: list[dict[str, Any]] | None = None,
 ) -> Task:
     """Create task for generating SQL from natural language query.
 
@@ -25,6 +28,7 @@ def create_sql_generation_task(
         agent: SQL Generator agent
         query_text: Natural language question from user
         dataset_ids: Optional list of dataset UUIDs to query
+        cross_references: Optional list of cross-reference relationships for JOIN generation
 
     Returns:
         Task configured for SQL generation
@@ -33,15 +37,31 @@ def create_sql_generation_task(
     - SQL query string with parameterized placeholders
     - Query should be safe from SQL injection
     - Query should target specified datasets or all datasets
+    - Query should use JOINs when cross-references are available
     """
     dataset_info: str = (
         f"specific datasets: {dataset_ids}" if dataset_ids else "all available datasets"
     )
 
+    # Build cross-reference context if available
+    join_context: str = ""
+    if cross_references:
+        join_context = "\n\nAvailable Relationships (for JOIN clauses):\n"
+        for ref in cross_references:
+            join_context += (
+                f"- {ref['source_dataset_id']}.{ref['source_column']} "
+                f"→ {ref['target_dataset_id']}.{ref['target_column']} "
+                f"({ref['relationship_type']}, confidence: {ref['confidence_score']:.2f})\n"
+            )
+        join_context += (
+            "\nUse these relationships to JOIN tables when the question "
+            "requires data from multiple datasets."
+        )
+
     description: str = f"""Analyze the user's question and generate a SQL query to answer it.
 
 User Question: "{query_text}"
-Target Datasets: {dataset_info}
+Target Datasets: {dataset_info}{join_context}
 
 Requirements:
 1. Generate a valid PostgreSQL SQL query
@@ -49,8 +69,11 @@ Requirements:
 3. NEVER concatenate user input directly into SQL strings
 4. Select appropriate columns to answer the question
 5. Use appropriate WHERE clauses, JOINs, and aggregations as needed
-6. Include LIMIT clauses where appropriate to avoid huge result sets
-7. Ensure the query is efficient and readable
+6. When multiple datasets are involved, use the provided relationships to JOIN tables
+7. For foreign_key relationships, use INNER JOIN (or LEFT JOIN if optional)
+8. For shared_values relationships, use INNER JOIN on matching values
+9. Include LIMIT clauses where appropriate to avoid huge result sets
+10. Ensure the query is efficient and readable
 
 Output only the SQL query text, nothing else."""
 

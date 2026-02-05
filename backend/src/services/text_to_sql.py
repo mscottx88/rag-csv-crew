@@ -16,6 +16,8 @@ from typing import Any
 from uuid import UUID
 
 from crewai import Crew
+from psycopg import sql
+from psycopg_pool import ConnectionPool
 
 from backend.src.crew.agents import create_result_analyst_agent, create_sql_generator_agent
 from backend.src.crew.tasks import create_html_formatting_task, create_sql_generation_task
@@ -24,14 +26,85 @@ from backend.src.crew.tasks import create_html_formatting_task, create_sql_gener
 class TextToSQLService:
     """Service for converting natural language to SQL queries."""
 
+    def __init__(self, pool: ConnectionPool | None = None) -> None:
+        """Initialize TextToSQLService.
+
+        Args:
+            pool: Optional database connection pool for cross-reference retrieval
+        """
+        self.pool: ConnectionPool | None = pool
+
+    def get_cross_references(
+        self, username: str, dataset_ids: list[UUID]
+    ) -> list[dict[str, Any]]:
+        """Retrieve cross-references between specified datasets.
+
+        Args:
+            username: Username for schema isolation
+            dataset_ids: List of dataset UUIDs to find relationships between
+
+        Returns:
+            List of cross-references with relationship metadata
+
+        Raises:
+            ValueError: If pool is not configured
+        """
+        if self.pool is None:
+            return []
+
+        user_schema: str = f"{username}_schema"
+        cross_references: list[dict[str, Any]] = []
+
+        with self.pool.connection() as conn, conn.cursor() as cur:
+            # Set search path using SQL composition
+            cur.execute(
+                sql.SQL("SET search_path TO {}, public").format(sql.Identifier(user_schema))
+            )
+
+            # Query cross_references table for relationships between these datasets
+            dataset_id_strs: list[str] = [str(dataset_id) for dataset_id in dataset_ids]
+
+            cur.execute(
+                """
+                    SELECT
+                        source_dataset_id,
+                        source_column,
+                        target_dataset_id,
+                        target_column,
+                        relationship_type,
+                        confidence_score
+                    FROM cross_references
+                    WHERE source_dataset_id = ANY(%s)
+                      AND target_dataset_id = ANY(%s)
+                    ORDER BY confidence_score DESC
+                    """,
+                (dataset_id_strs, dataset_id_strs),
+            )
+
+            rows: list[tuple[Any, ...]] = cur.fetchall()
+            for row in rows:
+                cross_references.append(
+                    {
+                        "source_dataset_id": row[0],
+                        "source_column": row[1],
+                        "target_dataset_id": row[2],
+                        "target_column": row[3],
+                        "relationship_type": row[4],
+                        "confidence_score": row[5],
+                    }
+                )
+
+        return cross_references
+
     def generate_sql(
-        self, query_text: str, dataset_ids: list[UUID] | None, _username: str
+        self, query_text: str, dataset_ids: list[UUID] | None, username: str
     ) -> dict[str, Any]:
         """Generate SQL from natural language query.
 
         Args:
             query_text: Natural language question
             dataset_ids: Optional list of dataset UUIDs to query
+            username: Username for schema isolation
 
         Returns:
             Dictionary with sql and params
@@ -39,12 +112,20 @@ class TextToSQLService:
         Raises:
             Exception: If SQL generation fails
         """
+        # Retrieve cross-references if multiple datasets specified
+        cross_references: list[dict[str, Any]] = []
+        if dataset_ids and len(dataset_ids) > 1:
+            cross_references = self.get_cross_references(username, dataset_ids)
+
         # Create SQL Generator agent
         sql_agent: Any = create_sql_generator_agent()
 
-        # Create SQL generation task
+        # Create SQL generation task (with cross-reference context)
         task: Any = create_sql_generation_task(
-            agent=sql_agent, query_text=query_text, dataset_ids=dataset_ids
+            agent=sql_agent,
+            query_text=query_text,
+            dataset_ids=dataset_ids,
+            cross_references=cross_references,
         )
 
         # Create crew and execute
@@ -82,14 +163,24 @@ class TextToSQLService:
 class TextToSQLOrchestrator:
     """Orchestrates the complete query processing workflow."""
 
+    def __init__(self, pool: ConnectionPool | None = None) -> None:
+        """Initialize TextToSQLOrchestrator.
+
+        Args:
+            pool: Optional database connection pool for cross-reference retrieval
+        """
+        self.pool: ConnectionPool | None = pool
+        self.text_to_sql_service: TextToSQLService = TextToSQLService(pool)
+
     def process_query(
-        self, query_text: str, dataset_ids: list[UUID] | None, _username: str
+        self, query_text: str, dataset_ids: list[UUID] | None, username: str
     ) -> dict[str, Any]:
         """Process complete query workflow: SQL generation → execution → HTML formatting.
 
         Args:
             query_text: Natural language question
             dataset_ids: Optional list of dataset UUIDs
+            username: Username for schema isolation
 
         Returns:
             Dictionary with generated_sql, html_content, execution results
@@ -103,13 +194,21 @@ class TextToSQLOrchestrator:
         - Uses CrewAI synchronously (not async)
         - Thread-based execution
         """
+        # Retrieve cross-references if multiple datasets specified
+        cross_references: list[dict[str, Any]] = []
+        if dataset_ids and len(dataset_ids) > 1:
+            cross_references = self.text_to_sql_service.get_cross_references(username, dataset_ids)
+
         # Create agents
         sql_agent: Any = create_sql_generator_agent()
         analyst_agent: Any = create_result_analyst_agent()
 
-        # Create SQL generation task
+        # Create SQL generation task (with cross-reference context)
         sql_task: Any = create_sql_generation_task(
-            agent=sql_agent, query_text=query_text, dataset_ids=dataset_ids
+            agent=sql_agent,
+            query_text=query_text,
+            dataset_ids=dataset_ids,
+            cross_references=cross_references,
         )
 
         # Mock query results for now (would come from actual execution)

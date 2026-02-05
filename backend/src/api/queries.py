@@ -113,11 +113,11 @@ def _execute_sql_query(
         response_generator: Response generator instance
         username: Current username
     """
-    sql_service: TextToSQLService = TextToSQLService()
+    sql_service: TextToSQLService = TextToSQLService(pool)
     sql_result: dict[str, Any] = sql_service.generate_sql(
         query_text=query_text,
         dataset_ids=dataset_ids,
-        _username=username,
+        username=username,
     )
 
     execution_service: QueryExecutionService = QueryExecutionService(pool)
