@@ -79,6 +79,13 @@ class ResponseGenerator:
         """
         return score < threshold
 
+    # pylint: disable=too-many-locals
+    # JUSTIFICATION: Method generates complex HTML clarification responses requiring
+    # multiple variables for: empty case handling (html_content_empty, plain_text_empty),
+    # alternatives processing (num_alternatives, alternatives list), HTML construction
+    # (html_parts list, loop variables: alt, column_name, dataset_id, score, description,
+    # html_item), and final output (html_content, suggestions, plain_text_result).
+    # Refactoring into smaller methods would reduce clarity without meaningful benefit.
     def generate_clarification_request(
         self, query_text: str, search_results: dict[str, Any]
     ) -> dict[str, Any]:
@@ -122,12 +129,14 @@ class ResponseGenerator:
 <p><em>Confidence score: 0.00</em></p>
 </footer>
 </article>"""
+            plain_text_empty: str = self._html_to_plain_text(html_content_empty)
             return {
                 "clarification_needed": True,
                 "query_text": query_text,
                 "alternatives": [],
                 "confidence_score": 0.0,
                 "html_content": html_content_empty,
+                "plain_text": plain_text_empty,
                 "suggestions": ["Try different keywords", "Check dataset", "Use broader terms"],
             }
 
@@ -163,33 +172,38 @@ class ResponseGenerator:
 
             # Build HTML for this alternative
             if dataset_id != "unknown":
-                html_item: str = f'<li><strong>{column_name}</strong> (dataset: {dataset_id}, relevance: {score:.2f})'
+                html_item: str = (
+                    f"<li><strong>{column_name}</strong> (dataset: {dataset_id}, "
+                    f"relevance: {score:.2f})"
+                )
             else:
-                html_item = f'<li><strong>{column_name}</strong> (relevance: {score:.2f})'
+                html_item = f"<li><strong>{column_name}</strong> (relevance: {score:.2f})"
 
             # Add description if available
             if description:
-                html_item += f'<br><em>{description}</em>'
+                html_item += f"<br><em>{description}</em>"
 
-            html_item += '</li>'
+            html_item += "</li>"
             html_parts.append(html_item)
 
-        html_parts.extend([
-            "</ul>",
-            "</section>",
-            "<section>",
-            "<h2>Refinement Suggestions:</h2>",
-            "<ul>",
-            "<li>Specify the dataset name to narrow results</li>",
-            "<li>Use more specific column names</li>",
-            "<li>Include additional context in your query</li>",
-            "</ul>",
-            "</section>",
-            "<footer>",
-            f"<p><em>Confidence score: {confidence_score:.2f}</em></p>",
-            "</footer>",
-            "</article>",
-        ])
+        html_parts.extend(
+            [
+                "</ul>",
+                "</section>",
+                "<section>",
+                "<h2>Refinement Suggestions:</h2>",
+                "<ul>",
+                "<li>Specify the dataset name to narrow results</li>",
+                "<li>Use more specific column names</li>",
+                "<li>Include additional context in your query</li>",
+                "</ul>",
+                "</section>",
+                "<footer>",
+                f"<p><em>Confidence score: {confidence_score:.2f}</em></p>",
+                "</footer>",
+                "</article>",
+            ]
+        )
 
         html_content: str = "\n".join(html_parts)
 
@@ -197,15 +211,17 @@ class ResponseGenerator:
         suggestions: list[str] = [
             "Specify dataset name",
             "Use more specific terms",
-            "Include additional context"
+            "Include additional context",
         ]
 
+        plain_text_result: str = self._html_to_plain_text(html_content)
         return {
             "clarification_needed": True,
             "query_text": query_text,
             "alternatives": alternatives,
             "confidence_score": confidence_score,
             "html_content": html_content,
+            "plain_text": plain_text_result,
             "suggestions": suggestions,
         }
 
@@ -214,14 +230,13 @@ class ResponseGenerator:
         query_text: str,
         query_results: dict[str, Any],
         _query_id: UUID | str,
-        confidence_threshold: float = 0.6
+        confidence_threshold: float = 0.6,
     ) -> dict[str, Any]:
         """Generate HTML response from SQL query results or hybrid search results.
 
         Args:
             query_text: Original user question
             query_results: Either SQL query results OR hybrid search results with fused_results
-            _query_id: Query ID (UUID or string, currently unused)
             confidence_threshold: Confidence threshold for clarification (default: 0.6)
 
         Returns:
@@ -242,8 +257,7 @@ class ResponseGenerator:
             if self.is_low_confidence(confidence_score, threshold=confidence_threshold):
                 # Return clarification request
                 clarification: dict[str, Any] = self.generate_clarification_request(
-                    query_text=query_text,
-                    search_results=query_results
+                    query_text=query_text, search_results=query_results
                 )
                 # Add plain_text version
                 plain_text: str = self._html_to_plain_text(clarification["html_content"])
@@ -254,7 +268,10 @@ class ResponseGenerator:
             # In full implementation, this would trigger SQL generation
             # For now, return a basic response indicating high confidence
             return {
-                "html_content": f"<article><p>Query understood with {confidence_score:.0%} confidence.</p></article>",
+                "html_content": (
+                    f"<article><p>Query understood with {confidence_score:.0%} "
+                    f"confidence.</p></article>"
+                ),
                 "plain_text": f"Query understood with {confidence_score:.0%} confidence.",
                 "confidence_score": confidence_score,
                 "clarification_needed": False,
