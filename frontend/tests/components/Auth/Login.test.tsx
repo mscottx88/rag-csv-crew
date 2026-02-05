@@ -291,7 +291,8 @@ describe('Login Component', () => {
       render(<Login />);
 
       const input: HTMLElement = screen.getByLabelText(/username/i);
-      expect(input).toHaveAttribute('autoFocus');
+      // React's autoFocus JSX prop becomes 'autofocus' HTML attribute (lowercase)
+      expect(input).toHaveFocus();
     });
 
     it('should submit form when Enter key is pressed', async () => {
