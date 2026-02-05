@@ -61,7 +61,7 @@ export interface QueryResponse {
   plain_text: string;
   confidence_score: number;
   generated_at: string;
-  data_snapshot?: any;
+  data_snapshot?: unknown;
 }
 
 export interface Query {

@@ -25,7 +25,7 @@ export const login = async (username: string): Promise<AuthToken> => {
   } catch (error) {
     if (error instanceof AxiosError) {
       const status: number | undefined = error.response?.status;
-      const detail: string | undefined = error.response?.data?.detail;
+      const detail = (error.response?.data as { detail?: string } | undefined)?.detail;
 
       if (status === 400) {
         throw new Error(detail || 'Invalid username');
@@ -51,7 +51,7 @@ export const getCurrentUser = async (): Promise<User> => {
   } catch (error) {
     if (error instanceof AxiosError) {
       const status: number | undefined = error.response?.status;
-      const detail: string | undefined = error.response?.data?.detail;
+      const detail = (error.response?.data as { detail?: string } | undefined)?.detail;
 
       if (status === 401) {
         throw new Error('Not authenticated. Please login.');

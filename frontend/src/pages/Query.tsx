@@ -55,9 +55,9 @@ export const Query: React.FC = () => {
       </p>
 
       <QueryInput
-        onSubmit={handleQuerySubmit}
+        onSubmit={(query) => void handleQuerySubmit(query)}
         isProcessing={isPolling}
-        onCancel={handleCancel}
+        onCancel={() => void handleCancel()}
       />
 
       {currentQuery && <ResultDisplay query={currentQuery} onCancel={isPolling ? handleCancel : undefined} />}

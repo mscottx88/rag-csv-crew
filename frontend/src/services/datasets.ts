@@ -67,7 +67,7 @@ export const upload = async (
   } catch (error) {
     if (error instanceof AxiosError) {
       const status: number | undefined = error.response?.status;
-      const detail: string | undefined = error.response?.data?.detail;
+      const detail = (error.response?.data as { detail?: string } | undefined)?.detail;
 
       if (status === 400) {
         throw new Error(detail || 'Invalid file format');
@@ -99,7 +99,7 @@ export const get = async (id: string): Promise<Dataset> => {
   } catch (error) {
     if (error instanceof AxiosError) {
       const status: number | undefined = error.response?.status;
-      const detail: string | undefined = error.response?.data?.detail;
+      const detail = (error.response?.data as { detail?: string } | undefined)?.detail;
 
       if (status === 404) {
         throw new Error('Dataset not found');
@@ -122,7 +122,7 @@ export const deleteDataset = async (id: string): Promise<void> => {
   } catch (error) {
     if (error instanceof AxiosError) {
       const status: number | undefined = error.response?.status;
-      const detail: string | undefined = error.response?.data?.detail;
+      const detail = (error.response?.data as { detail?: string } | undefined)?.detail;
 
       if (status === 404) {
         throw new Error('Dataset not found');

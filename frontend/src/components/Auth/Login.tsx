@@ -49,7 +49,7 @@ export const Login: React.FC = () => {
         <h1>RAG CSV Crew</h1>
         <h2>Login</h2>
 
-        <form onSubmit={handleSubmit} className="login-form">
+        <form onSubmit={(e) => void handleSubmit(e)} className="login-form">
           <div className="form-group">
             <label htmlFor="username">Username</label>
             <input

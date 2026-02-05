@@ -142,7 +142,7 @@ export const DatasetList: React.FC<DatasetListProps> = ({ refresh = 0 }) => {
                 Cancel
               </button>
               <button
-                onClick={(): Promise<void> => handleDeleteConfirm(deleteConfirm)}
+                onClick={() => void handleDeleteConfirm(deleteConfirm)}
                 className="confirm-button"
               >
                 Delete

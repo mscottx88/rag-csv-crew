@@ -79,7 +79,7 @@ export const QueryInput: React.FC<QueryInputProps> = ({ onSubmit, isProcessing =
     <div className="query-input">
       <h2>Ask a Question</h2>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={(e) => void handleSubmit(e)}>
         <div className="form-group">
           <label htmlFor="query-text">Natural Language Query</label>
           <textarea

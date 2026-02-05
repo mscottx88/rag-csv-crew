@@ -147,7 +147,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConf
       )}
 
       <div className="button-group">
-        <button onClick={handleUpload} disabled={!selectedFile || uploading} className="upload-button">
+        <button onClick={() => void handleUpload()} disabled={!selectedFile || uploading} className="upload-button">
           {uploading ? 'Uploading...' : 'Upload'}
         </button>
         {selectedFile && !uploading && (

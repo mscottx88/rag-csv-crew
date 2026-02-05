@@ -132,7 +132,7 @@ export const ConflictDialog: React.FC<ConflictDialogProps> = ({
 
         <div className="conflict-options">
           <button
-            onClick={handleReplace}
+            onClick={() => void handleReplace()}
             disabled={processing}
             className="option-button replace-button"
           >
@@ -141,13 +141,13 @@ export const ConflictDialog: React.FC<ConflictDialogProps> = ({
           </button>
 
           <button
-            onClick={handleKeepBoth}
+            onClick={() => void handleKeepBoth()}
             disabled={processing}
             className="option-button keep-both-button"
           >
             <div className="option-title">Keep Both</div>
             <div className="option-description">
-              Upload as "{generateNewFilename(filename)}"
+              Upload as &quot;{generateNewFilename(filename)}&quot;
             </div>
           </button>
         </div>

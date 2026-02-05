@@ -66,7 +66,7 @@ export const parseJwtPayload = (token: string): Record<string, unknown> | null =
 
     const payload: string = parts[1]!; // Safe: we checked length === 3
     const decoded: string = atob(payload);
-    const parsed: Record<string, unknown> = JSON.parse(decoded);
+    const parsed = JSON.parse(decoded) as Record<string, unknown>;
     return parsed;
   } catch (error) {
     console.error('Failed to parse JWT token:', error);
