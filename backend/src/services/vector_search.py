@@ -52,7 +52,7 @@ class VectorSearchService:
             self.client: Any = genai.Client(api_key=google_api_key)
             self.provider: Literal["google", "openai"] = "google"
             # Use embedding-001 (768d native, available in v1beta)
-            self.model: str = "models/embedding-001"
+            self.model: str = "gemini-embedding-001"
             self.native_dim: int = 768  # Google embedding-001 native dimensions
             self.embedding_dim: int = 1536  # Padded to match database schema
         elif openai_api_key:
@@ -115,8 +115,11 @@ class VectorSearchService:
         # Call appropriate provider API
         if self.provider == "google":
             # Call Google Gemini API (synchronous, new google.genai package)
+            # Specify output_dimensionality=768 (defaults to 3072 if not specified)
             response: Any = self.client.models.embed_content(
-                model=self.model, contents=normalized_text
+                model=self.model,
+                contents=normalized_text,
+                config={"output_dimensionality": self.native_dim},
             )
             embedding: list[float] = response.embeddings[0].values
             # Pad Google embeddings (768d) to target dimension (1536d)
@@ -169,7 +172,9 @@ class VectorSearchService:
             embeddings = []
             for normalized_text in normalized_texts:
                 gemini_response: Any = self.client.models.embed_content(
-                    model=self.model, contents=normalized_text
+                    model=self.model,
+                    contents=normalized_text,
+                    config={"output_dimensionality": self.native_dim},
                 )
                 # Pad Google embeddings (768d) to target dimension (1536d)
                 padded_embedding: list[float] = self._pad_embedding(
