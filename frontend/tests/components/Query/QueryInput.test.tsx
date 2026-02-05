@@ -197,7 +197,7 @@ describe('QueryInput Component', () => {
       const exampleButton: HTMLElement = screen.getByText('Show top 10 customers by revenue');
       await user.click(exampleButton);
 
-      const textarea: HTMLTextAreaElement = screen.getByLabelText(/natural language query/i) as HTMLTextAreaElement;
+      const textarea: HTMLTextAreaElement = screen.getByLabelText(/natural language query/i);
       expect(textarea.value).toBe('Show top 10 customers by revenue');
     });
 

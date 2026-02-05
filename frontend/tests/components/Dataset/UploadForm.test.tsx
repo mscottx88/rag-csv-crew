@@ -46,7 +46,7 @@ describe('UploadForm Component', () => {
       const mockOnComplete: (dataset: Dataset) => void = vi.fn();
       render(<UploadForm onUploadComplete={mockOnComplete} />);
 
-      const fileInput: HTMLInputElement = screen.getByLabelText(/drag and drop a csv file here/i) as HTMLInputElement;
+      const fileInput: HTMLInputElement = screen.getByLabelText(/drag and drop a csv file here/i);
       expect(fileInput).toHaveAttribute('accept', '.csv');
     });
 
