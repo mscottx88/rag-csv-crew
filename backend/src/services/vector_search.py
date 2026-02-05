@@ -49,7 +49,6 @@ class VectorSearchService:
             ValueError: If neither GOOGLE_API_KEY nor OPENAI_API_KEY is set
         """
         self.pool: ConnectionPool | None = pool
-        self.embedding_dim: int = 1536
 
         # Auto-detect provider (prefer Google if both are set)
         google_api_key: str | None = os.getenv("GOOGLE_API_KEY")
@@ -60,11 +59,15 @@ class VectorSearchService:
             self.client: Any = genai.Client(api_key=google_api_key)
             self.provider: Literal["google", "openai"] = "google"
             self.model: str = "models/text-embedding-004"
+            self.native_dim: int = 768  # Google text-embedding-004 native dimensions
+            self.embedding_dim: int = 1536  # Padded to match database schema
         elif openai_api_key:
             # Initialize OpenAI client (synchronous)
             self.client = OpenAI(api_key=openai_api_key)
             self.provider = "openai"
             self.model = "text-embedding-3-small"
+            self.native_dim = 1536  # OpenAI native dimensions
+            self.embedding_dim = 1536  # Matches database schema
         else:
             raise ValueError(
                 "Neither GOOGLE_API_KEY nor OPENAI_API_KEY environment variable is set"
@@ -81,6 +84,21 @@ class VectorSearchService:
         """
         # Strip leading/trailing whitespace and collapse multiple spaces to single space
         return re.sub(r"\s+", " ", text.strip())
+
+    def _pad_embedding(self, embedding: list[float]) -> list[float]:
+        """Pad embedding to target dimension with zeros if needed.
+
+        Args:
+            embedding: Input embedding vector
+
+        Returns:
+            Padded embedding vector of target dimension
+        """
+        if len(embedding) < self.embedding_dim:
+            # Pad with zeros to reach target dimension
+            padding: list[float] = [0.0] * (self.embedding_dim - len(embedding))
+            return embedding + padding
+        return embedding
 
     def generate_embedding(self, text: str) -> list[float]:
         """Generate embedding vector for a single text string.
@@ -107,6 +125,8 @@ class VectorSearchService:
                 model=self.model, contents=normalized_text
             )
             embedding: list[float] = response.embeddings[0].values
+            # Pad Google embeddings (768d) to target dimension (1536d)
+            embedding = self._pad_embedding(embedding)
         else:
             # Call OpenAI API (synchronous) - pass string directly for single input
             response = self.client.embeddings.create(model=self.model, input=normalized_text)
@@ -155,7 +175,11 @@ class VectorSearchService:
                 gemini_response: Any = self.client.models.embed_content(
                     model=self.model, contents=normalized_text
                 )
-                embeddings.append(gemini_response.embeddings[0].values)
+                # Pad Google embeddings (768d) to target dimension (1536d)
+                padded_embedding: list[float] = self._pad_embedding(
+                    gemini_response.embeddings[0].values
+                )
+                embeddings.append(padded_embedding)
         else:
             # Call OpenAI API with batch (synchronous) - pass list for batch
             openai_response: Any = self.client.embeddings.create(
