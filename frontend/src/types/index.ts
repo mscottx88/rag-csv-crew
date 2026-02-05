@@ -54,17 +54,27 @@ export interface ConflictResolution {
 
 export type QueryStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
 
+export interface QueryResponse {
+  query_id: string;
+  id: string;
+  html_content: string;
+  plain_text: string;
+  confidence_score: number;
+  generated_at: string;
+  data_snapshot?: any;
+}
+
 export interface Query {
   id: string;
   query_text: string;
   status: QueryStatus;
-  created_at: string;
-  updated_at: string;
+  submitted_at: string;
+  completed_at?: string;
   execution_time_ms?: number;
-  row_count?: number;
+  result_count?: number;
   error_message?: string;
-  result_html?: string;
-  confidence_score?: number;
+  generated_sql?: string | null;
+  response?: QueryResponse;
 }
 
 export interface QueryCreate {

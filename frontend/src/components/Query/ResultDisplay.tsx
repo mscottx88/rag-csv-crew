@@ -35,6 +35,8 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, onCancel })
       return null;
     }
 
+    const confidenceScore = query.response?.confidence_score;
+
     return (
       <div className="metadata">
         {query.execution_time_ms !== undefined && (
@@ -43,16 +45,16 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, onCancel })
             <span className="metadata-value">{query.execution_time_ms}ms</span>
           </div>
         )}
-        {query.row_count !== undefined && (
+        {query.result_count !== undefined && (
           <div className="metadata-item">
             <span className="metadata-label">Rows:</span>
-            <span className="metadata-value">{query.row_count.toLocaleString()}</span>
+            <span className="metadata-value">{query.result_count.toLocaleString()}</span>
           </div>
         )}
-        {query.confidence_score !== undefined && (
+        {confidenceScore !== undefined && (
           <div className="metadata-item">
             <span className="metadata-label">Confidence:</span>
-            <span className="metadata-value">{(query.confidence_score * 100).toFixed(1)}%</span>
+            <span className="metadata-value">{(confidenceScore * 100).toFixed(1)}%</span>
           </div>
         )}
       </div>
@@ -92,11 +94,11 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, onCancel })
       );
     }
 
-    if (query.status === 'completed' && query.result_html) {
+    if (query.status === 'completed' && query.response?.html_content) {
       return (
         <div
           className="result-html"
-          dangerouslySetInnerHTML={{ __html: query.result_html }}
+          dangerouslySetInnerHTML={{ __html: query.response.html_content }}
         />
       );
     }
