@@ -23,9 +23,10 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-# Load environment variables from .env file
+# Load environment variables from .env file at project root
 # Use explicit path to ensure .env is found regardless of working directory
-env_path: Path = Path(__file__).parent.parent / ".env"
+# Path: backend/src/main.py -> backend/src/ -> backend/ -> project_root/
+env_path: Path = Path(__file__).parent.parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
 from src.api.auth import router as auth_router
