@@ -20,8 +20,10 @@ from crewai.tools import tool
 from src.services.schema_inspector import SchemaInspectorService
 
 # Global state for schema inspector context
+# pylint: disable=invalid-name  # JUSTIFICATION: These are mutable global state variables, not constants
 _schema_inspector_service: SchemaInspectorService | None = None
 _schema_inspector_username: str | None = None
+# pylint: enable=invalid-name
 
 
 def set_schema_inspector_context(service: SchemaInspectorService, username: str) -> None:
@@ -35,7 +37,7 @@ def set_schema_inspector_context(service: SchemaInspectorService, username: str)
         This must be called before using schema inspector tools.
         Uses module-level globals for CrewAI tool compatibility.
     """
-    global _schema_inspector_service, _schema_inspector_username  # noqa: PLW0603
+    global _schema_inspector_service, _schema_inspector_username  # noqa: PLW0603  # pylint: disable=global-statement
     _schema_inspector_service = service
     _schema_inspector_username = username
 
@@ -77,7 +79,8 @@ def list_datasets_tool() -> str:
 
         return result
 
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        # JUSTIFICATION: Tool functions must catch all exceptions to return error strings to agents
         return f"Error listing datasets: {e!s}"
 
 
@@ -124,7 +127,8 @@ def inspect_schema_tool(dataset_id: str) -> str:
 
     except ValueError as e:
         return f"Error: {e!s}"
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        # JUSTIFICATION: Tool functions must catch all exceptions to return error strings to agents
         return f"Error inspecting schema: {e!s}"
 
 
@@ -174,5 +178,6 @@ def get_sample_data_tool(dataset_id: str, limit: int = 3) -> str:
 
     except ValueError as e:
         return f"Error: {e!s}"
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        # JUSTIFICATION: Tool functions must catch all exceptions to return error strings to agents
         return f"Error getting sample data: {e!s}"

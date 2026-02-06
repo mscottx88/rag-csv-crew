@@ -122,22 +122,22 @@ Project uses web app structure:
 
 **Step 4: Integration with Text-to-SQL**
 
-- [ ] T042 [US2] Add use_schema_inspection parameter to generate_sql() in backend/src/services/text_to_sql.py
-- [ ] T043 [US2] Instantiate SchemaInspectorService in generate_sql() in backend/src/services/text_to_sql.py
-- [ ] T044 [US2] Call set_schema_inspector_context() with service and username in backend/src/services/text_to_sql.py
-- [ ] T045 [US2] Create schema inspector agent and attach tools in backend/src/services/text_to_sql.py
-- [ ] T046 [US2] Create schema inspection task in backend/src/services/text_to_sql.py
-- [ ] T047 [US2] Set inspector task as context for SQL generation task in backend/src/services/text_to_sql.py
-- [ ] T048 [US2] Update create_sql_generation_task() to reference schema context in backend/src/crew/tasks.py
+- [X] T042 [US2] Add use_schema_inspection parameter to generate_sql() in backend/src/services/text_to_sql.py
+- [X] T043 [US2] Instantiate SchemaInspectorService in generate_sql() in backend/src/services/text_to_sql.py
+- [X] T044 [US2] Call set_schema_inspector_context() with service and username in backend/src/services/text_to_sql.py
+- [X] T045 [US2] Create schema inspector agent and attach tools in backend/src/services/text_to_sql.py
+- [X] T046 [US2] Create schema inspection task in backend/src/services/text_to_sql.py
+- [X] T047 [US2] Set inspector task as context for SQL generation task in backend/src/services/text_to_sql.py
+- [X] T048 [US2] Update create_sql_generation_task() to reference schema context in backend/src/crew/tasks.py
 
 **Step 5: Quality & Performance**
 
-- [ ] T049 [US2] Run ruff check on backend/src/services/schema_inspector.py
-- [ ] T050 [US2] Run ruff format on backend/src/services/schema_inspector.py
-- [ ] T051 [US2] Run mypy --strict on backend/src/services/schema_inspector.py
-- [ ] T052 [US2] Run pylint on backend/src/services/schema_inspector.py and fix to 10.00/10
-- [ ] T053 [US2] Run quality checks on backend/src/crew/tools.py (ruff, mypy, pylint)
-- [ ] T054 [US2] Commit schema inspector implementation with quality gates passed
+- [X] T049 [US2] Run ruff check on backend/src/services/schema_inspector.py
+- [X] T050 [US2] Run ruff format on backend/src/services/schema_inspector.py
+- [X] T051 [US2] Run mypy --strict on backend/src/services/schema_inspector.py
+- [X] T052 [US2] Run pylint on backend/src/services/schema_inspector.py and fix to 10.00/10
+- [X] T053 [US2] Run quality checks on backend/src/crew/tools.py (ruff, mypy, pylint)
+- [X] T054 [US2] Commit schema inspector implementation with quality gates passed
 
 **Checkpoint**: Schema inspector provides database context to SQL generation, improving query accuracy
 

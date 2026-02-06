@@ -95,11 +95,11 @@ class SchemaInspectorService:
                 filename: str = row[1]
 
                 # Construct table name (same logic as ingestion)
-                table_name: str
-                if filename.endswith(".csv"):
-                    table_name = filename.replace(".csv", "_data")
-                else:
-                    table_name = f"{filename}_data"
+                table_name: str = (
+                    filename.replace(".csv", "_data")
+                    if filename.endswith(".csv")
+                    else f"{filename}_data"
+                )
 
                 datasets.append(
                     {
@@ -163,11 +163,11 @@ class SchemaInspectorService:
                 raise ValueError(f"Dataset {dataset_id} not found")
 
             filename: str = dataset_row[0]
-            table_name: str
-            if filename.endswith(".csv"):
-                table_name = filename.replace(".csv", "_data")
-            else:
-                table_name = f"{filename}_data"
+            table_name: str = (
+                filename.replace(".csv", "_data")
+                if filename.endswith(".csv")
+                else f"{filename}_data"
+            )
 
             # Get column details
             cur.execute(
@@ -390,11 +390,11 @@ class SchemaInspectorService:
                 raise ValueError(f"Dataset {dataset_id} not found")
 
             filename: str = row[0]
-            table_name: str
-            if filename.endswith(".csv"):
-                table_name = filename.replace(".csv", "_data")
-            else:
-                table_name = f"{filename}_data"
+            table_name: str = (
+                filename.replace(".csv", "_data")
+                if filename.endswith(".csv")
+                else f"{filename}_data"
+            )
 
             # Get column names
             cur.execute(
