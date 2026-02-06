@@ -25,6 +25,7 @@ from src.api.dependencies import get_current_user
 from src.api.utils import get_pool_with_error_handling
 from src.db.connection import DatabaseConnectionPool
 from src.models.dataset import ColumnSchema, Dataset, DatasetList
+from src.services.column_metadata import ColumnMetadataService
 from src.services.ingestion import (  # pylint: disable=import-outside-toplevel
     check_filename_conflict,
     create_dataset_table,
@@ -390,6 +391,43 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to store column mappings: {e!s}",
             ) from e
+
+        # Compute column metadata (OPTIONAL - failure is logged but doesn't fail upload)
+        try:
+            # Access underlying ConnectionPool from DatabaseConnectionPool wrapper
+            underlying_pool_metadata: ConnectionPool | None = pool._pool  # pylint: disable=protected-access
+            if underlying_pool_metadata is None:
+                raise RuntimeError("Connection pool not initialized")
+
+            metadata_service: ColumnMetadataService = ColumnMetadataService(underlying_pool_metadata)
+            metadata_result: dict[str, Any] = metadata_service.compute_and_store_metadata(
+                username=username,
+                dataset_id=dataset_id,
+                table_name=table_name,
+            )
+
+            log_event(
+                logger=logger,
+                level="info",
+                event="metadata_computed",
+                user=username,
+                extra={
+                    "dataset_id": dataset_id,
+                    "columns_processed": metadata_result["columns_processed"],
+                    "success": metadata_result["success"],
+                },
+            )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # JUSTIFICATION: Metadata computation is optional - we intentionally catch all
+            # exceptions (database errors, computation failures) to prevent blocking
+            # CSV upload. Dataset will be functional without metadata (reduced search quality).
+            log_event(
+                logger=logger,
+                level="warning",
+                event="metadata_computation_failed",
+                user=username,
+                extra={"dataset_id": dataset_id, "error": str(e)},
+            )
 
         # Generate embeddings for semantic search (OPTIONAL - failure is logged but doesn't fail upload)
         try:

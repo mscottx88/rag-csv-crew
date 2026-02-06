@@ -64,10 +64,10 @@ Project uses web app structure:
 
 **Step 2: Ingestion Pipeline Integration**
 
-- [ ] T014 [US1] Reorder upload_dataset() pipeline: move metadata computation before embeddings in backend/src/api/datasets.py
-- [ ] T015 [US1] Add metadata computation call after ingest_csv_data() in backend/src/api/datasets.py
-- [ ] T016 [US1] Add logging for metadata_computed event in backend/src/api/datasets.py
-- [ ] T017 [US1] Add error handling with graceful degradation for metadata failures in backend/src/api/datasets.py
+- [X] T014 [US1] Reorder upload_dataset() pipeline: move metadata computation before embeddings in backend/src/api/datasets.py
+- [X] T015 [US1] Add metadata computation call after ingest_csv_data() in backend/src/api/datasets.py
+- [X] T016 [US1] Add logging for metadata_computed event in backend/src/api/datasets.py
+- [X] T017 [US1] Add error handling with graceful degradation for metadata failures in backend/src/api/datasets.py
 
 **Step 3: Enriched Embeddings**
 
