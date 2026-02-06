@@ -22,6 +22,7 @@ def create_sql_generation_task(
     dataset_ids: list[UUID] | None,
     cross_references: list[dict[str, Any]] | None = None,
     search_results: dict[str, Any] | None = None,
+    schema_context: str | None = None,
 ) -> Task:
     """Create task for generating SQL from natural language query.
 
@@ -31,6 +32,7 @@ def create_sql_generation_task(
         dataset_ids: Optional list of dataset UUIDs to query
         cross_references: Optional list of cross-reference relationships for JOIN generation
         search_results: Optional column search results with data value matches
+        schema_context: Optional explicit schema description with valid table/column names
 
     Returns:
         Task configured for SQL generation
@@ -89,10 +91,13 @@ def create_sql_generation_task(
                 f"Example: WHERE column_name ILIKE '%{query_text}%'\n"
             )
 
+    # Include explicit schema context if provided
+    schema_info: str = schema_context if schema_context else ""
+
     description: str = f"""Analyze the user's question and generate a SQL query to answer it.
 
 User Question: "{query_text}"
-Target Datasets: {dataset_info}{join_context}{value_context}
+Target Datasets: {dataset_info}{schema_info}{join_context}{value_context}
 
 Requirements:
 1. Generate a valid PostgreSQL SQL query

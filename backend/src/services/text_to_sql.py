@@ -363,6 +363,152 @@ class TextToSQLService:
 
         return cross_references
 
+    def get_schema_context(self, username: str, dataset_ids: list[UUID] | None = None) -> dict[str, Any]:
+        """Extract valid table and column names from database schema.
+
+        Args:
+            username: Username for schema isolation
+            dataset_ids: Optional list of dataset UUIDs to filter
+
+        Returns:
+            Dictionary with tables (list of table names) and columns (dict mapping table_name -> column list)
+
+        Raises:
+            ValueError: If pool is not configured
+        """
+        if self.pool is None:
+            raise ValueError("Database pool is not configured")
+
+        user_schema: str = f"{username}_schema"
+        schema_context: dict[str, Any] = {"tables": [], "columns": {}}
+
+        with self.pool.connection() as conn, conn.cursor() as cur:
+            cur.execute(
+                sql.SQL("SET search_path TO {}, public").format(sql.Identifier(user_schema))
+            )
+
+            # Build dataset filter clause if needed
+            filter_clause: str = ""
+            filter_params: tuple[Any, ...] = ()
+            if dataset_ids:
+                dataset_id_strs: list[str] = [str(dataset_id) for dataset_id in dataset_ids]
+                filter_clause = " WHERE d.id = ANY(%s)"
+                filter_params = (dataset_id_strs,)
+
+            # Get all tables for user (from datasets table)
+            cur.execute(
+                f"""
+                SELECT d.id, d.filename
+                FROM datasets d
+                {filter_clause}
+                ORDER BY d.uploaded_at DESC
+                """,
+                filter_params,
+            )
+
+            dataset_rows: list[tuple[Any, ...]] = cur.fetchall()
+
+            for dataset_row in dataset_rows:
+                dataset_id: str = str(dataset_row[0])
+                filename: str = dataset_row[1]
+
+                # Construct table name (same logic as ingestion)
+                table_name: str
+                if filename.endswith(".csv"):
+                    table_name = filename.replace(".csv", "_data")
+                else:
+                    table_name = f"{filename}_data"
+
+                schema_context["tables"].append(table_name)
+
+                # Get columns for this dataset
+                cur.execute(
+                    """
+                    SELECT column_name
+                    FROM column_mappings
+                    WHERE dataset_id = %s
+                    ORDER BY column_name
+                    """,
+                    (dataset_id,),
+                )
+
+                column_rows: list[tuple[Any, ...]] = cur.fetchall()
+                column_names: list[str] = [str(row[0]) for row in column_rows]
+
+                schema_context["columns"][table_name] = column_names
+
+        return schema_context
+
+    def validate_sql_against_schema(self, sql_query: str, schema_context: dict[str, Any]) -> dict[str, Any]:
+        """Validate that SQL only references tables and columns that exist in schema.
+
+        Args:
+            sql_query: Generated SQL query to validate
+            schema_context: Schema context from get_schema_context()
+
+        Returns:
+            Dictionary with is_valid (bool), errors (list of str), and corrections (dict)
+
+        Validation Checks:
+        1. Extract table names from FROM and JOIN clauses
+        2. Extract column names from SELECT, WHERE, and other clauses
+        3. Check that all tables exist in schema_context["tables"]
+        4. Check that all columns exist in schema_context["columns"][table_name]
+        """
+        valid_tables: list[str] = schema_context["tables"]
+        valid_columns_by_table: dict[str, list[str]] = schema_context["columns"]
+
+        errors: list[str] = []
+        corrections: dict[str, str] = {}
+
+        # Extract table names from SQL (FROM and JOIN clauses)
+        # Simplified regex - matches table names after FROM or JOIN
+        table_pattern: str = r"\b(?:FROM|JOIN)\s+([a-z_][a-z0-9_]*)"
+        referenced_tables: list[str] = re.findall(table_pattern, sql_query, re.IGNORECASE)
+
+        # Check each referenced table
+        for table in referenced_tables:
+            table_lower: str = table.lower()
+            if table_lower not in valid_tables:
+                errors.append(
+                    f"Table '{table}' does not exist. Valid tables: {', '.join(valid_tables)}"
+                )
+                # Find closest match
+                if valid_tables:
+                    corrections[table] = valid_tables[0]  # Use first valid table as suggestion
+
+        # Extract column names from SQL (simplified - looks for identifiers)
+        # This is a heuristic approach - not perfect but catches most cases
+        # Matches identifiers that are likely column references
+        column_pattern: str = r"\b([a-z_][a-z0-9_]*)\s*(?:=|<|>|ILIKE|LIKE|IN|IS)"
+        potential_columns: list[str] = re.findall(column_pattern, sql_query, re.IGNORECASE)
+
+        # Check columns against all valid tables (since we may not know which table each column belongs to)
+        all_valid_columns: set[str] = set()
+        for columns in valid_columns_by_table.values():
+            all_valid_columns.update(columns)
+
+        for column in potential_columns:
+            column_lower: str = column.lower()
+            # Skip SQL keywords
+            sql_keywords: set[str] = {
+                "select", "from", "where", "join", "left", "right", "inner", "outer",
+                "on", "and", "or", "not", "null", "true", "false", "limit", "offset",
+                "order", "by", "group", "having", "as", "distinct", "all", "any"
+            }
+            if column_lower not in sql_keywords and column_lower not in all_valid_columns:
+                errors.append(
+                    f"Column '{column}' may not exist. Valid columns: {', '.join(sorted(all_valid_columns))}"
+                )
+
+        is_valid: bool = len(errors) == 0
+
+        return {
+            "is_valid": is_valid,
+            "errors": errors,
+            "corrections": corrections,
+        }
+
     def generate_sql(
         self,
         query_text: str,
@@ -382,12 +528,26 @@ class TextToSQLService:
             Dictionary with sql and params
 
         Raises:
-            Exception: If SQL generation fails
+            Exception: If SQL generation fails or validation fails
         """
+        # Get schema context for validation
+        schema_context: dict[str, Any] = self.get_schema_context(username, dataset_ids)
+
         # Retrieve cross-references if multiple datasets specified
         cross_references: list[dict[str, Any]] = []
         if dataset_ids and len(dataset_ids) > 1:
             cross_references = self.get_cross_references(username, dataset_ids)
+
+        # Build schema description for agent (explicit table and column names)
+        schema_description: str = "\n\nAVAILABLE SCHEMA (YOU MUST USE EXACTLY THESE NAMES):\n"
+        schema_description += "=" * 80 + "\n"
+        for table_name in schema_context["tables"]:
+            columns: list[str] = schema_context["columns"].get(table_name, [])
+            schema_description += f"\nTable: {table_name}\n"
+            schema_description += f"Columns: {', '.join(columns)}\n"
+        schema_description += "\n" + "=" * 80 + "\n"
+        schema_description += "⚠️  WARNING: ANY table or column name NOT listed above DOES NOT EXIST.\n"
+        schema_description += "⚠️  DO NOT invent, guess, or modify these names. COPY THEM EXACTLY.\n"
 
         # Create SQL Generator agent
         sql_agent: Any = create_sql_generator_agent()
@@ -399,6 +559,7 @@ class TextToSQLService:
             dataset_ids=dataset_ids,
             cross_references=cross_references,
             search_results=search_results,
+            schema_context=schema_description,  # Pass explicit schema
         )
 
         # Create crew and execute
@@ -412,6 +573,15 @@ class TextToSQLService:
 
         # Clean up SQL (remove markdown code blocks if present)
         cleaned_sql: str = self._clean_sql(sql_output)
+
+        # Validate SQL against schema
+        validation: dict[str, Any] = self.validate_sql_against_schema(cleaned_sql, schema_context)
+
+        if not validation["is_valid"]:
+            error_message: str = "Generated SQL contains invalid table or column names:\n"
+            error_message += "\n".join(f"  - {error}" for error in validation["errors"])
+            error_message += f"\n\nGenerated SQL:\n{cleaned_sql}"
+            raise ValueError(error_message)
 
         # Extract parameters for placeholders (%s)
         # For data value queries, use keywords from query_text wrapped in % for ILIKE

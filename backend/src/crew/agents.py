@@ -245,3 +245,62 @@ def create_vector_search_agent() -> Agent:
         tools=[],  # Tools will be added for vector search operations if needed
     )
     return agent
+
+
+def create_schema_inspector_agent(tools: list[Any]) -> Agent:
+    """Create Schema Inspector agent for database introspection.
+
+    The agent specializes in inspecting database schemas to provide context
+    for SQL query generation. Uses tools to discover tables, columns, and
+    relationships dynamically.
+
+    Args:
+        tools: List of CrewAI tools (list_datasets, inspect_schema, get_sample_data)
+
+    Returns:
+        Agent configured for schema inspection
+
+    Agent Characteristics:
+    - Role: Database Schema Expert
+    - Goal: Provide accurate schema context for SQL generation
+    - Knowledge: Database structure, relationships, data types
+    - Tools: Schema inspection tools for dynamic discovery
+    """
+    llm: Any = get_llm_for_crew()
+    provider: str = get_llm_provider_name()
+    logger.info(f"Creating Schema Inspector agent with LLM provider: {provider}")
+
+    agent: Agent = Agent(
+        role="Database Schema Expert",
+        goal=(
+            "Inspect database schemas and provide accurate table names, column names, "
+            "and data types to guide SQL query generation"
+        ),
+        backstory="""You are a database schema expert who knows how to inspect database
+        structures and provide accurate context for SQL query generation.
+
+        Your expertise includes:
+        - Using tools to discover available datasets and tables
+        - Inspecting table schemas to get exact column names and types
+        - Retrieving sample data to understand data formats and patterns
+        - Identifying relationships between tables
+        - Providing clear, structured schema information to other agents
+
+        Your process:
+        1. Use list_datasets tool to discover available tables
+        2. Use inspect_schema tool to get exact table and column names
+        3. Use get_sample_data tool to understand data structure (when helpful)
+        4. Provide clear, accurate schema information
+
+        CRITICAL RULES:
+        - ALWAYS use tools to get current schema information
+        - NEVER guess or invent table or column names
+        - Provide EXACT names as they appear in the database
+        - Include data types and descriptions when available
+        - Be thorough but concise in your responses""",
+        verbose=True,
+        allow_delegation=False,
+        tools=tools,
+        llm=llm,
+    )
+    return agent
