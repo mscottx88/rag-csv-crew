@@ -391,6 +391,35 @@ def _sanitize_table_name(filename: str) -> str:
     return f"{sanitized}_data"
 
 
+# PostgreSQL reserved keywords that require quoting
+# Source: https://www.postgresql.org/docs/current/sql-keywords-appendix.html
+_SQL_RESERVED_KEYWORDS: set[str] = {
+    "all", "analyse", "analyze", "and", "any", "array", "as", "asc", "asymmetric",
+    "both", "case", "cast", "check", "collate", "column", "constraint", "create",
+    "current_catalog", "current_date", "current_role", "current_time",
+    "current_timestamp", "current_user", "default", "deferrable", "desc", "distinct",
+    "do", "else", "end", "except", "false", "fetch", "for", "foreign", "from",
+    "grant", "group", "having", "in", "initially", "intersect", "into", "lateral",
+    "leading", "limit", "localtime", "localtimestamp", "not", "null", "offset",
+    "on", "only", "or", "order", "placing", "primary", "references", "returning",
+    "select", "session_user", "some", "symmetric", "table", "then", "to", "trailing",
+    "true", "union", "unique", "user", "using", "variadic", "when", "where", "window",
+    "with",
+}
+
+
+def _is_sql_reserved_keyword(name: str) -> bool:
+    """Check if a name is a SQL reserved keyword.
+
+    Args:
+        name: Column or table name to check
+
+    Returns:
+        True if name is a reserved keyword requiring quoting
+    """
+    return name.lower() in _SQL_RESERVED_KEYWORDS
+
+
 def _sanitize_column_name(col_name: str) -> str:
     """Sanitize column name for PostgreSQL.
 
@@ -398,7 +427,12 @@ def _sanitize_column_name(col_name: str) -> str:
         col_name: Original column name from CSV
 
     Returns:
-        Sanitized column name: lowercase, alphanumeric + underscore
+        Sanitized column name: lowercase, alphanumeric + underscore,
+        with suffix added if it's a reserved keyword
+
+    Note:
+        Reserved keywords get "_col" suffix to avoid SQL syntax errors
+        (e.g., "group" → "group_col", "order" → "order_col")
     """
     # Convert to lowercase, replace invalid chars with underscore
     sanitized: str = "".join(c if c.isalnum() or c == "_" else "_" for c in col_name.lower())
@@ -406,6 +440,10 @@ def _sanitize_column_name(col_name: str) -> str:
     # Ensure starts with letter or underscore
     if sanitized and not (sanitized[0].isalpha() or sanitized[0] == "_"):
         sanitized = "_" + sanitized
+
+    # Check if it's a reserved keyword and add suffix to avoid conflicts
+    if _is_sql_reserved_keyword(sanitized):
+        sanitized = f"{sanitized}_col"
 
     # Ensure doesn't exceed PostgreSQL identifier limit
     return sanitized[:63]
