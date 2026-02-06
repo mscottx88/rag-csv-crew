@@ -404,9 +404,29 @@ class TextToSQLService:
         # Clean up SQL (remove markdown code blocks if present)
         cleaned_sql: str = self._clean_sql(sql_output)
 
+        # Extract parameters for placeholders (%s)
+        # For data value queries, use keywords from query_text wrapped in % for ILIKE
+        params: list[str] = []
+        placeholder_count: int = cleaned_sql.count("%s")
+
+        if placeholder_count > 0 and search_results:
+            # Extract keywords from data_value_results if available
+            data_value_results: list[dict[str, Any]] = search_results.get(
+                "data_value_results", []
+            )
+
+            if len(data_value_results) > 0:
+                # Use query_text to extract the search keyword
+                # Simple approach: take the last word from query (e.g., "gold" from "tell me about gold")
+                query_words: list[str] = query_text.lower().split()
+                keyword: str = query_words[-1] if query_words else ""
+
+                # Create params list with keyword wrapped in % for ILIKE matching
+                params = [f"%{keyword}%"] * placeholder_count
+
         return {
             "sql": cleaned_sql,
-            "params": [],  # Params would be extracted from user input if needed
+            "params": params,
         }
 
     def _clean_sql(self, raw_sql: str) -> str:
