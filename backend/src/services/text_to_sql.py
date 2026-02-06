@@ -15,6 +15,8 @@ Constitutional Requirements:
 """
 
 import re
+import threading
+import time
 from collections.abc import Callable
 from typing import Any
 from uuid import UUID
@@ -40,6 +42,68 @@ from src.crew.tools import (
     set_schema_inspector_context,
 )
 from src.services.schema_inspector import SchemaInspectorService
+
+
+def _execute_crew_with_progress(
+    crew: Crew,
+    progress_callback: Callable[[str], None] | None,
+    progress_messages: list[str]
+) -> Any:
+    """Execute CrewAI crew with periodic progress updates.
+
+    Args:
+        crew: CrewAI Crew instance to execute
+        progress_callback: Optional callback to report progress
+        progress_messages: List of progress messages to cycle through
+
+    Returns:
+        Crew execution result
+    """
+    result_container: list[Any] = []
+    exception_container: list[Exception] = []
+    stop_event: threading.Event = threading.Event()
+
+    def crew_worker() -> None:
+        """Worker thread to execute crew."""
+        try:
+            crew_result: Any = crew.kickoff()
+            result_container.append(crew_result)
+        except Exception as e:
+            exception_container.append(e)
+        finally:
+            stop_event.set()
+
+    def progress_updater() -> None:
+        """Periodically update progress messages."""
+        message_index: int = 0
+        while not stop_event.is_set():
+            if progress_callback and progress_messages:
+                progress_callback(progress_messages[message_index % len(progress_messages)])
+                message_index += 1
+            # Wait for 5 seconds or until stop event
+            if stop_event.wait(timeout=5.0):
+                break
+
+    # Start crew execution in background thread
+    crew_thread: threading.Thread = threading.Thread(target=crew_worker, daemon=True)
+    crew_thread.start()
+
+    # Start progress updater in background thread
+    progress_thread: threading.Thread = threading.Thread(target=progress_updater, daemon=True)
+    progress_thread.start()
+
+    # Wait for crew to complete
+    crew_thread.join()
+
+    # Stop progress updater
+    stop_event.set()
+    progress_thread.join(timeout=1.0)
+
+    # Check for exceptions
+    if exception_container:
+        raise exception_container[0]
+
+    return result_container[0] if result_container else None
 
 
 class TextToSQLService:
@@ -697,13 +761,37 @@ class TextToSQLService:
 
         crew: Crew = Crew(agents=crew_agents, tasks=crew_tasks, verbose=False)
 
-        if progress_callback:
-            if use_schema_inspection:
-                progress_callback("Schema Inspector Agent analyzing tables and columns...")
-            progress_callback("SQL Generator Agent translating natural language to SQL...")
+        # Prepare rotating progress messages for long crew execution
+        progress_messages: list[str] = []
+        if use_schema_inspection:
+            progress_messages = [
+                "Schema Inspector Agent analyzing database structure...",
+                "Schema Inspector Agent inspecting tables and columns...",
+                "Schema Inspector Agent retrieving sample data...",
+                "SQL Generator Agent planning query structure...",
+                "SQL Generator Agent translating natural language to SQL...",
+                "SQL Generator Agent optimizing query performance...",
+                "Agents collaborating on final SQL query...",
+            ]
+        else:
+            progress_messages = [
+                "SQL Generator Agent analyzing query requirements...",
+                "SQL Generator Agent translating natural language to SQL...",
+                "SQL Generator Agent mapping columns from schema...",
+                "SQL Generator Agent constructing WHERE clauses...",
+                "SQL Generator Agent optimizing query structure...",
+                "SQL Generator Agent finalizing SQL query...",
+            ]
 
-        # Execute crew (synchronous)
-        result: Any = crew.kickoff()
+        if progress_callback:
+            progress_callback("Starting agent execution...")
+
+        # Execute crew with periodic progress updates
+        result: Any = _execute_crew_with_progress(
+            crew=crew,
+            progress_callback=progress_callback,
+            progress_messages=progress_messages
+        )
 
         if progress_callback:
             progress_callback("CrewAI execution complete, extracting generated SQL...")
