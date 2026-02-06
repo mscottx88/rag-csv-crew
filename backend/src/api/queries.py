@@ -266,12 +266,12 @@ def submit_query(  # pylint: disable=too-many-locals
             f"Fused results: {len(search_results.get('fused_results', []))}"
         )
 
-        # If confidence is very low (<0.4) and no column matches, try data value search
+        # If confidence is very low (<0.4), try data value search
+        # This helps find data values like "gold" in a "name" column
         fused_results: list[dict[str, Any]] = search_results.get("fused_results", [])
-        if confidence_score < 0.4 and len(fused_results) == 0:
+        if confidence_score < 0.4:
             logger.info(
-                f"Low confidence ({confidence_score:.2f}) and no column matches. "
-                "Attempting data value search..."
+                f"Low confidence ({confidence_score:.2f}). Attempting data value search..."
             )
 
             # Search for query terms in actual data values
