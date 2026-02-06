@@ -499,9 +499,9 @@ class TextToSQLService:
         # Extract column names from SQL (simplified - looks for identifiers)
         # This is a heuristic approach - not perfect but catches most cases
         # Matches identifiers that are likely column references
-        # Order alternatives longest-first to avoid matching "IS" within "ILIKE"
-        # Add word boundary after operators to prevent partial matches
-        column_pattern: str = r"\b([a-z_][a-z0-9_]*)\s*(?:ILIKE|LIKE|IN|IS|=|<|>)\b"
+        # CRITICAL: Require word boundaries BEFORE and AFTER operator to prevent
+        # matching "IS" within "analySIS" or "ILIKE". Also require whitespace before operator.
+        column_pattern: str = r"\b([a-z_][a-z0-9_]*)\s+\b(?:ILIKE|LIKE|IN|IS|=|<|>)\b"
 
         # DEBUG: Log the pattern and SQL being validated
         import logging
