@@ -756,13 +756,17 @@ def store_column_mappings(
                 """
 
                 for col in columns:
-                    col_name: str = col.get("name", col.get("column_name", ""))
+                    col_name_original: str = col.get("name", col.get("column_name", ""))
                     inferred_type: str = col.get("type", col.get("inferred_type", "TEXT"))
                     col_description: str = col.get("description", "")
 
+                    # Sanitize column name to match actual table column
+                    # (tables use lowercase sanitized names)
+                    col_name_sanitized: str = _sanitize_column_name(col_name_original)
+
                     cur.execute(
                         insert_sql,
-                        (dataset_id, col_name, inferred_type, col_description),
+                        (dataset_id, col_name_sanitized, inferred_type, col_description),
                     )
 
             conn.commit()
