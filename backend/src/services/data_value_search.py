@@ -122,8 +122,8 @@ class DataValueSearchService:
                             "columns": [],
                         }
 
-                    # Only search text-like columns
-                    if inferred_type in ("text", "varchar", "string"):
+                    # Only search text-like columns (case-insensitive check)
+                    if inferred_type.upper() in ("TEXT", "VARCHAR", "STRING", "CHAR"):
                         datasets_map[dataset_id]["columns"].append(column_name)
 
                 # Search each dataset's data table
