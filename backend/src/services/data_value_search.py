@@ -127,7 +127,12 @@ class DataValueSearchService:
                     inferred_type: str = row[3]
 
                     if dataset_id not in datasets_map:
-                        dataset_table: str = filename.replace(".csv", "_data")
+                        # Handle both "file.csv" and "file" formats
+                        dataset_table: str
+                        if filename.endswith(".csv"):
+                            dataset_table = filename.replace(".csv", "_data")
+                        else:
+                            dataset_table = f"{filename}_data"
                         datasets_map[dataset_id] = {
                             "table_name": dataset_table,
                             "columns": [],
