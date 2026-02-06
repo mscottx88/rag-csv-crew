@@ -13,15 +13,23 @@ interface QueryInputProps {
   onSubmit: (query: Query) => void;
   isProcessing?: boolean;
   onCancel?: () => void;
+  initialQueryText?: string;
+  initialDatasetIds?: string[];
 }
 
-export const QueryInput: React.FC<QueryInputProps> = ({ onSubmit, isProcessing = false, onCancel }) => {
-  const [queryText, setQueryText] = useState<string>('');
+export const QueryInput: React.FC<QueryInputProps> = ({
+  onSubmit,
+  isProcessing = false,
+  onCancel,
+  initialQueryText,
+  initialDatasetIds,
+}) => {
+  const [queryText, setQueryText] = useState<string>(initialQueryText || '');
   const [examples, setExamples] = useState<QueryExample[]>([]);
   const [error, setError] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
-  const [selectedDatasetIds, setSelectedDatasetIds] = useState<string[]>([]);
+  const [selectedDatasetIds, setSelectedDatasetIds] = useState<string[]>(initialDatasetIds || []);
 
   useEffect(() => {
     const loadData = async (): Promise<void> => {

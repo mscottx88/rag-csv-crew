@@ -99,7 +99,7 @@ export const DatasetList: React.FC<DatasetListProps> = ({ refresh = 0 }) => {
             <th>Filename</th>
             <th>Rows</th>
             <th>Columns</th>
-            <th>Created</th>
+            <th>Uploaded</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -109,7 +109,7 @@ export const DatasetList: React.FC<DatasetListProps> = ({ refresh = 0 }) => {
               <td>{dataset.filename}</td>
               <td>{dataset.row_count.toLocaleString()}</td>
               <td>{dataset.column_count}</td>
-              <td>{formatDate(dataset.created_at)}</td>
+              <td>{formatDate(dataset.uploaded_at)}</td>
               <td>
                 <button
                   onClick={(): void => handleDeleteClick(dataset.id)}

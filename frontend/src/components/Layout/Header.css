@@ -1,8 +1,31 @@
 .app-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
   color: white;
   padding: 1rem 2rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.app-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #00d4ff 0%, #0066cc 50%, #00d4ff 100%);
+  background-size: 200% 100%;
+  animation: shimmer 3s linear infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .header-content {
@@ -21,8 +44,31 @@
 .app-title {
   margin: 0;
   font-size: 1.5rem;
-  font-weight: 600;
+  font-weight: 700;
   color: white;
+  letter-spacing: -0.025em;
+  display: flex;
+  align-items: baseline;
+}
+
+.brand-underscore {
+  color: #00d4ff;
+  font-weight: 700;
+  font-size: 1.5rem;
+  margin-left: 0.1em;
+  animation: pulse 2s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translateY(-2px);
+  }
 }
 
 .header-right {

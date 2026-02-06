@@ -15,6 +15,7 @@ from concurrent.futures import TimeoutError as FuturesTimeoutError
 from threading import Event
 from typing import Any
 
+from psycopg import sql
 from psycopg_pool import ConnectionPool
 
 
@@ -32,7 +33,7 @@ class QueryExecutionService:
     def execute_query(  # pylint: disable=too-many-positional-arguments
         # TODO(pylint-refactor): Refactor to use config object or keyword-only args
         self,
-        sql: str,
+        query_sql: str,
         params: list[Any],
         username: str,
         timeout_seconds: int = 30,
@@ -41,7 +42,7 @@ class QueryExecutionService:
         """Execute SQL query with timeout and cancellation support.
 
         Args:
-            sql: SQL query string with %s placeholders
+            query_sql: SQL query string with %s placeholders
             params: Query parameters for placeholders
             username: Username for schema context
             timeout_seconds: Maximum execution time (default: 30s per FR-025)
@@ -57,15 +58,34 @@ class QueryExecutionService:
         Constitutional Compliance:
         - Thread-based execution (ThreadPoolExecutor)
         - Cancellation via Event (not async)
+
+        Note:
+            Handles literal % characters in SQL (e.g., date format strings like %A,
+            LIKE patterns) by escaping them appropriately. When parameters are empty,
+            all % are escaped. When parameters exist, only non-placeholder % are escaped.
         """
+
+        # Escape literal % characters for psycopg parameter style
+        # psycopg uses % as placeholder prefix, so literal % must be escaped as %%
+        if "%" in query_sql:
+            if not params:
+                # No parameters: all % are literal, escape them all
+                query_sql = query_sql.replace("%", "%%")
+            else:
+                # Has parameters: escape % that are not part of %s placeholders
+                # Replace all % first, then restore %s placeholders
+                query_sql = query_sql.replace("%", "%%").replace("%%s", "%s")
 
         def run_query() -> dict[str, Any]:
             """Execute query in thread with cancellation check."""
             with self.pool.connection() as conn:
-                # Set search path to user schema
+                # Set search path to user schema using Identifier for SQL injection protection
                 user_schema: str = f"{username}_schema"
                 with conn.cursor() as cur:
-                    cur.execute(f"SET search_path TO {user_schema}, public")
+                    set_path_sql: sql.Composed = sql.SQL("SET search_path TO {schema}, public").format(
+                        schema=sql.Identifier(user_schema)
+                    )
+                    cur.execute(set_path_sql)
 
                 # Check cancellation before execution
                 if cancel_event and cancel_event.is_set():
@@ -74,7 +94,7 @@ class QueryExecutionService:
 
                 # Execute query
                 with conn.cursor() as cur:
-                    cur.execute(sql, params)
+                    cur.execute(query_sql, params)
 
                     # Check cancellation after execution starts
                     if cancel_event and cancel_event.is_set():

@@ -1,15 +1,39 @@
 .query-page {
   padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  overflow: visible;
 }
 
 .query-page h1 {
   margin: 0 0 0.5rem 0;
-  color: #333;
+  color: #1a202c;
   font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
 }
 
 .page-description {
   margin: 0 0 2rem 0;
-  color: #666;
+  color: #718096;
   font-size: 1rem;
+  line-height: 1.6;
+}
+
+/* Visual separator between input and results */
+.query-page .result-display {
+  margin-top: 3rem;
+  position: relative;
+}
+
+.query-page .result-display::before {
+  content: '';
+  position: absolute;
+  top: -1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, #667eea, transparent);
+  border-radius: 2px;
 }

@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import * as queriesService from '../../services/queries';
 import type { Query, QueryHistory as QueryHistoryType, QueryStatus } from '../../types';
 import './QueryHistory.css';
@@ -14,6 +15,7 @@ interface QueryHistoryProps {
 }
 
 export const QueryHistory: React.FC<QueryHistoryProps> = ({ onQuerySelect, refresh = 0 }) => {
+  const navigate = useNavigate();
   const [history, setHistory] = useState<QueryHistoryType | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
@@ -47,6 +49,19 @@ export const QueryHistory: React.FC<QueryHistoryProps> = ({ onQuerySelect, refre
     if (onQuerySelect) {
       onQuerySelect(query);
     }
+  };
+
+  const handleRerun = (query: Query, event: React.MouseEvent): void => {
+    // Stop propagation to prevent triggering handleQueryClick
+    event.stopPropagation();
+
+    // Navigate to Query page with pre-filled query text and dataset IDs
+    navigate('/query', {
+      state: {
+        queryText: query.query_text,
+        datasetIds: query.dataset_ids || [],
+      },
+    });
   };
 
   const handleStatusFilterChange = (status: QueryStatus | undefined): void => {
@@ -95,7 +110,7 @@ export const QueryHistory: React.FC<QueryHistoryProps> = ({ onQuerySelect, refre
     );
   }
 
-  const totalPages: number = Math.ceil(history.total / 20);
+  const totalPages: number = Math.ceil(history.total_count / history.page_size);
 
   return (
     <div className="query-history">
@@ -138,7 +153,17 @@ export const QueryHistory: React.FC<QueryHistoryProps> = ({ onQuerySelect, refre
           >
             <div className="history-item-header">
               <span className="history-query">{query.query_text}</span>
-              {renderStatusBadge(query.status)}
+              <div className="history-item-actions">
+                {renderStatusBadge(query.status)}
+                <button
+                  className="rerun-button"
+                  onClick={(e): void => handleRerun(query, e)}
+                  title="Re-run this query"
+                  aria-label={`Re-run query: ${query.query_text}`}
+                >
+                  ▶ Re-run
+                </button>
+              </div>
             </div>
             <div className="history-item-meta">
               <span className="history-date">{formatDate(query.submitted_at)}</span>

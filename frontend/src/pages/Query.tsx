@@ -4,13 +4,22 @@
  */
 
 import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { QueryInput } from '../components/Query/QueryInput';
 import { ResultDisplay } from '../components/Query/ResultDisplay';
 import * as queriesService from '../services/queries';
 import type { Query as QueryType } from '../types';
 import './Query.css';
 
+interface LocationState {
+  queryText?: string;
+  datasetIds?: string[];
+}
+
 export const Query: React.FC = () => {
+  const location = useLocation();
+  const state = location.state as LocationState | null;
+
   const [currentQuery, setCurrentQuery] = useState<QueryType | null>(null);
   const [isPolling, setIsPolling] = useState<boolean>(false);
 
@@ -58,6 +67,8 @@ export const Query: React.FC = () => {
         onSubmit={(query) => void handleQuerySubmit(query)}
         isProcessing={isPolling}
         onCancel={() => void handleCancel()}
+        initialQueryText={state?.queryText}
+        initialDatasetIds={state?.datasetIds}
       />
 
       {currentQuery && <ResultDisplay query={currentQuery} onCancel={isPolling ? handleCancel : undefined} />}

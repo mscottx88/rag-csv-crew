@@ -155,7 +155,7 @@ def _execute_sql_query(
     )
     execution_service: QueryExecutionService = QueryExecutionService(pool)
     query_results: dict[str, Any] = execution_service.execute_query(
-        sql=sql_result["sql"],
+        query_sql=sql_result["sql"],
         params=sql_result["params"],
         username=username,
         timeout_seconds=300,  # 5 minutes timeout per user request
@@ -179,9 +179,11 @@ def _execute_sql_query(
         username,
         "completed",
         generated_sql=sql_result["sql"],
+        query_params=sql_result["params"],
         result_count=query_results["row_count"],
         execution_time_ms=execution_time_ms,
         progress_message="Completed successfully",  # Keep final message visible
+        agent_logs=sql_result.get("agent_logs"),
     )
 
     history_service.store_response(
@@ -579,6 +581,45 @@ def get_example_queries(
     return {"examples": examples}
 
 
+@router.get("/history", response_model=QueryHistory)
+def get_query_history(
+    page: int = 1,
+    page_size: int = 50,
+    status: str | None = None,
+    current_username: str = Depends(get_current_user),
+) -> QueryHistory:
+    """Get paginated query history for current user.
+
+    Args:
+        page: Page number (1-indexed)
+        page_size: Items per page (1-100)
+        status: Optional status filter
+        current_username: Username from authenticated JWT token
+
+    Returns:
+        QueryHistory object with paginated queries
+
+    Raises:
+        HTTPException: 400 if pagination parameters invalid
+    """
+    if page < 1:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Page must be >= 1")
+
+    if page_size < 1 or page_size > 100:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Page size must be between 1 and 100"
+        )
+
+    pool: Any = get_global_pool()
+    history_service: QueryHistoryService = QueryHistoryService(pool)
+
+    history: dict[str, Any] = history_service.get_query_history(
+        username=current_username, page=page, page_size=page_size, status=status
+    )
+
+    return QueryHistory(**history)
+
+
 @router.get("/{query_id}", response_model=QueryWithResponse)
 def get_query(
     query_id: UUID, current_username: Annotated[str, Depends(get_current_user)]
@@ -607,45 +648,6 @@ def get_query(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Query {query_id} not found"
         ) from exc
-
-
-@router.get("/history", response_model=QueryHistory)
-def get_query_history(
-    page: int = 1,
-    page_size: int = 50,
-    query_status: str | None = None,
-    current_username: str = Depends(get_current_user),
-) -> QueryHistory:
-    """Get paginated query history for current user.
-
-    Args:
-        page: Page number (1-indexed)
-        page_size: Items per page (1-100)
-        query_status: Optional status filter
-        current_username: Username from authenticated JWT token
-
-    Returns:
-        QueryHistory object with paginated queries
-
-    Raises:
-        HTTPException: 400 if pagination parameters invalid
-    """
-    if page < 1:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Page must be >= 1")
-
-    if page_size < 1 or page_size > 100:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Page size must be between 1 and 100"
-        )
-
-    pool: Any = get_global_pool()
-    history_service: QueryHistoryService = QueryHistoryService(pool)
-
-    history: dict[str, Any] = history_service.get_query_history(
-        username=current_username, page=page, page_size=page_size, status=query_status
-    )
-
-    return QueryHistory(**history)
 
 
 @router.post("/{query_id}/cancel", response_model=Query)

@@ -18,7 +18,9 @@ export const Header: React.FC = () => {
     <header className="app-header">
       <div className="header-content">
         <div className="header-left">
-          <h1 className="app-title">RAG CSV Crew</h1>
+          <h1 className="app-title">
+            RAG CSV Crew<span className="brand-underscore">_</span>
+          </h1>
         </div>
 
         <div className="header-right">

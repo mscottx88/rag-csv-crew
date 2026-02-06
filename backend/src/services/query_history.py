@@ -10,6 +10,7 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
+import json
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -65,9 +66,11 @@ class QueryHistoryService:
         username: str,
         status: str,
         generated_sql: str | None = None,
+        query_params: list[str] | None = None,
         result_count: int | None = None,
         execution_time_ms: int | None = None,
         progress_message: str | None = None,
+        agent_logs: str | None = None,
     ) -> None:
         """Update query status and optional fields.
 
@@ -76,12 +79,17 @@ class QueryHistoryService:
             username: Username for schema context
             status: New status value
             generated_sql: Optional SQL that was generated
+            query_params: Optional parameter values used in SQL execution
             result_count: Optional number of results
             execution_time_ms: Optional execution time in milliseconds
             progress_message: Optional progress message for current step
+            agent_logs: Optional CrewAI agent reasoning and activity logs
         """
         user_schema: str = f"{username}_schema"
         completed_at: datetime | None = datetime.now(UTC) if status == "completed" else None
+
+        # Convert query_params list to JSON string for storage
+        query_params_json: str | None = json.dumps(query_params) if query_params else None
 
         with self.pool.connection() as conn, conn.cursor() as cur:
             cur.execute(f"SET search_path TO {user_schema}, public")
@@ -92,18 +100,22 @@ class QueryHistoryService:
                     SET status = %s,
                         completed_at = %s,
                         generated_sql = %s,
+                        query_params = %s::jsonb,
                         result_count = %s,
                         execution_time_ms = %s,
-                        progress_message = %s
+                        progress_message = %s,
+                        agent_logs = %s
                     WHERE id = %s
                     """,
                 (
                     status,
                     completed_at,
                     generated_sql,
+                    query_params_json,
                     result_count,
                     execution_time_ms,
                     progress_message,
+                    agent_logs,
                     query_id,
                 ),
             )
@@ -155,7 +167,8 @@ class QueryHistoryService:
             cur.execute(
                 """
                     SELECT id, query_text, submitted_at, completed_at, status,
-                           generated_sql, result_count, execution_time_ms, progress_message
+                           generated_sql, result_count, execution_time_ms, progress_message,
+                           agent_logs
                     FROM queries
                     WHERE id = %s
                     """,
@@ -177,6 +190,7 @@ class QueryHistoryService:
                 "result_count": row[6],
                 "execution_time_ms": row[7],
                 "progress_message": row[8],
+                "agent_logs": row[9],
             }
 
     def store_response(  # pylint: disable=too-many-positional-arguments
@@ -324,7 +338,8 @@ class QueryHistoryService:
             # Get paginated queries
             query_sql: str = f"""
                     SELECT id, query_text, submitted_at, completed_at, status,
-                           generated_sql, result_count, execution_time_ms, progress_message
+                           generated_sql, result_count, execution_time_ms, progress_message,
+                           agent_logs
                     FROM queries
                     {where_clause}
                     ORDER BY submitted_at DESC
@@ -344,6 +359,7 @@ class QueryHistoryService:
                     "result_count": row[6],
                     "execution_time_ms": row[7],
                     "progress_message": row[8],
+                    "agent_logs": row[9],
                 }
                 for row in rows
             ]

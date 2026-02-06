@@ -28,13 +28,14 @@ export interface Dataset {
   filename: string;
   row_count: number;
   column_count: number;
-  created_at: string;
-  updated_at: string;
+  uploaded_at: string;
 }
 
 export interface DatasetList {
   datasets: Dataset[];
-  total: number;
+  total_count: number;
+  page: number;
+  page_size: number;
 }
 
 export interface UploadProgress {
@@ -77,6 +78,7 @@ export interface Query {
   generated_sql?: string | null;
   response?: QueryResponse;
   progress_message?: string | null;
+  agent_logs?: string | null;
 }
 
 export interface QueryCreate {

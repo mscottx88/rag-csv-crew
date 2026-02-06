@@ -5,6 +5,7 @@
 
 import React from 'react';
 import type { Query, Dataset } from '../../types';
+import { AgentConsole } from './AgentConsole';
 import './ResultDisplay.css';
 
 interface ResultDisplayProps {
@@ -87,23 +88,96 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, datasets, o
     );
   };
 
+  const getProgressStage = (): { icon: string; color: string; label: string } => {
+    const message: string = query.progress_message || '';
+
+    if (message.includes('search') || message.includes('column')) {
+      return { icon: '🔍', color: '#00d4ff', label: 'Searching' };
+    }
+    if (message.includes('Schema Inspector') || message.includes('analyzing')) {
+      return { icon: '🤖', color: '#667eea', label: 'Analyzing' };
+    }
+    if (message.includes('SQL') || message.includes('translating')) {
+      return { icon: '⚡', color: '#f59e0b', label: 'Generating' };
+    }
+    if (message.includes('executing') || message.includes('query')) {
+      return { icon: '🚀', color: '#10b981', label: 'Executing' };
+    }
+    if (message.includes('processing') || message.includes('rows')) {
+      return { icon: '📊', color: '#8b5cf6', label: 'Processing' };
+    }
+    return { icon: '⚙️', color: '#6366f1', label: 'Working' };
+  };
+
   const renderContent = (): JSX.Element => {
     if (query.status === 'pending' || query.status === 'processing') {
+      const stage = getProgressStage();
+      const message: string = query.progress_message || '';
+
       return (
         <div className="result-processing">
-          <div className="spinner" />
-          <p>Processing your query...</p>
-          {query.progress_message && (
-            <div className="progress-message">
-              <span className="progress-icon">⏳</span>
-              <span className="progress-text">{query.progress_message}</span>
+          <div className="progress-container">
+            {/* Animated background particles */}
+            <div className="progress-particles">
+              <div className="particle particle-1"></div>
+              <div className="particle particle-2"></div>
+              <div className="particle particle-3"></div>
+              <div className="particle particle-4"></div>
+              <div className="particle particle-5"></div>
             </div>
-          )}
-          {onCancel && (
-            <button onClick={onCancel} className="cancel-button">
-              Cancel Query
-            </button>
-          )}
+
+            {/* Main progress display */}
+            <div className="progress-main">
+              <div className="progress-icon-container" style={{ color: stage.color }}>
+                <span className="progress-icon-large animated-icon">{stage.icon}</span>
+                <div className="progress-ring" style={{ borderColor: stage.color }}></div>
+                <div className="progress-glow" style={{ backgroundColor: stage.color }}></div>
+              </div>
+
+              <div className="progress-info">
+                <h4 className="progress-title" style={{ color: stage.color }}>
+                  {stage.label}
+                </h4>
+                <div className="progress-bar-container">
+                  <div className="progress-bar-track">
+                    <div
+                      className="progress-bar-fill"
+                      style={{ backgroundColor: stage.color }}
+                    ></div>
+                  </div>
+                </div>
+                {query.progress_message && (
+                  <p className="progress-message-text">{query.progress_message}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Stage indicators */}
+            <div className="progress-stages">
+              <div className={`stage-dot ${message.includes('search') ? 'active' : ''}`} title="Searching">
+                🔍
+              </div>
+              <div className={`stage-dot ${message.includes('Schema') || message.includes('analyzing') ? 'active' : ''}`} title="Analyzing">
+                🤖
+              </div>
+              <div className={`stage-dot ${message.includes('SQL') || message.includes('translating') ? 'active' : ''}`} title="Generating">
+                ⚡
+              </div>
+              <div className={`stage-dot ${message.includes('executing') ? 'active' : ''}`} title="Executing">
+                🚀
+              </div>
+              <div className={`stage-dot ${message.includes('processing') || message.includes('rows') ? 'active' : ''}`} title="Processing">
+                📊
+              </div>
+            </div>
+
+            {onCancel && (
+              <button onClick={onCancel} className="cancel-button-modern">
+                <span className="cancel-icon">✕</span>
+                Cancel Query
+              </button>
+            )}
+          </div>
         </div>
       );
     }
@@ -158,6 +232,9 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, datasets, o
       {renderMetadata()}
 
       <div className="result-content">{renderContent()}</div>
+
+      {/* Agent Activity Console - Show agent reasoning and logs */}
+      <AgentConsole agentLogs={query.agent_logs} />
     </div>
   );
 };

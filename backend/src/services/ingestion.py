@@ -16,11 +16,13 @@ Constitutional Requirements:
 import csv
 from datetime import datetime
 from io import BytesIO, StringIO
+import re
 from typing import Any
+import unicodedata
 import uuid
 
 import chardet
-from psycopg import Connection
+from psycopg import Connection, sql
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
@@ -303,18 +305,17 @@ def create_dataset_table(  # pylint: disable=too-many-locals
     # Sanitize filename for table name
     table_name: str = _sanitize_table_name(filename)
     schema_name: str = f"{username}_schema"
-    full_table_name: str = f"{schema_name}.{table_name}"
 
     # Extract columns from schema
     columns: list[dict[str, Any]] = schema.get("columns", [])
     if not columns:
         raise ValueError("Schema must have at least one column")
 
-    # Build CREATE TABLE statement
-    column_defs: list[str] = [
-        "_row_id BIGSERIAL PRIMARY KEY",
-        "_dataset_id UUID NOT NULL",
-        "_ingested_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()",
+    # Build CREATE TABLE statement using psycopg.sql for SQL injection protection
+    column_defs: list[sql.SQL] = [
+        sql.SQL("_row_id BIGSERIAL PRIMARY KEY"),
+        sql.SQL("_dataset_id UUID NOT NULL"),
+        sql.SQL("_ingested_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()"),
     ]
 
     # Add dynamic columns from CSV
@@ -329,35 +330,48 @@ def create_dataset_table(  # pylint: disable=too-many-locals
         # Map inferred type to PostgreSQL type
         pg_type: str = _map_to_postgres_type(col_type)
 
-        # Build column definition
+        # Build column definition using Identifier for column name
         nullable_clause: str = "" if col_nullable else " NOT NULL"
-        column_defs.append(f"{safe_col_name} {pg_type}{nullable_clause}")
+        column_def: sql.SQL = sql.SQL("{col_name} {col_type}{nullable}").format(
+            col_name=sql.Identifier(safe_col_name),
+            col_type=sql.SQL(pg_type),
+            nullable=sql.SQL(nullable_clause),
+        )
+        column_defs.append(column_def)
 
     # Add fulltext column at end
-    column_defs.append("_fulltext TSVECTOR")
+    column_defs.append(sql.SQL("_fulltext TSVECTOR"))
 
-    # Create table
-    create_table_sql: str = f"""
-        CREATE TABLE IF NOT EXISTS {full_table_name} (
-            {", ".join(column_defs)}
-        )
-    """
+    # Create table using Identifier for schema and table names
+    create_table_sql: sql.Composed = sql.SQL(
+        "CREATE TABLE IF NOT EXISTS {schema}.{table} ({columns})"
+    ).format(
+        schema=sql.Identifier(schema_name),
+        table=sql.Identifier(table_name),
+        columns=sql.SQL(", ").join(column_defs),
+    )
 
     with conn.cursor() as cur:
         cur.execute(create_table_sql)
 
-        # Create fulltext index
-        fulltext_index_sql: str = f"""
-            CREATE INDEX IF NOT EXISTS {table_name}_fulltext_idx
-            ON {full_table_name} USING GIN (_fulltext)
-        """
+        # Create fulltext index using Identifier
+        fulltext_index_sql: sql.Composed = sql.SQL(
+            "CREATE INDEX IF NOT EXISTS {index_name} ON {schema}.{table} USING GIN (_fulltext)"
+        ).format(
+            index_name=sql.Identifier(f"{table_name}_fulltext_idx"),
+            schema=sql.Identifier(schema_name),
+            table=sql.Identifier(table_name),
+        )
         cur.execute(fulltext_index_sql)
 
-        # Create dataset_id index
-        dataset_id_index_sql: str = f"""
-            CREATE INDEX IF NOT EXISTS {table_name}_dataset_id_idx
-            ON {full_table_name} (_dataset_id)
-        """
+        # Create dataset_id index using Identifier
+        dataset_id_index_sql: sql.Composed = sql.SQL(
+            "CREATE INDEX IF NOT EXISTS {index_name} ON {schema}.{table} (_dataset_id)"
+        ).format(
+            index_name=sql.Identifier(f"{table_name}_dataset_id_idx"),
+            schema=sql.Identifier(schema_name),
+            table=sql.Identifier(table_name),
+        )
         cur.execute(dataset_id_index_sql)
 
     conn.commit()
@@ -366,27 +380,62 @@ def create_dataset_table(  # pylint: disable=too-many-locals
 
 
 def _sanitize_table_name(filename: str) -> str:
-    """Sanitize filename for use as table name.
+    """Sanitize filename for use as table name with comprehensive security checks.
+
+    Handles special characters, Unicode, SQL keywords, length limits, and empty inputs.
+    Always uses PostgreSQL Identifier for SQL injection protection.
 
     Args:
-        filename: Original filename (may include .csv extension)
+        filename: Original filename (may include .csv extension, spaces, Unicode, etc.)
 
     Returns:
         Sanitized table name: lowercase, alphanumeric + underscore, ends with _data
+
+    Raises:
+        ValueError: If filename is empty or results in empty sanitized name
+
+    Examples:
+        >>> _sanitize_table_name("My Data (2024).csv")
+        'my_data_2024_data'
+        >>> _sanitize_table_name("select.csv")
+        'select_table_data'
+        >>> _sanitize_table_name("2024_report.csv")
+        't_2024_report_data'
+        >>> _sanitize_table_name("données.csv")  # Unicode
+        'donnees_data'
     """
-    # Remove .csv extension if present
+    if not filename or not filename.strip():
+        raise ValueError("Filename cannot be empty")
+
+    # Remove .csv extension if present (case-insensitive)
     base_name: str = filename[:-4] if filename.lower().endswith(".csv") else filename
 
-    # Convert to lowercase, replace invalid chars with underscore
-    sanitized: str = "".join(c if c.isalnum() or c == "_" else "_" for c in base_name.lower())
+    # Normalize Unicode (decompose accents, etc.) then convert to ASCII
+    normalized: str = unicodedata.normalize("NFKD", base_name)
+    ascii_name: str = normalized.encode("ascii", "ignore").decode("ascii")
 
-    # Ensure starts with letter
+    # Convert to lowercase and replace invalid chars with underscore
+    # Valid chars: a-z, 0-9, underscore
+    sanitized: str = re.sub(r"[^a-z0-9_]+", "_", ascii_name.lower())
+
+    # Remove leading/trailing underscores
+    sanitized = sanitized.strip("_")
+
+    if not sanitized:
+        raise ValueError(f"Filename '{filename}' results in empty table name after sanitization")
+
+    # Ensure starts with letter (not number or underscore)
     if not sanitized[0].isalpha():
-        sanitized = "t" + sanitized
+        sanitized = f"t_{sanitized}"
 
-    # Ensure doesn't exceed PostgreSQL identifier limit (63 chars)
-    max_length: int = 58  # Leave room for "_data" suffix
-    sanitized = sanitized[:max_length]
+    # Check if base name is a SQL reserved keyword
+    if _is_sql_reserved_keyword(sanitized):
+        sanitized = f"{sanitized}_table"
+
+    # Enforce PostgreSQL identifier limit (63 chars) - leave room for "_data" suffix
+    max_length: int = 58
+    if len(sanitized) > max_length:
+        sanitized = sanitized[:max_length].rstrip("_")
 
     return f"{sanitized}_data"
 
@@ -421,32 +470,66 @@ def _is_sql_reserved_keyword(name: str) -> bool:
 
 
 def _sanitize_column_name(col_name: str) -> str:
-    """Sanitize column name for PostgreSQL.
+    """Sanitize column name for PostgreSQL with comprehensive security checks.
+
+    Handles special characters, Unicode, SQL keywords, length limits, and empty inputs.
+    Always uses PostgreSQL Identifier for SQL injection protection.
 
     Args:
-        col_name: Original column name from CSV
+        col_name: Original column name from CSV (may contain spaces, Unicode, special chars)
 
     Returns:
         Sanitized column name: lowercase, alphanumeric + underscore,
         with suffix added if it's a reserved keyword
 
+    Raises:
+        ValueError: If column name is empty or results in empty sanitized name
+
+    Examples:
+        >>> _sanitize_column_name("Product ID")
+        'product_id'
+        >>> _sanitize_column_name("group")
+        'group_col'
+        >>> _sanitize_column_name("2024_value")
+        '_2024_value'
+        >>> _sanitize_column_name("Prénom")  # Unicode
+        'prenom'
+
     Note:
         Reserved keywords get "_col" suffix to avoid SQL syntax errors
         (e.g., "group" → "group_col", "order" → "order_col")
     """
-    # Convert to lowercase, replace invalid chars with underscore
-    sanitized: str = "".join(c if c.isalnum() or c == "_" else "_" for c in col_name.lower())
+    if not col_name or not col_name.strip():
+        raise ValueError("Column name cannot be empty")
 
-    # Ensure starts with letter or underscore
-    if sanitized and not (sanitized[0].isalpha() or sanitized[0] == "_"):
-        sanitized = "_" + sanitized
+    # Normalize Unicode (decompose accents) then convert to ASCII
+    normalized: str = unicodedata.normalize("NFKD", col_name)
+    ascii_name: str = normalized.encode("ascii", "ignore").decode("ascii")
+
+    # Convert to lowercase and replace invalid chars with underscore
+    sanitized: str = re.sub(r"[^a-z0-9_]+", "_", ascii_name.lower())
+
+    # Remove leading/trailing underscores
+    sanitized = sanitized.strip("_")
+
+    if not sanitized:
+        raise ValueError(
+            f"Column name '{col_name}' results in empty name after sanitization"
+        )
+
+    # Ensure starts with letter or underscore (not number)
+    if sanitized[0].isdigit():
+        sanitized = f"_{sanitized}"
 
     # Check if it's a reserved keyword and add suffix to avoid conflicts
     if _is_sql_reserved_keyword(sanitized):
         sanitized = f"{sanitized}_col"
 
-    # Ensure doesn't exceed PostgreSQL identifier limit
-    return sanitized[:63]
+    # Enforce PostgreSQL identifier limit (63 characters)
+    if len(sanitized) > 63:
+        sanitized = sanitized[:63].rstrip("_")
+
+    return sanitized
 
 
 def _map_to_postgres_type(inferred_type: str) -> str:
@@ -506,7 +589,6 @@ def ingest_csv_data(  # pylint: disable=too-many-locals
         raise ValueError(f"Invalid UUID format for dataset_id: {dataset_id}") from e
 
     schema_name: str = f"{username}_schema"
-    full_table_name: str = f"{schema_name}.{table_name}"
 
     # Read CSV to determine columns (excluding metadata columns)
     csv_file.seek(0)
@@ -537,12 +619,16 @@ def ingest_csv_data(  # pylint: disable=too-many-locals
     # Sanitize column names to match table
     sanitized_columns: list[str] = [_sanitize_column_name(col) for col in fieldnames]
 
-    # Build COPY statement with column list
-    columns_list: str = ", ".join(sanitized_columns)
-    copy_sql: str = f"""
-        COPY {full_table_name} (_dataset_id, {columns_list})
-        FROM STDIN WITH (FORMAT CSV, HEADER true, DELIMITER '{format_info["delimiter"]}')
-    """
+    # Build COPY statement with column list using Identifier for SQL injection protection
+    column_identifiers: list[sql.Identifier] = [sql.Identifier(col) for col in sanitized_columns]
+    copy_sql: sql.Composed = sql.SQL(
+        "COPY {schema}.{table} (_dataset_id, {columns}) FROM STDIN WITH (FORMAT CSV, HEADER true, DELIMITER {delimiter})"
+    ).format(
+        schema=sql.Identifier(schema_name),
+        table=sql.Identifier(table_name),
+        columns=sql.SQL(", ").join(column_identifiers),
+        delimiter=sql.Literal(format_info["delimiter"]),
+    )
 
     # Prepare CSV with dataset_id column prepended
     csv_stringio.seek(0)
@@ -557,12 +643,16 @@ def ingest_csv_data(  # pylint: disable=too-many-locals
 
     conn.commit()
 
-    # Count rows ingested
+    # Count rows ingested using Identifier for SQL injection protection
+    count_sql: sql.Composed = sql.SQL(
+        "SELECT COUNT(*) FROM {schema}.{table} WHERE _dataset_id = %s"
+    ).format(
+        schema=sql.Identifier(schema_name),
+        table=sql.Identifier(table_name),
+    )
+
     with conn.cursor() as cur:
-        cur.execute(
-            f"SELECT COUNT(*) FROM {full_table_name} WHERE _dataset_id = %s",
-            (dataset_id,),
-        )
+        cur.execute(count_sql, (dataset_id,))
         result: tuple[Any, ...] | None = cur.fetchone()
         row_count: int = result[0] if result else 0
 
@@ -642,14 +732,17 @@ def store_dataset_metadata(
 
     schema_name: str = f"{username}_schema"
 
-    insert_sql: str = f"""
-        INSERT INTO {schema_name}.datasets (
+    # Use Identifier for SQL injection protection
+    insert_sql: sql.Composed = sql.SQL(
+        """
+        INSERT INTO {schema}.datasets (
             filename, original_filename, table_name, row_count,
             column_count, file_size_bytes, schema_json
         )
         VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING id
-    """
+        """
+    ).format(schema=sql.Identifier(schema_name))
 
     with conn.cursor() as cur:
         cur.execute(
@@ -699,10 +792,10 @@ def check_filename_conflict(
 
     schema_name: str = f"{username}_schema"
 
-    check_sql: str = f"""
-        SELECT COUNT(*) FROM {schema_name}.datasets
-        WHERE filename = %s
-    """
+    # Use Identifier for SQL injection protection
+    check_sql: sql.Composed = sql.SQL(
+        "SELECT COUNT(*) FROM {schema}.datasets WHERE filename = %s"
+    ).format(schema=sql.Identifier(schema_name))
 
     with conn.cursor() as cur:
         cur.execute(check_sql, (filename,))
@@ -746,7 +839,11 @@ def store_column_mappings(
     try:
         with pool.connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(f"SET search_path TO {schema_name}, public")
+                # Use Identifier for SQL injection protection in SET search_path
+                set_path_sql: sql.Composed = sql.SQL("SET search_path TO {schema}, public").format(
+                    schema=sql.Identifier(schema_name)
+                )
+                cur.execute(set_path_sql)
 
                 # Insert column mappings without embeddings
                 insert_sql: str = """
@@ -824,7 +921,11 @@ def generate_column_embeddings(
     try:
         with pool.connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(f"SET search_path TO {schema_name}, public")
+                # Use Identifier for SQL injection protection in SET search_path
+                set_path_sql: sql.Composed = sql.SQL("SET search_path TO {schema}, public").format(
+                    schema=sql.Identifier(schema_name)
+                )
+                cur.execute(set_path_sql)
 
                 # UPDATE existing column_mappings with embeddings
                 update_sql: str = """
@@ -911,8 +1012,11 @@ class IngestionService:
             total_refs: int = 0
 
             with self.pool.connection() as conn, conn.cursor() as cur:
-                # Set search path
-                cur.execute(f"SET search_path TO {user_schema}, public")
+                # Set search path using Identifier for SQL injection protection
+                set_path_sql: sql.Composed = sql.SQL("SET search_path TO {schema}, public").format(
+                    schema=sql.Identifier(user_schema)
+                )
+                cur.execute(set_path_sql)
 
                 # Get all existing datasets for this user
                 cur.execute(
@@ -972,7 +1076,11 @@ class IngestionService:
             Exception: If database insert fails
         """
         with conn.cursor() as cur:
-            cur.execute(f"SET search_path TO {user_schema}, public")
+            # Use Identifier for SQL injection protection in SET search_path
+            set_path_sql: sql.Composed = sql.SQL("SET search_path TO {schema}, public").format(
+                schema=sql.Identifier(user_schema)
+            )
+            cur.execute(set_path_sql)
 
             # Insert cross-reference (UPSERT to handle duplicates)
             cur.execute(

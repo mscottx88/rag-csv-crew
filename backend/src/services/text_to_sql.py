@@ -14,7 +14,9 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
+import io
 import re
+import sys
 import threading
 import time
 from collections.abc import Callable
@@ -48,8 +50,8 @@ def _execute_crew_with_progress(
     crew: Crew,
     progress_callback: Callable[[str], None] | None,
     progress_messages: list[str]
-) -> Any:
-    """Execute CrewAI crew with periodic progress updates.
+) -> tuple[Any, str]:
+    """Execute CrewAI crew with periodic progress updates and capture agent logs.
 
     Args:
         crew: CrewAI Crew instance to execute
@@ -57,17 +59,43 @@ def _execute_crew_with_progress(
         progress_messages: List of progress messages to cycle through
 
     Returns:
-        Crew execution result
+        Tuple of (crew_result, agent_logs) where agent_logs is captured stdout/stderr
     """
     result_container: list[Any] = []
     exception_container: list[Exception] = []
+    logs_container: list[str] = []
     stop_event: threading.Event = threading.Event()
 
     def crew_worker() -> None:
-        """Worker thread to execute crew."""
+        """Worker thread to execute crew and capture output."""
         try:
-            crew_result: Any = crew.kickoff()
-            result_container.append(crew_result)
+            # Capture stdout and stderr during crew execution
+            stdout_capture: io.StringIO = io.StringIO()
+            stderr_capture: io.StringIO = io.StringIO()
+            old_stdout: Any = sys.stdout
+            old_stderr: Any = sys.stderr
+
+            try:
+                sys.stdout = stdout_capture
+                sys.stderr = stderr_capture
+
+                crew_result: Any = crew.kickoff()
+                result_container.append(crew_result)
+            finally:
+                # Restore stdout/stderr
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
+
+                # Capture logs
+                stdout_content: str = stdout_capture.getvalue()
+                stderr_content: str = stderr_capture.getvalue()
+                combined_logs: str = ""
+                if stdout_content:
+                    combined_logs += f"=== Agent Output ===\n{stdout_content}\n"
+                if stderr_content:
+                    combined_logs += f"=== Error Output ===\n{stderr_content}\n"
+                logs_container.append(combined_logs)
+
         except Exception as e:
             exception_container.append(e)
         finally:
@@ -103,7 +131,9 @@ def _execute_crew_with_progress(
     if exception_container:
         raise exception_container[0]
 
-    return result_container[0] if result_container else None
+    crew_result: Any = result_container[0] if result_container else None
+    agent_logs: str = logs_container[0] if logs_container else ""
+    return (crew_result, agent_logs)
 
 
 class TextToSQLService:
@@ -645,7 +675,7 @@ class TextToSQLService:
             progress_callback: Optional callback to report progress messages
 
         Returns:
-            Dictionary with sql and params
+            Dictionary with sql, params, and agent_logs fields
 
         Raises:
             Exception: If SQL generation fails or validation fails
@@ -786,8 +816,10 @@ class TextToSQLService:
         if progress_callback:
             progress_callback("Starting agent execution...")
 
-        # Execute crew with periodic progress updates
-        result: Any = _execute_crew_with_progress(
+        # Execute crew with periodic progress updates and capture agent logs
+        result: Any
+        agent_logs: str
+        result, agent_logs = _execute_crew_with_progress(
             crew=crew,
             progress_callback=progress_callback,
             progress_messages=progress_messages
@@ -823,27 +855,198 @@ class TextToSQLService:
             progress_callback("SQL validation passed, preparing parameterized query...")
 
         # Extract parameters for placeholders (%s)
-        # For data value queries, use keywords from query_text wrapped in % for ILIKE
-        params: list[str] = []
-        placeholder_count: int = cleaned_sql.count("%s")
-
-        if placeholder_count > 0 and search_results:
-            # Extract keywords from data_value_results if available
-            data_value_results: list[dict[str, Any]] = search_results.get("data_value_results", [])
-
-            if len(data_value_results) > 0:
-                # Use query_text to extract the search keyword
-                # Simple approach: take the last word from query (e.g., "gold" from "tell me about gold")
-                query_words: list[str] = query_text.lower().split()
-                keyword: str = query_words[-1] if query_words else ""
-
-                # Create params list with keyword wrapped in % for ILIKE matching
-                params = [f"%{keyword}%"] * placeholder_count
+        params: list[str] = self._extract_query_parameters(
+            cleaned_sql, query_text, search_results, progress_callback
+        )
 
         return {
             "sql": cleaned_sql,
             "params": params,
+            "agent_logs": agent_logs,
         }
+
+    def _extract_query_parameters(
+        self,
+        sql: str,
+        query_text: str,
+        search_results: dict[str, Any] | None,
+        progress_callback: Callable[[str], None] | None,
+    ) -> list[str]:
+        """Extract parameter values for SQL placeholders using intelligent keyword detection.
+
+        Extraction priority:
+        1. Use actual matched values from data_value_results (most accurate)
+        2. Smart keyword extraction (look for filter values near column names)
+        3. Fallback to last significant word (legacy behavior)
+
+        Args:
+            sql: Generated SQL query with %s placeholders
+            query_text: Original natural language query
+            search_results: Optional search results with data_value_results
+            progress_callback: Optional callback to report progress
+
+        Returns:
+            List of parameter values (empty if no placeholders)
+
+        Examples:
+            Query: "show me video sales by hour"
+            SQL: "WHERE type ILIKE %s"
+            Returns: ["%video%"]
+
+            Query: "sales for customer Smith in 2024"
+            SQL: "WHERE customer ILIKE %s AND year = %s"
+            Returns: ["%smith%", "%2024%"]
+        """
+        params: list[str] = []
+        placeholder_count: int = sql.count("%s")
+
+        if placeholder_count == 0:
+            return params
+
+        if progress_callback:
+            progress_callback(f"Extracting {placeholder_count} parameter value(s) from query...")
+
+        # Strategy 1: Use data_value_results if available (most accurate)
+        if search_results:
+            data_value_results: list[dict[str, Any]] = search_results.get("data_value_results", [])
+
+            if len(data_value_results) > 0:
+                # Extract the actual matched values from search results
+                matched_values: list[str] = []
+                for result in data_value_results[:placeholder_count]:
+                    matched_value: str = result.get("matched_value", "")
+                    if matched_value:
+                        matched_values.append(f"%{matched_value}%")
+
+                if len(matched_values) == placeholder_count:
+                    if progress_callback:
+                        values_str: str = ", ".join(matched_values)
+                        progress_callback(f"Using matched values from search: {values_str}")
+                    return matched_values
+
+        # Strategy 2: Smart keyword extraction from query text
+        keywords: list[str] = self._extract_filter_keywords(sql, query_text)
+
+        if len(keywords) >= placeholder_count:
+            params = [f"%{kw}%" for kw in keywords[:placeholder_count]]
+            if progress_callback:
+                keywords_str: str = ", ".join(keywords[:placeholder_count])
+                progress_callback(f"Extracted filter keywords: {keywords_str}")
+            return params
+
+        # Strategy 3: Fallback to last significant word (legacy behavior)
+        # Filter out common stop words and query structure words
+        stop_words: set[str] = {
+            "show", "me", "the", "a", "an", "all", "by", "for", "in", "on", "at",
+            "from", "to", "of", "with", "about", "tell", "give", "get", "find",
+            "display", "list", "see", "view", "hour", "day", "month", "year",
+            "time", "date", "detailed", "analysis", "report", "data", "sales",
+        }
+
+        query_words: list[str] = [
+            word.strip(",.!?;:")
+            for word in query_text.lower().split()
+            if word.strip(",.!?;:") not in stop_words and len(word.strip(",.!?;:")) > 2
+        ]
+
+        if query_words:
+            # Take the last significant word
+            keyword: str = query_words[-1] if query_words else ""
+            params = [f"%{keyword}%"] * placeholder_count
+
+            if progress_callback:
+                progress_callback(f"Fallback: using keyword '{keyword}' for all parameters")
+
+        return params
+
+    def _extract_filter_keywords(self, sql: str, query_text: str) -> list[str]:
+        """Extract filter keywords from query text based on SQL WHERE clause context.
+
+        Analyzes the SQL WHERE clause to identify column names being filtered,
+        then extracts corresponding keywords from the natural language query.
+
+        Args:
+            sql: Generated SQL query
+            query_text: Original natural language query
+
+        Returns:
+            List of extracted filter keywords
+
+        Examples:
+            SQL: "WHERE type ILIKE %s"
+            Query: "show me video sales by hour"
+            Returns: ["video"] (matches "type" column)
+
+            SQL: "WHERE customer ILIKE %s AND status ILIKE %s"
+            Query: "find orders for Smith with pending status"
+            Returns: ["smith", "pending"]
+        """
+        keywords: list[str] = []
+
+        # Extract WHERE clause from SQL
+        where_match: re.Match[str] | None = re.search(r"WHERE\s+(.+?)(?:GROUP BY|ORDER BY|LIMIT|$)", sql, re.IGNORECASE)
+        if not where_match:
+            return keywords
+
+        where_clause: str = where_match.group(1).lower()
+
+        # Find column names before ILIKE %s or = %s
+        # Pattern: column_name ILIKE %s or column_name = %s
+        column_patterns: list[re.Match[str]] = list(
+            re.finditer(r"(\w+)\s+(?:ILIKE|=|LIKE)\s+%s", where_clause, re.IGNORECASE)
+        )
+
+        # Common column name to keyword mappings
+        column_keywords: dict[str, list[str]] = {
+            "type": ["type", "kind", "category"],
+            "category": ["category", "type", "kind"],
+            "status": ["status", "state", "condition"],
+            "name": ["name", "called", "named"],
+            "customer": ["customer", "client", "buyer"],
+            "product": ["product", "item", "goods"],
+            "city": ["city", "town", "location"],
+            "state": ["state", "province", "region"],
+            "country": ["country", "nation"],
+        }
+
+        query_lower: str = query_text.lower()
+
+        for col_match in column_patterns:
+            column_name: str = col_match.group(1)
+
+            # Get possible keywords for this column type
+            possible_keywords: list[str] = column_keywords.get(column_name, [column_name])
+
+            # Find the keyword in the query text near the column keyword
+            for keyword in possible_keywords:
+                # Look for pattern: "keyword_name value" (e.g., "type video", "status pending")
+                pattern: str = rf"{keyword}\s+(\w+)"
+                value_match: re.Match[str] | None = re.search(pattern, query_lower)
+
+                if value_match:
+                    keywords.append(value_match.group(1))
+                    break
+            else:
+                # Fallback: look for any word that might be a value
+                # Common patterns: "all X sales", "X customers", "X products"
+                words: list[str] = query_lower.split()
+
+                # Filter out stop words and find potential values
+                stop_words: set[str] = {
+                    "show", "me", "the", "a", "an", "all", "by", "for", "in", "on",
+                    "of", "with", "about", "tell", "find", "get", "sales", "analysis",
+                    "hour", "day", "month", "year", "time", "date", "detailed", "report",
+                }
+
+                for word in words:
+                    word_clean: str = word.strip(",.!?;:")
+                    if word_clean not in stop_words and len(word_clean) > 2:
+                        # Check if this word appears before common aggregate keywords
+                        if any(agg in query_lower for agg in ["sales", "orders", "customers", "by"]):
+                            keywords.append(word_clean)
+                            break
+
+        return keywords
 
     def _clean_sql(self, raw_sql: str) -> str:
         """Clean generated SQL by removing markdown formatting.
