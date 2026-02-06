@@ -40,9 +40,7 @@ def start_backend(script_dir: Path) -> subprocess.Popen[bytes]:
     backend_process: subprocess.Popen[bytes] = subprocess.Popen(
         ["uvicorn", "src.main:app", "--reload", "--port", "8000"],
         cwd=str(backend_cwd),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        bufsize=1,
+        # Inherit parent's stdout/stderr so output is displayed in console
     )
     print(f"✓ Backend started (PID: {backend_process.pid})")
     return backend_process
@@ -67,9 +65,7 @@ def start_frontend(script_dir: Path) -> subprocess.Popen[bytes]:
     frontend_process: subprocess.Popen[bytes] = subprocess.Popen(
         ["npm", "run", "dev"],
         cwd=str(frontend_cwd),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        bufsize=1,
+        # Inherit parent's stdout/stderr so output is displayed in console
         shell=True,  # Required for npm on Windows
     )
     print(f"✓ Frontend started (PID: {frontend_process.pid})")
