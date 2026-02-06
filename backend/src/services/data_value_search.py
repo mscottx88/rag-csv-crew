@@ -229,7 +229,9 @@ class DataValueSearchService:
                                 LIMIT %s
                                 """
                             ).format(
-                                column=sql.Identifier(column_name),
+                                # Lowercase column name to match PostgreSQL's convention
+                                # (unquoted identifiers are stored lowercase)
+                                column=sql.Identifier(column_name.lower()),
                                 table=sql.Identifier(current_table),
                             ),
                             [sample_size],
