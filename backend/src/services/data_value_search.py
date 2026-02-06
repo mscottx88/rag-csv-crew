@@ -11,10 +11,14 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
+import logging
 from typing import Any
 
 from psycopg import sql
 from psycopg_pool import ConnectionPool
+
+# Configure logger
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class DataValueSearchService:
@@ -72,6 +76,11 @@ class DataValueSearchService:
         query_lower: str = query_text.strip().lower()
         results: list[dict[str, Any]] = []
 
+        logger.info(
+            f"DataValueSearch: Starting search for '{query_text}' "
+            f"(user: {username}, sample_size: {sample_size})"
+        )
+
         try:
             with self.pool.connection() as conn, conn.cursor() as cur:
                 # Set search path
@@ -107,6 +116,8 @@ class DataValueSearchService:
 
                 dataset_columns: list[tuple[Any, ...]] = cur.fetchall()
 
+                logger.info(f"DataValueSearch: Found {len(dataset_columns)} total columns to check")
+
                 # Group columns by dataset
                 datasets_map: dict[str, dict[str, Any]] = {}
                 for row in dataset_columns:
@@ -122,16 +133,41 @@ class DataValueSearchService:
                             "columns": [],
                         }
 
+                    logger.debug(
+                        f"DataValueSearch: Column '{column_name}' has type '{inferred_type}'"
+                    )
+
                     # Only search text-like columns (case-insensitive check)
                     if inferred_type.upper() in ("TEXT", "VARCHAR", "STRING", "CHAR"):
                         datasets_map[dataset_id]["columns"].append(column_name)
+                        logger.debug(f"DataValueSearch: Added text column '{column_name}'")
+                    else:
+                        logger.debug(
+                            f"DataValueSearch: Skipped column '{column_name}' "
+                            f"(type '{inferred_type}' not in TEXT/VARCHAR/STRING/CHAR)"
+                        )
+
+                # Log summary of text columns found
+                total_text_columns: int = sum(
+                    len(info["columns"]) for info in datasets_map.values()
+                )
+                logger.info(
+                    f"DataValueSearch: Identified {total_text_columns} text columns "
+                    f"across {len(datasets_map)} datasets"
+                )
 
                 # Search each dataset's data table
                 for dataset_id, dataset_info in datasets_map.items():
                     current_table: str = dataset_info["table_name"]
                     columns: list[str] = dataset_info["columns"]
 
+                    logger.info(
+                        f"DataValueSearch: Processing dataset {dataset_id}, "
+                        f"table={current_table}, text_columns={len(columns)}"
+                    )
+
                     if not columns:
+                        logger.info(f"DataValueSearch: Skipping {current_table} - no text columns")
                         continue
 
                     # For each text column, search for matches

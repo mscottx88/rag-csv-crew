@@ -41,8 +41,15 @@ from src.utils.logging import (  # noqa: E402
     get_structured_logger,
     log_error,
     log_event,
+    setup_application_logging,
 )
 # pylint: enable=wrong-import-position
+
+# Setup application logging (configurable via LOG_LEVEL environment variable)
+import os  # noqa: E402
+
+log_level: str = os.getenv("LOG_LEVEL", "INFO")
+setup_application_logging(log_level=log_level)
 
 # Get logger
 logger = get_structured_logger(__name__)

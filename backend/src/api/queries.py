@@ -11,11 +11,15 @@ Constitutional Requirements:
 - Synchronous FastAPI handlers (def, not async def)
 """
 
+import logging
 import time
 from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+
+# Configure logger
+logger: logging.Logger = logging.getLogger(__name__)
 
 from src.api.dependencies import get_current_user
 from src.db.connection import get_global_pool
@@ -256,9 +260,20 @@ def submit_query(  # pylint: disable=too-many-locals
         response_generator: ResponseGenerator = ResponseGenerator()
         confidence_score: float = response_generator.calculate_confidence_score(search_results)
 
+        logger.info(
+            f"Hybrid search complete. Query: '{query_create.query_text}', "
+            f"Confidence: {confidence_score:.2f}, "
+            f"Fused results: {len(search_results.get('fused_results', []))}"
+        )
+
         # If confidence is very low (<0.4) and no column matches, try data value search
         fused_results: list[dict[str, Any]] = search_results.get("fused_results", [])
         if confidence_score < 0.4 and len(fused_results) == 0:
+            logger.info(
+                f"Low confidence ({confidence_score:.2f}) and no column matches. "
+                "Attempting data value search..."
+            )
+
             # Search for query terms in actual data values
             data_value_service: DataValueSearchService = DataValueSearchService(pool)
             value_matches: list[dict[str, Any]] = data_value_service.search_data_values(
@@ -269,8 +284,11 @@ def submit_query(  # pylint: disable=too-many-locals
                 min_match_threshold=1,
             )
 
+            logger.info(f"Data value search returned {len(value_matches)} matches")
+
             # If data value matches found, boost confidence and merge results
             if len(value_matches) > 0:
+                logger.info("Merging data value matches into fused results")
                 # Convert value matches to column format for fused_results
                 for value_match in value_matches:
                     fused_results.append(
