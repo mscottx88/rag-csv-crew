@@ -1,0 +1,254 @@
+{
+  "description": "Cross-dataset evaluation questions for SC-007 (75% accuracy requirement)",
+  "version": "1.0",
+  "created": "2026-02-05",
+  "total_questions": 20,
+  "required_datasets": [
+    "customers.csv",
+    "orders.csv",
+    "products.csv"
+  ],
+  "schema": {
+    "customers": {
+      "columns": ["customer_id", "customer_name", "city", "state", "email"],
+      "sample_data": [
+        {"customer_id": 1, "customer_name": "Alice Johnson", "city": "San Francisco", "state": "CA", "email": "alice@example.com"},
+        {"customer_id": 2, "customer_name": "Bob Smith", "city": "New York", "state": "NY", "email": "bob@example.com"},
+        {"customer_id": 3, "customer_name": "Carol Williams", "city": "Los Angeles", "state": "CA", "email": "carol@example.com"},
+        {"customer_id": 4, "customer_name": "David Brown", "city": "Chicago", "state": "IL", "email": "david@example.com"},
+        {"customer_id": 5, "customer_name": "Eve Davis", "city": "Boston", "state": "MA", "email": "eve@example.com"}
+      ]
+    },
+    "orders": {
+      "columns": ["order_id", "customer_id", "product_id", "order_date", "quantity", "total_amount"],
+      "sample_data": [
+        {"order_id": 101, "customer_id": 1, "product_id": 201, "order_date": "2024-01-15", "quantity": 2, "total_amount": 250.00},
+        {"order_id": 102, "customer_id": 1, "product_id": 202, "order_date": "2024-01-20", "quantity": 1, "total_amount": 150.00},
+        {"order_id": 103, "customer_id": 2, "product_id": 201, "order_date": "2024-01-18", "quantity": 5, "total_amount": 500.00},
+        {"order_id": 104, "customer_id": 3, "product_id": 203, "order_date": "2024-01-22", "quantity": 1, "total_amount": 75.00},
+        {"order_id": 105, "customer_id": 3, "product_id": 202, "order_date": "2024-01-25", "quantity": 3, "total_amount": 300.00},
+        {"order_id": 106, "customer_id": 3, "product_id": 201, "order_date": "2024-01-28", "quantity": 2, "total_amount": 125.00},
+        {"order_id": 107, "customer_id": 4, "product_id": 203, "order_date": "2024-01-30", "quantity": 6, "total_amount": 450.00},
+        {"order_id": 108, "customer_id": 5, "product_id": 202, "order_date": "2024-02-01", "quantity": 2, "total_amount": 200.00},
+        {"order_id": 109, "customer_id": 5, "product_id": 201, "order_date": "2024-02-03", "quantity": 4, "total_amount": 350.00}
+      ]
+    },
+    "products": {
+      "columns": ["product_id", "product_name", "category", "unit_price", "stock_quantity"],
+      "sample_data": [
+        {"product_id": 201, "product_name": "Widget A", "category": "Electronics", "unit_price": 125.00, "stock_quantity": 50},
+        {"product_id": 202, "product_name": "Widget B", "category": "Electronics", "unit_price": 150.00, "stock_quantity": 30},
+        {"product_id": 203, "product_name": "Widget C", "category": "Home", "unit_price": 75.00, "stock_quantity": 100}
+      ]
+    }
+  },
+  "questions": [
+    {
+      "id": "Q1",
+      "category": "join_two_tables",
+      "question": "Which customers have placed orders?",
+      "required_datasets": ["customers", "orders"],
+      "expected_join": "customers INNER JOIN orders ON customers.customer_id = orders.customer_id",
+      "expected_answer_contains": ["Alice Johnson", "Bob Smith", "Carol Williams", "David Brown", "Eve Davis"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "Q2",
+      "category": "join_two_tables",
+      "question": "What products have been ordered?",
+      "required_datasets": ["orders", "products"],
+      "expected_join": "orders INNER JOIN products ON orders.product_id = products.product_id",
+      "expected_answer_contains": ["Widget A", "Widget B", "Widget C"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "Q3",
+      "category": "join_with_aggregation",
+      "question": "Which customers have the highest order totals?",
+      "required_datasets": ["customers", "orders"],
+      "expected_join": "customers INNER JOIN orders ON customers.customer_id = orders.customer_id",
+      "expected_aggregation": "SUM(total_amount) GROUP BY customer_name ORDER BY DESC",
+      "expected_answer_contains": ["Carol Williams", "Eve Davis"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q4",
+      "category": "join_with_aggregation",
+      "question": "How many orders has each customer placed?",
+      "required_datasets": ["customers", "orders"],
+      "expected_join": "customers INNER JOIN orders ON customers.customer_id = orders.customer_id",
+      "expected_aggregation": "COUNT(*) GROUP BY customer_name",
+      "expected_answer_contains": ["Alice Johnson", "2", "Carol Williams", "3"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q5",
+      "category": "three_way_join",
+      "question": "What products did Alice Johnson order?",
+      "required_datasets": ["customers", "orders", "products"],
+      "expected_join": "customers INNER JOIN orders ON customers.customer_id = orders.customer_id INNER JOIN products ON orders.product_id = products.product_id",
+      "expected_filter": "WHERE customer_name = 'Alice Johnson'",
+      "expected_answer_contains": ["Widget A", "Widget B"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "Q6",
+      "category": "three_way_join",
+      "question": "Which customers ordered electronics products?",
+      "required_datasets": ["customers", "orders", "products"],
+      "expected_join": "customers INNER JOIN orders ON customers.customer_id = orders.customer_id INNER JOIN products ON orders.product_id = products.product_id",
+      "expected_filter": "WHERE category = 'Electronics'",
+      "expected_answer_contains": ["Alice Johnson", "Bob Smith", "Carol Williams", "Eve Davis"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "Q7",
+      "category": "join_with_calculation",
+      "question": "What is the total revenue for each product?",
+      "required_datasets": ["orders", "products"],
+      "expected_join": "orders INNER JOIN products ON orders.product_id = products.product_id",
+      "expected_aggregation": "SUM(total_amount) GROUP BY product_name",
+      "expected_answer_contains": ["Widget A", "Widget B", "Widget C"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q8",
+      "category": "join_with_filter",
+      "question": "Which California customers have placed orders?",
+      "required_datasets": ["customers", "orders"],
+      "expected_join": "customers INNER JOIN orders ON customers.customer_id = orders.customer_id",
+      "expected_filter": "WHERE state = 'CA'",
+      "expected_answer_contains": ["Alice Johnson", "Carol Williams"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q9",
+      "category": "join_with_date_filter",
+      "question": "What orders were placed in January 2024?",
+      "required_datasets": ["customers", "orders"],
+      "expected_join": "customers INNER JOIN orders ON customers.customer_id = orders.customer_id",
+      "expected_filter": "WHERE order_date BETWEEN '2024-01-01' AND '2024-01-31'",
+      "expected_answer_contains": ["101", "102", "103", "104", "105", "106", "107"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q10",
+      "category": "three_way_join_aggregation",
+      "question": "What is the total quantity of each product ordered by each customer?",
+      "required_datasets": ["customers", "orders", "products"],
+      "expected_join": "customers INNER JOIN orders ON customers.customer_id = orders.customer_id INNER JOIN products ON orders.product_id = products.product_id",
+      "expected_aggregation": "SUM(quantity) GROUP BY customer_name, product_name",
+      "expected_answer_contains": ["Alice Johnson", "Widget A", "Widget B"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "Q11",
+      "category": "join_with_sorting",
+      "question": "List all orders sorted by total amount",
+      "required_datasets": ["customers", "orders"],
+      "expected_join": "customers INNER JOIN orders ON customers.customer_id = orders.customer_id",
+      "expected_sorting": "ORDER BY total_amount DESC",
+      "expected_answer_contains": ["500.00", "450.00", "350.00"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "Q12",
+      "category": "join_with_distinct",
+      "question": "How many different products has each customer ordered?",
+      "required_datasets": ["customers", "orders"],
+      "expected_join": "customers INNER JOIN orders ON customers.customer_id = orders.customer_id",
+      "expected_aggregation": "COUNT(DISTINCT product_id) GROUP BY customer_name",
+      "expected_answer_contains": ["Alice Johnson", "2"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q13",
+      "category": "join_with_calculation",
+      "question": "What is the average order value for each customer?",
+      "required_datasets": ["customers", "orders"],
+      "expected_join": "customers INNER JOIN orders ON customers.customer_id = orders.customer_id",
+      "expected_aggregation": "AVG(total_amount) GROUP BY customer_name",
+      "expected_answer_contains": ["Alice Johnson", "Bob Smith", "Carol Williams"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q14",
+      "category": "three_way_join_filter",
+      "question": "Which customers in California ordered Widget A?",
+      "required_datasets": ["customers", "orders", "products"],
+      "expected_join": "customers INNER JOIN orders ON customers.customer_id = orders.customer_id INNER JOIN products ON orders.product_id = products.product_id",
+      "expected_filter": "WHERE state = 'CA' AND product_name = 'Widget A'",
+      "expected_answer_contains": ["Alice Johnson", "Carol Williams"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "Q15",
+      "category": "join_with_max",
+      "question": "What is the largest order placed by each customer?",
+      "required_datasets": ["customers", "orders"],
+      "expected_join": "customers INNER JOIN orders ON customers.customer_id = orders.customer_id",
+      "expected_aggregation": "MAX(total_amount) GROUP BY customer_name",
+      "expected_answer_contains": ["Bob Smith", "500.00"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q16",
+      "category": "three_way_join_aggregation",
+      "question": "What is the total revenue by product category?",
+      "required_datasets": ["orders", "products"],
+      "expected_join": "orders INNER JOIN products ON orders.product_id = products.product_id",
+      "expected_aggregation": "SUM(total_amount) GROUP BY category",
+      "expected_answer_contains": ["Electronics", "Home"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q17",
+      "category": "join_with_limit",
+      "question": "Show the top 3 customers by total order value",
+      "required_datasets": ["customers", "orders"],
+      "expected_join": "customers INNER JOIN orders ON customers.customer_id = orders.customer_id",
+      "expected_aggregation": "SUM(total_amount) GROUP BY customer_name ORDER BY DESC LIMIT 3",
+      "expected_answer_contains": ["Eve Davis", "Carol Williams"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "Q18",
+      "category": "join_with_date_aggregation",
+      "question": "How many orders were placed each day?",
+      "required_datasets": ["orders"],
+      "expected_join": "None (single table, but related to multi-dataset context)",
+      "expected_aggregation": "COUNT(*) GROUP BY order_date",
+      "expected_answer_contains": ["2024-01-15", "2024-01-20", "2024-01-18"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "Q19",
+      "category": "three_way_join_complex",
+      "question": "Which customers ordered products with a unit price above $100?",
+      "required_datasets": ["customers", "orders", "products"],
+      "expected_join": "customers INNER JOIN orders ON customers.customer_id = orders.customer_id INNER JOIN products ON orders.product_id = products.product_id",
+      "expected_filter": "WHERE unit_price > 100",
+      "expected_answer_contains": ["Alice Johnson", "Bob Smith", "Carol Williams", "Eve Davis"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "Q20",
+      "category": "join_with_multiple_aggregations",
+      "question": "For each customer, show total orders, total quantity, and total amount",
+      "required_datasets": ["customers", "orders"],
+      "expected_join": "customers INNER JOIN orders ON customers.customer_id = orders.customer_id",
+      "expected_aggregation": "COUNT(*), SUM(quantity), SUM(total_amount) GROUP BY customer_name",
+      "expected_answer_contains": ["Alice Johnson", "Carol Williams", "Eve Davis"],
+      "difficulty": "hard"
+    }
+  ],
+  "success_criteria": {
+    "sc_007": {
+      "description": "75% accuracy on cross-dataset queries",
+      "threshold": 0.75,
+      "passing_score": 15,
+      "total_questions": 20
+    }
+  },
+  "evaluation_notes": "Questions are designed to test automatic JOIN detection and generation across 2-3 related datasets. System must identify relationships via cross_references table and generate appropriate SQL with JOINs."
+}
