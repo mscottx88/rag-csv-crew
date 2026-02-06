@@ -355,7 +355,11 @@ class TextToSQLService:
         return cross_references
 
     def generate_sql(
-        self, query_text: str, dataset_ids: list[UUID] | None, username: str
+        self,
+        query_text: str,
+        dataset_ids: list[UUID] | None,
+        username: str,
+        search_results: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Generate SQL from natural language query.
 
@@ -363,6 +367,7 @@ class TextToSQLService:
             query_text: Natural language question
             dataset_ids: Optional list of dataset UUIDs to query
             username: Username for schema isolation
+            search_results: Optional search results with column matches and value matches
 
         Returns:
             Dictionary with sql and params
@@ -378,12 +383,13 @@ class TextToSQLService:
         # Create SQL Generator agent
         sql_agent: Any = create_sql_generator_agent()
 
-        # Create SQL generation task (with cross-reference context)
+        # Create SQL generation task (with cross-reference context and search results)
         task: Any = create_sql_generation_task(
             agent=sql_agent,
             query_text=query_text,
             dataset_ids=dataset_ids,
             cross_references=cross_references,
+            search_results=search_results,
         )
 
         # Create crew and execute

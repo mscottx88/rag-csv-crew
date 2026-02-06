@@ -47,6 +47,18 @@ def create_sql_generator_agent() -> Agent:
         placeholder syntax (%s for PostgreSQL) to prevent SQL injection attacks. NEVER
         concatenate user input directly into SQL strings.
 
+        VALUE-BASED QUERY EXPERTISE: You understand two types of queries:
+        1. SCHEMA QUERIES: Questions about column structure (e.g., "show me revenue columns")
+           - These select columns directly: SELECT revenue FROM table
+        2. VALUE QUERIES: Questions about specific data values (e.g., "tell me about gold")
+           - These require WHERE clauses: SELECT * FROM table WHERE element_name ILIKE '%gold%'
+           - Use ILIKE for case-insensitive text matching
+           - When column search provides "data_values" source with sample_values, the query is
+             asking about those VALUES, not the column name itself
+
+        When you receive column matches with "source": "data_values", you MUST generate a query
+        that searches FOR those values IN the column, not a query that selects the column itself.
+
         MULTI-TABLE QUERY EXPERTISE: When provided with cross-reference relationships between
         datasets, you excel at generating JOIN queries. You understand relationship types:
         - foreign_key relationships: Use INNER JOIN or LEFT JOIN for primary-foreign key references

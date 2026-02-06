@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from src.api.dependencies import get_current_user
 from src.db.connection import get_global_pool
 from src.models.query import Query, QueryCreate, QueryHistory, QueryWithResponse
+from src.services.data_value_search import DataValueSearchService
 from src.services.hybrid_search import HybridSearchService
 from src.services.query_execution import QueryExecutionService
 from src.services.query_history import QueryHistoryService
@@ -94,6 +95,7 @@ def _execute_sql_query(
     query_id: UUID,
     query_text: str,
     dataset_ids: list[UUID] | None,
+    search_results: dict[str, Any],
     start_time: float,
     pool: Any,
     *,
@@ -107,6 +109,7 @@ def _execute_sql_query(
         query_id: Query UUID
         query_text: Original query text
         dataset_ids: Optional dataset UUIDs to query
+        search_results: Column search results from hybrid search
         start_time: Query processing start timestamp
         pool: Database connection pool
         history_service: Query history service instance
@@ -118,6 +121,7 @@ def _execute_sql_query(
         query_text=query_text,
         dataset_ids=dataset_ids,
         username=username,
+        search_results=search_results,
     )
 
     execution_service: QueryExecutionService = QueryExecutionService(pool)
@@ -248,9 +252,45 @@ def submit_query(  # pylint: disable=too-many-locals
             limit=10,
         )
 
-        # Calculate confidence score and check if clarification is needed
+        # Calculate initial confidence score
         response_generator: ResponseGenerator = ResponseGenerator()
         confidence_score: float = response_generator.calculate_confidence_score(search_results)
+
+        # If confidence is very low (<0.4) and no column matches, try data value search
+        fused_results: list[dict[str, Any]] = search_results.get("fused_results", [])
+        if confidence_score < 0.4 and len(fused_results) == 0:
+            # Search for query terms in actual data values
+            data_value_service: DataValueSearchService = DataValueSearchService(pool)
+            value_matches: list[dict[str, Any]] = data_value_service.search_data_values(
+                username=current_username,
+                query_text=query_create.query_text,
+                dataset_ids=dataset_ids_str,
+                sample_size=100,
+                min_match_threshold=1,
+            )
+
+            # If data value matches found, boost confidence and merge results
+            if len(value_matches) > 0:
+                # Convert value matches to column format for fused_results
+                for value_match in value_matches:
+                    fused_results.append(
+                        {
+                            "column_name": value_match["column_name"],
+                            "dataset_id": value_match["dataset_id"],
+                            # Boost score to indicate strong match
+                            "combined_score": value_match["score"] * 0.8,
+                            "source": "data_values",
+                            "match_count": value_match["match_count"],
+                            "sample_values": value_match["sample_values"],
+                        }
+                    )
+
+                # Update search results with merged data
+                search_results["fused_results"] = fused_results
+                search_results["data_value_results"] = value_matches
+
+                # Recalculate confidence with data value matches
+                confidence_score = response_generator.calculate_confidence_score(search_results)
 
         # If low confidence, return clarification request instead of SQL execution
         if response_generator.is_low_confidence(confidence_score, threshold=0.6):
@@ -270,6 +310,7 @@ def submit_query(  # pylint: disable=too-many-locals
             query_id=query_id,
             query_text=query_create.query_text,
             dataset_ids=query_create.dataset_ids,
+            search_results=search_results,
             start_time=start_time,
             pool=pool,
             history_service=history_service,

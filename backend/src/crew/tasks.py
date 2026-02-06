@@ -21,6 +21,7 @@ def create_sql_generation_task(
     query_text: str,
     dataset_ids: list[UUID] | None,
     cross_references: list[dict[str, Any]] | None = None,
+    search_results: dict[str, Any] | None = None,
 ) -> Task:
     """Create task for generating SQL from natural language query.
 
@@ -29,6 +30,7 @@ def create_sql_generation_task(
         query_text: Natural language question from user
         dataset_ids: Optional list of dataset UUIDs to query
         cross_references: Optional list of cross-reference relationships for JOIN generation
+        search_results: Optional column search results with data value matches
 
     Returns:
         Task configured for SQL generation
@@ -58,10 +60,39 @@ def create_sql_generation_task(
             "requires data from multiple datasets."
         )
 
+    # Build value match context if available
+    value_context: str = ""
+    if search_results:
+        fused_results: list[dict[str, Any]] = search_results.get("fused_results", [])
+        data_value_matches: list[dict[str, Any]] = [
+            r for r in fused_results if r.get("source") == "data_values"
+        ]
+
+        if data_value_matches:
+            value_context = (
+                "\n\nIMPORTANT: The search found matches in DATA VALUES, not column names:\n"
+            )
+            for match in data_value_matches[:3]:  # Show top 3
+                value_context += (
+                    f"- Column '{match['column_name']}' contains '{query_text}' "
+                    f"in {match['match_count']} rows\n"
+                )
+                if match.get("sample_values"):
+                    samples: str = ", ".join(
+                        [f"'{v}'" for v in match["sample_values"][:2]]
+                    )
+                    value_context += f"  Sample values: {samples}\n"
+
+            value_context += (
+                "\nThis is a VALUE-BASED QUERY. Generate a WHERE clause using ILIKE "
+                "to search for the query term within these columns.\n"
+                f"Example: WHERE column_name ILIKE '%{query_text}%'\n"
+            )
+
     description: str = f"""Analyze the user's question and generate a SQL query to answer it.
 
 User Question: "{query_text}"
-Target Datasets: {dataset_info}{join_context}
+Target Datasets: {dataset_info}{join_context}{value_context}
 
 Requirements:
 1. Generate a valid PostgreSQL SQL query
