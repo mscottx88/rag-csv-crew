@@ -77,6 +77,7 @@ def _handle_clarification_response(
         generated_sql=None,
         result_count=0,
         execution_time_ms=execution_time_ms,
+        progress_message="Clarification request generated",
     )
 
     history_service.store_response(
@@ -156,7 +157,7 @@ def _execute_sql_query(
         generated_sql=sql_result["sql"],
         result_count=query_results["row_count"],
         execution_time_ms=execution_time_ms,
-        progress_message=None,  # Clear progress message when completed
+        progress_message="Completed successfully",  # Keep final message visible
     )
 
     history_service.store_response(
@@ -239,6 +240,7 @@ def submit_query(  # pylint: disable=too-many-locals
                 generated_sql=None,
                 result_count=metadata["total_datasets"],
                 execution_time_ms=execution_time_ms,
+                progress_message="Metadata retrieved",
             )
 
             history_service.store_response(
