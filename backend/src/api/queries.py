@@ -126,6 +126,7 @@ def _execute_sql_query(
         dataset_ids=dataset_ids,
         username=username,
         search_results=search_results,
+        use_schema_inspection=True,  # Enable Schema Inspector Agent
     )
 
     execution_service: QueryExecutionService = QueryExecutionService(pool)
