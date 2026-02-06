@@ -76,6 +76,7 @@ export interface Query {
   error_message?: string;
   generated_sql?: string | null;
   response?: QueryResponse;
+  progress_message?: string | null;
 }
 
 export interface QueryCreate {

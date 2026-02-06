@@ -93,6 +93,12 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, datasets, o
         <div className="result-processing">
           <div className="spinner" />
           <p>Processing your query...</p>
+          {query.progress_message && (
+            <div className="progress-message">
+              <span className="progress-icon">⏳</span>
+              <span className="progress-text">{query.progress_message}</span>
+            </div>
+          )}
           {onCancel && (
             <button onClick={onCancel} className="cancel-button">
               Cancel Query

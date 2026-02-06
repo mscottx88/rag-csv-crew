@@ -67,6 +67,7 @@ class QueryHistoryService:
         generated_sql: str | None = None,
         result_count: int | None = None,
         execution_time_ms: int | None = None,
+        progress_message: str | None = None,
     ) -> None:
         """Update query status and optional fields.
 
@@ -77,6 +78,7 @@ class QueryHistoryService:
             generated_sql: Optional SQL that was generated
             result_count: Optional number of results
             execution_time_ms: Optional execution time in milliseconds
+            progress_message: Optional progress message for current step
         """
         user_schema: str = f"{username}_schema"
         completed_at: datetime | None = datetime.now(UTC) if status == "completed" else None
@@ -91,7 +93,8 @@ class QueryHistoryService:
                         completed_at = %s,
                         generated_sql = %s,
                         result_count = %s,
-                        execution_time_ms = %s
+                        execution_time_ms = %s,
+                        progress_message = %s
                     WHERE id = %s
                     """,
                 (
@@ -100,8 +103,34 @@ class QueryHistoryService:
                     generated_sql,
                     result_count,
                     execution_time_ms,
+                    progress_message,
                     query_id,
                 ),
+            )
+            conn.commit()
+
+    def update_progress_message(
+        self, query_id: UUID, username: str, progress_message: str
+    ) -> None:
+        """Update only the progress message for a query.
+
+        Args:
+            query_id: Query UUID
+            username: Username for schema context
+            progress_message: Progress message for current processing step
+        """
+        user_schema: str = f"{username}_schema"
+
+        with self.pool.connection() as conn, conn.cursor() as cur:
+            cur.execute(f"SET search_path TO {user_schema}, public")
+
+            cur.execute(
+                """
+                    UPDATE queries
+                    SET progress_message = %s
+                    WHERE id = %s
+                    """,
+                (progress_message, query_id),
             )
             conn.commit()
 
@@ -126,7 +155,7 @@ class QueryHistoryService:
             cur.execute(
                 """
                     SELECT id, query_text, submitted_at, completed_at, status,
-                           generated_sql, result_count, execution_time_ms
+                           generated_sql, result_count, execution_time_ms, progress_message
                     FROM queries
                     WHERE id = %s
                     """,
@@ -147,6 +176,7 @@ class QueryHistoryService:
                 "generated_sql": row[5],
                 "result_count": row[6],
                 "execution_time_ms": row[7],
+                "progress_message": row[8],
             }
 
     def store_response(  # pylint: disable=too-many-positional-arguments
@@ -294,7 +324,7 @@ class QueryHistoryService:
             # Get paginated queries
             query_sql: str = f"""
                     SELECT id, query_text, submitted_at, completed_at, status,
-                           generated_sql, result_count, execution_time_ms
+                           generated_sql, result_count, execution_time_ms, progress_message
                     FROM queries
                     {where_clause}
                     ORDER BY submitted_at DESC
@@ -313,6 +343,7 @@ class QueryHistoryService:
                     "generated_sql": row[5],
                     "result_count": row[6],
                     "execution_time_ms": row[7],
+                    "progress_message": row[8],
                 }
                 for row in rows
             ]

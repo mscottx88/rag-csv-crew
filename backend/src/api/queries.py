@@ -18,9 +18,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-# Configure logger
-logger: logging.Logger = logging.getLogger(__name__)
-
 from src.api.dependencies import get_current_user
 from src.db.connection import get_global_pool
 from src.models.query import Query, QueryCreate, QueryHistory, QueryWithResponse
@@ -30,6 +27,9 @@ from src.services.query_execution import QueryExecutionService
 from src.services.query_history import QueryHistoryService
 from src.services.response_generator import ResponseGenerator
 from src.services.text_to_sql import TextToSQLService
+
+# Configure logger
+logger: logging.Logger = logging.getLogger(__name__)
 
 router: APIRouter = APIRouter(prefix="/queries", tags=["Queries"])
 
@@ -129,14 +129,20 @@ def _execute_sql_query(
         use_schema_inspection=True,  # Enable Schema Inspector Agent
     )
 
+    history_service.update_progress_message(
+        query_id, username, "Executing SQL query against database..."
+    )
     execution_service: QueryExecutionService = QueryExecutionService(pool)
     query_results: dict[str, Any] = execution_service.execute_query(
         sql=sql_result["sql"],
         params=sql_result["params"],
         username=username,
-        timeout_seconds=30,
+        timeout_seconds=300,  # 5 minutes timeout per user request
     )
 
+    history_service.update_progress_message(
+        query_id, username, "Generating HTML response..."
+    )
     response_data: dict[str, Any] = response_generator.generate_html_response(
         query_text=query_text, query_results=query_results, _query_id=query_id
     )
@@ -150,6 +156,7 @@ def _execute_sql_query(
         generated_sql=sql_result["sql"],
         result_count=query_results["row_count"],
         execution_time_ms=execution_time_ms,
+        progress_message=None,  # Clear progress message when completed
     )
 
     history_service.store_response(
@@ -207,9 +214,14 @@ def submit_query(  # pylint: disable=too-many-locals
         start_time: float = time.time()
 
         # Update to processing status
-        history_service.update_query_status(query_id, current_username, "processing")
+        history_service.update_query_status(
+            query_id, current_username, "processing", progress_message="Starting query processing..."
+        )
 
         # Check if this is a metadata query (asking for available datasets/tables/columns)
+        history_service.update_progress_message(
+            query_id, current_username, "Analyzing query type..."
+        )
         sql_service: TextToSQLService = TextToSQLService(pool)
         if sql_service.is_metadata_query(query_create.query_text):
             # Retrieve and format metadata
@@ -243,6 +255,9 @@ def submit_query(  # pylint: disable=too-many-locals
             return Query(**metadata_query_obj)
 
         # Run hybrid search to find relevant columns (semantic + keyword + exact match)
+        history_service.update_progress_message(
+            query_id, current_username, "Running hybrid search (exact match + full-text + semantic)..."
+        )
         hybrid_service: HybridSearchService = HybridSearchService(pool)
         # Convert UUID list to string list for hybrid search
         dataset_ids_str: list[str] | None = (
@@ -258,6 +273,9 @@ def submit_query(  # pylint: disable=too-many-locals
         )
 
         # Calculate initial confidence score
+        history_service.update_progress_message(
+            query_id, current_username, "Calculating confidence score..."
+        )
         response_generator: ResponseGenerator = ResponseGenerator()
         confidence_score: float = response_generator.calculate_confidence_score(search_results)
 
@@ -273,6 +291,9 @@ def submit_query(  # pylint: disable=too-many-locals
         if confidence_score < 0.4:
             logger.info(
                 f"Low confidence ({confidence_score:.2f}). Attempting data value search..."
+            )
+            history_service.update_progress_message(
+                query_id, current_username, "Low confidence - searching data values..."
             )
 
             # Search for query terms in actual data values
@@ -315,7 +336,7 @@ def submit_query(  # pylint: disable=too-many-locals
                 fused_results.sort(key=lambda x: x.get("combined_score", 0.0), reverse=True)
 
                 # Debug: Log top 5 results after sorting
-                logger.info(f"After sorting, top 5 fused_results:")
+                logger.info("After sorting, top 5 fused_results:")
                 for i, result in enumerate(fused_results[:5]):
                     logger.info(
                         f"  {i+1}. {result.get('column_name', '?')} "
@@ -353,6 +374,9 @@ def submit_query(  # pylint: disable=too-many-locals
             )
 
         # High confidence: proceed with SQL generation and execution
+        history_service.update_progress_message(
+            query_id, current_username, "Generating SQL query with Schema Inspector Agent..."
+        )
         _execute_sql_query(
             query_id=query_id,
             query_text=query_create.query_text,

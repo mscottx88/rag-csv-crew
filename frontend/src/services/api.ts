@@ -13,7 +13,7 @@ const BASE_URL: string = import.meta.env.VITE_API_BASE_URL || 'http://localhost:
 // Create Axios instance with default configuration
 const api: AxiosInstance = axios.create({
   baseURL: BASE_URL,
-  timeout: 30000, // 30 seconds
+  timeout: 300000, // 5 minutes (300 seconds) for long-running queries with agents
   headers: {
     'Content-Type': 'application/json',
   },

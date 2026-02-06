@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS {schema_name}.queries (
     generated_sql TEXT,
     result_count INTEGER,
     execution_time_ms INTEGER,
+    progress_message TEXT,
 
     CONSTRAINT positive_execution_time CHECK (execution_time_ms IS NULL OR execution_time_ms >= 0),
     CONSTRAINT positive_result_count CHECK (result_count IS NULL OR result_count >= 0)
