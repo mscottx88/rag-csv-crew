@@ -154,3 +154,32 @@ RESPONSES_GENERATED_INDEX_SQL: str = """
 CREATE INDEX IF NOT EXISTS idx_responses_generated
 ON {schema_name}.responses (generated_at DESC)
 """
+
+COLUMN_METADATA_TABLE_SQL: str = """
+CREATE TABLE IF NOT EXISTS {schema_name}.column_metadata (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    dataset_id UUID NOT NULL REFERENCES {schema_name}.datasets(id) ON DELETE CASCADE,
+    column_name VARCHAR(255) NOT NULL,
+    min_value TEXT,
+    max_value TEXT,
+    distinct_count BIGINT,
+    null_count BIGINT,
+    top_values JSONB,
+    computed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+
+    UNIQUE (dataset_id, column_name),
+    CONSTRAINT positive_distinct_count CHECK (distinct_count IS NULL OR distinct_count >= 0),
+    CONSTRAINT positive_null_count CHECK (null_count IS NULL OR null_count >= 0)
+)
+"""
+
+COLUMN_METADATA_DATASET_INDEX_SQL: str = """
+CREATE INDEX IF NOT EXISTS idx_column_metadata_dataset
+ON {schema_name}.column_metadata (dataset_id)
+"""
+
+COLUMN_METADATA_TOP_VALUES_INDEX_SQL: str = """
+CREATE INDEX IF NOT EXISTS idx_column_metadata_top_values
+ON {schema_name}.column_metadata
+USING GIN (top_values)
+"""

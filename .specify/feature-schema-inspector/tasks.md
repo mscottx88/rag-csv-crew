@@ -24,10 +24,10 @@ Project uses web app structure:
 
 **Purpose**: Add database schema for column metadata storage
 
-- [ ] T001 Add COLUMN_METADATA_TABLE_SQL constant to backend/src/db/schemas.py
-- [ ] T002 Add column_metadata table indexes (dataset, top_values GIN) to backend/src/db/schemas.py
-- [ ] T003 Create add_column_metadata_table() migration function in backend/src/db/migrations.py
-- [ ] T004 Update create_user_schema() to include column_metadata table in backend/src/db/schemas.py
+- [X] T001 Add COLUMN_METADATA_TABLE_SQL constant to backend/src/db/schemas.py
+- [X] T002 Add column_metadata table indexes (dataset, top_values GIN) to backend/src/db/schemas.py
+- [X] T003 Create add_column_metadata_table() migration function in backend/src/db/migrations.py
+- [X] T004 Update create_user_schema() to include column_metadata table in backend/src/db/migrations.py
 
 ---
 
@@ -37,8 +37,8 @@ Project uses web app structure:
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 [P] Create ColumnMetadataService class with __init__ in backend/src/services/column_metadata.py
-- [ ] T006 [P] Create SchemaInspectorService class with __init__ in backend/src/services/schema_inspector.py
+- [X] T005 [P] Create ColumnMetadataService class with __init__ in backend/src/services/column_metadata.py
+- [X] T006 [P] Create SchemaInspectorService class with __init__ in backend/src/services/schema_inspector.py (already existed)
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -54,13 +54,13 @@ Project uses web app structure:
 
 **Step 1: Metadata Computation**
 
-- [ ] T007 [P] [US1] Implement _compute_numeric_stats() method in backend/src/services/column_metadata.py
-- [ ] T008 [P] [US1] Implement _compute_text_stats() method in backend/src/services/column_metadata.py
-- [ ] T009 [P] [US1] Implement _compute_general_stats() method in backend/src/services/column_metadata.py
-- [ ] T010 [US1] Implement _compute_column_metadata() method with type dispatching in backend/src/services/column_metadata.py
-- [ ] T011 [US1] Implement compute_and_store_metadata() with ThreadPoolExecutor in backend/src/services/column_metadata.py
-- [ ] T012 [US1] Implement _store_metadata_batch() with UPSERT logic in backend/src/services/column_metadata.py
-- [ ] T013 [US1] Implement get_column_metadata() retrieval method in backend/src/services/column_metadata.py
+- [X] T007 [P] [US1] Implement _compute_numeric_stats() method in backend/src/services/column_metadata.py
+- [X] T008 [P] [US1] Implement _compute_text_stats() method in backend/src/services/column_metadata.py
+- [X] T009 [P] [US1] Implement _compute_general_stats() method in backend/src/services/column_metadata.py
+- [X] T010 [US1] Implement _compute_column_metadata() method with type dispatching in backend/src/services/column_metadata.py
+- [X] T011 [US1] Implement compute_and_store_metadata() with ThreadPoolExecutor in backend/src/services/column_metadata.py
+- [X] T012 [US1] Implement _store_metadata_batch() with UPSERT logic in backend/src/services/column_metadata.py
+- [X] T013 [US1] Implement get_column_metadata() retrieval method in backend/src/services/column_metadata.py
 
 **Step 2: Ingestion Pipeline Integration**
 

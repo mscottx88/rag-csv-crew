@@ -20,6 +20,9 @@ from src.db.schemas import (
     COLUMN_MAPPINGS_EMBEDDING_INDEX_SQL,
     COLUMN_MAPPINGS_FULLTEXT_INDEX_SQL,
     COLUMN_MAPPINGS_TABLE_SQL,
+    COLUMN_METADATA_DATASET_INDEX_SQL,
+    COLUMN_METADATA_TABLE_SQL,
+    COLUMN_METADATA_TOP_VALUES_INDEX_SQL,
     CROSS_REFERENCES_SOURCE_INDEX_SQL,
     CROSS_REFERENCES_TABLE_SQL,
     CROSS_REFERENCES_TARGET_INDEX_SQL,
@@ -255,5 +258,43 @@ def create_user_schema(conn: "Connection", username: str) -> None:
         cur.execute(RESPONSES_QUERY_INDEX_SQL.format(schema_name=schema_name))
         cur.execute(RESPONSES_GENERATED_INDEX_SQL.format(schema_name=schema_name))
 
+        # Create column_metadata table
+        cur.execute(COLUMN_METADATA_TABLE_SQL.format(schema_name=schema_name))
+        logger.debug("Created %s.column_metadata table", schema_name)
+
+        # Create column_metadata indexes
+        cur.execute(COLUMN_METADATA_DATASET_INDEX_SQL.format(schema_name=schema_name))
+        cur.execute(COLUMN_METADATA_TOP_VALUES_INDEX_SQL.format(schema_name=schema_name))
+
     conn.commit()
     logger.info("User schema %s created successfully", schema_name)
+
+
+def add_column_metadata_table(conn: "Connection", username: str) -> None:
+    """Add column_metadata table to existing user schema.
+
+    Migration function to add column_metadata table and indexes to schemas
+    that were created before this feature was added.
+
+    Args:
+        conn: Database connection with active transaction
+        username: Username for schema context
+
+    Raises:
+        psycopg.Error: On database operation failure
+    """
+    schema_name: str = f"{username}_schema"
+    logger.info("Adding column_metadata table to schema: %s", schema_name)
+
+    with conn.cursor() as cur:
+        # Create column_metadata table
+        cur.execute(COLUMN_METADATA_TABLE_SQL.format(schema_name=schema_name))
+        logger.debug("Created %s.column_metadata table", schema_name)
+
+        # Create column_metadata indexes
+        cur.execute(COLUMN_METADATA_DATASET_INDEX_SQL.format(schema_name=schema_name))
+        cur.execute(COLUMN_METADATA_TOP_VALUES_INDEX_SQL.format(schema_name=schema_name))
+        logger.debug("Created column_metadata indexes for %s", schema_name)
+
+    conn.commit()
+    logger.info("column_metadata table added to %s successfully", schema_name)
