@@ -722,13 +722,66 @@ def check_filename_conflict(
     }
 
 
+def store_column_mappings(
+    pool: ConnectionPool, username: str, dataset_id: str, columns: list[dict[str, Any]]
+) -> None:
+    """Store column mappings WITHOUT embeddings (required for all datasets).
+
+    Creates column_mappings entries for schema metadata. This function MUST succeed
+    for dataset functionality. Embeddings are added later as optional enhancement.
+
+    Args:
+        pool: Database connection pool
+        username: Username for schema isolation
+        dataset_id: Dataset UUID
+        columns: List of column dictionaries with name, type, description
+
+    Raises:
+        RuntimeError: If column mapping storage fails
+
+    Per FR-015: Column metadata tracking
+    """
+    schema_name: str = f"{username}_schema"
+
+    try:
+        with pool.connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(f"SET search_path TO {schema_name}, public")
+
+                # Insert column mappings without embeddings
+                insert_sql: str = """
+                    INSERT INTO column_mappings (dataset_id, column_name, inferred_type, description)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (dataset_id, column_name) DO NOTHING
+                """
+
+                for col in columns:
+                    col_name: str = col.get("name", col.get("column_name", ""))
+                    inferred_type: str = col.get("type", col.get("inferred_type", "TEXT"))
+                    col_description: str = col.get("description", "")
+
+                    cur.execute(
+                        insert_sql,
+                        (dataset_id, col_name, inferred_type, col_description),
+                    )
+
+            conn.commit()
+
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to store column mappings for dataset {dataset_id}: {e}"
+        ) from e
+
+
 def generate_column_embeddings(
     pool: ConnectionPool, username: str, dataset_id: str, columns: list[dict[str, Any]]
 ) -> None:
-    """Generate and store embeddings for column mappings.
+    """Generate and UPDATE embeddings for existing column mappings (optional).
 
     Creates vector embeddings for each column using OpenAI text-embedding-3-small
-    and stores them in the column_mappings table for semantic search.
+    and UPDATES existing column_mappings entries. Column mappings must already exist
+    (created by store_column_mappings). If this function fails, basic dataset
+    functionality still works - only semantic search is affected.
 
     Args:
         pool: Database connection pool
@@ -763,39 +816,36 @@ def generate_column_embeddings(
         except Exception as e:
             raise RuntimeError(f"Failed to generate embedding for column {column_name}: {e}") from e
 
-    # Insert column_mappings with embeddings
+    # Update existing column_mappings with embeddings
     try:
         with pool.connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(f"SET search_path TO {schema_name}, public")
 
-                # Insert new rows with embeddings (UPSERT pattern)
-                insert_sql: str = """
-                    INSERT INTO column_mappings (dataset_id, column_name, inferred_type, description, embedding)
-                    VALUES (%s, %s, %s, %s, %s)
-                    ON CONFLICT (dataset_id, column_name)
-                    DO UPDATE SET embedding = EXCLUDED.embedding
+                # UPDATE existing column_mappings with embeddings
+                update_sql: str = """
+                    UPDATE column_mappings
+                    SET embedding = %s
+                    WHERE dataset_id = %s AND column_name = %s
                 """
 
-                # Insert each column with its embedding
+                # Update each column with its embedding
                 for col in columns:
                     col_name: str = col.get("name", col.get("column_name", ""))
                     if col_name in column_names:
                         # Find the embedding for this column
                         embedding_idx: int = column_names.index(col_name)
                         col_embedding: list[float] = embeddings[embedding_idx]
-                        inferred_type: str = col.get("type", col.get("inferred_type", "TEXT"))
-                        col_description: str = col.get("description", "")
 
                         cur.execute(
-                            insert_sql,
-                            (dataset_id, col_name, inferred_type, col_description, col_embedding),
+                            update_sql,
+                            (col_embedding, dataset_id, col_name),
                         )
 
             conn.commit()
 
     except Exception as e:
-        raise RuntimeError(f"Failed to store embeddings for dataset {dataset_id}: {e}") from e
+        raise RuntimeError(f"Failed to update embeddings for dataset {dataset_id}: {e}") from e
 
 
 class IngestionService:

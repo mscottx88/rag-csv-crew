@@ -32,6 +32,7 @@ from src.services.ingestion import (  # pylint: disable=import-outside-toplevel
     detect_csv_schema,
     generate_column_embeddings,
     ingest_csv_data,
+    store_column_mappings,
     store_dataset_metadata,
 )
 from src.utils.logging import get_structured_logger, log_event
@@ -359,7 +360,38 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
                 detail=f"Failed to ingest CSV data: {e!s}",
             ) from e
 
-        # Generate embeddings for semantic search
+        # Store column mappings (REQUIRED - must succeed for dataset to be functional)
+        try:
+            underlying_pool_for_columns: ConnectionPool | None = pool._pool  # pylint: disable=protected-access
+            if underlying_pool_for_columns is None:
+                raise RuntimeError("Connection pool not initialized")
+            store_column_mappings(
+                pool=underlying_pool_for_columns,
+                username=username,
+                dataset_id=dataset_id,
+                columns=schema["columns"],
+            )
+            log_event(
+                logger=logger,
+                level="info",
+                event="column_mappings_stored",
+                user=username,
+                extra={"dataset_id": dataset_id, "column_count": column_count},
+            )
+        except Exception as e:
+            log_event(
+                logger=logger,
+                level="error",
+                event="column_mapping_storage_failed",
+                user=username,
+                extra={"dataset_id": dataset_id, "error": str(e)},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to store column mappings: {e!s}",
+            ) from e
+
+        # Generate embeddings for semantic search (OPTIONAL - failure is logged but doesn't fail upload)
         try:
             # Access underlying ConnectionPool from DatabaseConnectionPool wrapper
             underlying_pool: ConnectionPool | None = pool._pool  # pylint: disable=protected-access
