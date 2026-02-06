@@ -38,11 +38,11 @@ def start_backend(script_dir: Path) -> subprocess.Popen[bytes]:
     # pylint: disable=consider-using-with
     # JUSTIFICATION: Process must remain open beyond this function scope for monitoring
     backend_process: subprocess.Popen[bytes] = subprocess.Popen(
-        ["uvicorn", "src.main:app", "--reload", "--port", "8000"],
+        [sys.executable, "-m", "uvicorn", "src.main:app", "--reload", "--port", "8000"],
         cwd=str(backend_cwd),
         # Inherit parent's stdout/stderr so output is displayed in console
     )
-    print(f"✓ Backend started (PID: {backend_process.pid})")
+    print(f"[OK] Backend started (PID: {backend_process.pid})")
     return backend_process
 
 
@@ -68,7 +68,7 @@ def start_frontend(script_dir: Path) -> subprocess.Popen[bytes]:
         # Inherit parent's stdout/stderr so output is displayed in console
         shell=True,  # Required for npm on Windows
     )
-    print(f"✓ Frontend started (PID: {frontend_process.pid})")
+    print(f"[OK] Frontend started (PID: {frontend_process.pid})")
     return frontend_process
 
 
@@ -87,13 +87,13 @@ def stop_process(process: subprocess.Popen[bytes], name: str, use_ctrl_c: bool =
         else:
             process.terminate()
         process.wait(timeout=5)
-        print(f"✓ {name} stopped")
+        print(f"[OK] {name} stopped")
     except subprocess.TimeoutExpired:
-        print(f"⚠ {name} didn't stop gracefully, killing...")
+        print(f"[WARN] {name} didn't stop gracefully, killing...")
         process.kill()
-        print(f"✓ {name} killed")
+        print(f"[OK] {name} killed")
     except (OSError, ValueError) as e:
-        print(f"⚠ Error stopping {name}: {e}")
+        print(f"[WARN] Error stopping {name}: {e}")
         process.kill()
 
 
@@ -115,11 +115,11 @@ def monitor_processes(
         frontend_status: int | None = frontend_process.poll()
 
         if backend_status is not None:
-            print(f"\n✗ Backend process exited with code {backend_status}")
+            print(f"\n[ERROR] Backend process exited with code {backend_status}")
             sys.exit(1)
 
         if frontend_status is not None:
-            print(f"\n✗ Frontend process exited with code {frontend_status}")
+            print(f"\n[ERROR] Frontend process exited with code {frontend_status}")
             sys.exit(1)
 
         time.sleep(1)
@@ -186,7 +186,7 @@ def main() -> NoReturn:
         sys.exit(0)
 
     except (subprocess.SubprocessError, OSError) as e:
-        print(f"\n✗ Process error: {e}")
+        print(f"\n[ERROR] Process error: {e}")
         # Clean up processes
         if backend_process is not None:
             backend_process.kill()
