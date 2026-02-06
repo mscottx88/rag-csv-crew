@@ -499,7 +499,9 @@ class TextToSQLService:
         # Extract column names from SQL (simplified - looks for identifiers)
         # This is a heuristic approach - not perfect but catches most cases
         # Matches identifiers that are likely column references
-        column_pattern: str = r"\b([a-z_][a-z0-9_]*)\s*(?:=|<|>|ILIKE|LIKE|IN|IS)"
+        # Order alternatives longest-first to avoid matching "IS" within "ILIKE"
+        # Add word boundary after operators to prevent partial matches
+        column_pattern: str = r"\b([a-z_][a-z0-9_]*)\s*(?:ILIKE|LIKE|IN|IS|=|<|>)\b"
         potential_columns: list[str] = re.findall(column_pattern, sql_query, re.IGNORECASE)
 
         # Check columns against all valid tables (since we may not know which table each column belongs to)
