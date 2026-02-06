@@ -206,6 +206,9 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Note: Rate limiting (T209) implemented via dependency injection in API endpoints
+    # See src/api/dependencies.py for check_rate_limit() function
+
     # Register global exception handlers
     fastapi_app.add_exception_handler(HTTPException, http_exception_handler)  # type: ignore[arg-type]  # pylint: disable=line-too-long
     fastapi_app.add_exception_handler(RequestValidationError, validation_exception_handler)  # type: ignore[arg-type]  # pylint: disable=line-too-long
