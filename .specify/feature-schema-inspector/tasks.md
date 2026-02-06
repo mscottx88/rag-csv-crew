@@ -79,10 +79,10 @@ Project uses web app structure:
 
 **Step 4: Quality & Performance**
 
-- [ ] T023 [US1] Run ruff check on backend/src/services/column_metadata.py
-- [ ] T024 [US1] Run ruff format on backend/src/services/column_metadata.py
-- [ ] T025 [US1] Run mypy --strict on backend/src/services/column_metadata.py
-- [ ] T026 [US1] Run pylint on backend/src/services/column_metadata.py and fix to 10.00/10
+- [X] T023 [US1] Run ruff check on backend/src/services/column_metadata.py
+- [X] T024 [US1] Run ruff format on backend/src/services/column_metadata.py
+- [X] T025 [US1] Run mypy --strict on backend/src/services/column_metadata.py
+- [X] T026 [US1] Run pylint on backend/src/services/column_metadata.py and fix to 10.00/10
 - [ ] T027 [US1] Commit metadata precomputation implementation with quality gates passed
 
 **Checkpoint**: Metadata is computed during upload, stored in database, and enriches embeddings
