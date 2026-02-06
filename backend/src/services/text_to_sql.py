@@ -5,6 +5,8 @@ Orchestrates the complete query processing workflow:
 2. Execute SQL query
 3. Format results → HTML (CrewAI Result Analyst)
 
+Also handles metadata queries (listing available datasets, tables, columns).
+
 Constitutional Requirements:
 - Thread-based operations only (no async/await)
 - All variables have explicit type annotations
@@ -12,6 +14,7 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
+import re
 from typing import Any
 from uuid import UUID
 
@@ -33,6 +36,195 @@ class TextToSQLService:
             pool: Optional database connection pool for cross-reference retrieval
         """
         self.pool: ConnectionPool | None = pool
+
+    @staticmethod
+    def is_metadata_query(query_text: str) -> bool:
+        """Detect if query is asking for metadata (available datasets/tables/columns).
+
+        Args:
+            query_text: Natural language question
+
+        Returns:
+            True if query is asking for metadata, False otherwise
+
+        Examples:
+            "what datasets do I have?" → True
+            "show me available tables" → True
+            "list all columns" → True
+            "what data can I query?" → True
+            "show me customers in California" → False (data query, not metadata)
+        """
+        query_lower: str = query_text.lower()
+
+        # Metadata query patterns
+        metadata_patterns: list[str] = [
+            r"\b(what|which|show|list|display|get)\s+(datasets?|tables?|columns?|data|files?|csv)",
+            r"\b(available|existing|uploaded)\s+(datasets?|tables?|columns?|data|files?)",
+            r"\bdo\s+i\s+have\b",
+            r"\bcan\s+i\s+query\b",
+            r"\bwhat'?s\s+(available|in|here)",
+            r"\bshow\s+me\s+(my|the|all)\s+(datasets?|tables?|columns?|data)",
+            r"\b(list|enumerate)\s+(all|my)\b",
+        ]
+
+        for pattern in metadata_patterns:
+            if re.search(pattern, query_lower):
+                return True
+
+        return False
+
+    def get_available_metadata(self, username: str) -> dict[str, Any]:
+        """Retrieve metadata about available datasets, tables, and columns for a user.
+
+        Args:
+            username: Username for schema isolation
+
+        Returns:
+            Dictionary containing datasets with their tables and columns
+
+        Raises:
+            ValueError: If pool is not configured
+        """
+        if self.pool is None:
+            raise ValueError("Database pool is not configured")
+
+        user_schema: str = f"{username}_schema"
+        metadata: dict[str, Any] = {"datasets": []}
+
+        with self.pool.connection() as conn, conn.cursor() as cur:
+            # Set search path
+            cur.execute(
+                sql.SQL("SET search_path TO {}, public").format(sql.Identifier(user_schema))
+            )
+
+            # Get all datasets for this user
+            cur.execute(
+                """
+                SELECT id, filename, row_count, column_count, created_at
+                FROM datasets
+                WHERE username = %s
+                ORDER BY created_at DESC
+                """,
+                (username,),
+            )
+
+            dataset_rows: list[tuple[Any, ...]] = cur.fetchall()
+
+            for dataset_row in dataset_rows:
+                dataset_id: str = str(dataset_row[0])
+                dataset_info: dict[str, Any] = {
+                    "id": dataset_id,
+                    "filename": dataset_row[1],
+                    "table_name": dataset_row[1].replace(".csv", "_data"),
+                    "row_count": dataset_row[2],
+                    "column_count": dataset_row[3],
+                    "created_at": str(dataset_row[4]),
+                    "columns": [],
+                }
+
+                # Get columns for this dataset
+                cur.execute(
+                    """
+                    SELECT column_name, data_type
+                    FROM column_mappings
+                    WHERE dataset_id = %s
+                    ORDER BY column_name
+                    """,
+                    (dataset_id,),
+                )
+
+                column_rows: list[tuple[Any, ...]] = cur.fetchall()
+                for column_row in column_rows:
+                    dataset_info["columns"].append({
+                        "name": column_row[0],
+                        "type": column_row[1],
+                    })
+
+                metadata["datasets"].append(dataset_info)
+
+        metadata["total_datasets"] = len(metadata["datasets"])
+        return metadata
+
+    def format_metadata_as_html(self, metadata: dict[str, Any]) -> str:
+        """Format metadata dictionary as clean, readable HTML.
+
+        Args:
+            metadata: Metadata dictionary from get_available_metadata()
+
+        Returns:
+            HTML string with formatted metadata
+
+        Format:
+            <article>
+              <h2>Available Datasets</h2>
+              <section>
+                <h3>Dataset: filename.csv</h3>
+                <ul><li>Table: table_name</li>...</ul>
+                <h4>Columns ({count})</h4>
+                <table>...</table>
+              </section>
+            </article>
+        """
+        datasets: list[dict[str, Any]] = metadata.get("datasets", [])
+        total_datasets: int = metadata.get("total_datasets", 0)
+
+        if total_datasets == 0:
+            return """
+            <article>
+                <h2>Available Datasets</h2>
+                <p>You don't have any datasets uploaded yet.</p>
+                <p>Upload a CSV file to get started.</p>
+            </article>
+            """.strip()
+
+        html_parts: list[str] = [
+            "<article>",
+            f"<h2>Available Datasets ({total_datasets})</h2>",
+        ]
+
+        for dataset in datasets:
+            filename: str = dataset["filename"]
+            table_name: str = dataset["table_name"]
+            row_count: int = dataset["row_count"]
+            column_count: int = dataset["column_count"]
+            columns: list[dict[str, str]] = dataset["columns"]
+
+            html_parts.extend([
+                "<section style='margin-bottom: 2em; padding: 1em; border: 1px solid #ddd; border-radius: 4px;'>",
+                f"<h3>{filename}</h3>",
+                "<ul style='list-style: none; padding: 0; margin: 0.5em 0;'>",
+                f"<li><strong>Table:</strong> {table_name}</li>",
+                f"<li><strong>Rows:</strong> {row_count:,}</li>",
+                f"<li><strong>Columns:</strong> {column_count}</li>",
+                "</ul>",
+                f"<h4>Columns ({column_count})</h4>",
+                "<table style='width: 100%; border-collapse: collapse;'>",
+                "<thead>",
+                "<tr style='background-color: #f5f5f5;'>",
+                "<th style='padding: 8px; text-align: left; border: 1px solid #ddd;'>Column Name</th>",
+                "<th style='padding: 8px; text-align: left; border: 1px solid #ddd;'>Data Type</th>",
+                "</tr>",
+                "</thead>",
+                "<tbody>",
+            ])
+
+            for column in columns:
+                html_parts.extend([
+                    "<tr>",
+                    f"<td style='padding: 8px; border: 1px solid #ddd;'>{column['name']}</td>",
+                    f"<td style='padding: 8px; border: 1px solid #ddd;'>{column['type']}</td>",
+                    "</tr>",
+                ])
+
+            html_parts.extend([
+                "</tbody>",
+                "</table>",
+                "</section>",
+            ])
+
+        html_parts.append("</article>")
+
+        return "\n".join(html_parts)
 
     def resolve_datasets(
         self,

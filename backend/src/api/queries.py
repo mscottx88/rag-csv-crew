@@ -200,6 +200,37 @@ def submit_query(
         # Update to processing status
         history_service.update_query_status(query_id, current_username, "processing")
 
+        # Check if this is a metadata query (asking for available datasets/tables/columns)
+        sql_service: TextToSQLService = TextToSQLService(pool)
+        if sql_service.is_metadata_query(query_create.query_text):
+            # Retrieve and format metadata
+            metadata: dict[str, Any] = sql_service.get_available_metadata(current_username)
+            html_content: str = sql_service.format_metadata_as_html(metadata)
+            plain_text: str = f"Found {metadata['total_datasets']} dataset(s)"
+
+            execution_time_ms: int = int((time.time() - start_time) * 1000)
+
+            # Store metadata response
+            history_service.update_query_status(
+                query_id,
+                current_username,
+                "completed",
+                generated_sql=None,
+                result_count=metadata["total_datasets"],
+                execution_time_ms=execution_time_ms,
+            )
+
+            history_service.store_response(
+                query_id=query_id,
+                username=current_username,
+                html_content=html_content,
+                plain_text=plain_text,
+                confidence_score=1.0,  # Metadata queries always have 100% confidence
+            )
+
+            query_obj: dict[str, Any] = history_service.get_query_by_id(query_id, current_username)
+            return Query(**query_obj)
+
         # Run hybrid search to find relevant columns (semantic + keyword + exact match)
         hybrid_service: HybridSearchService = HybridSearchService(pool)
         # Convert UUID list to string list for hybrid search
