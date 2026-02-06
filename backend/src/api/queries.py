@@ -329,8 +329,17 @@ def submit_query(  # pylint: disable=too-many-locals
                 # Recalculate confidence with data value matches
                 confidence_score = response_generator.calculate_confidence_score(search_results)
 
-        # If low confidence, return clarification request instead of SQL execution
-        if response_generator.is_low_confidence(confidence_score, threshold=0.6):
+                # When data value matches are found, we have concrete data to query
+                # Proceed with SQL generation instead of returning clarification
+                logger.info(
+                    f"Data value matches found with confidence {confidence_score:.2f}. "
+                    "Proceeding with SQL generation to retrieve actual data."
+                )
+
+        # If low confidence AND no data value matches, return clarification
+        # If data value matches exist, proceed with SQL generation (they're in fused_results)
+        has_data_value_matches: bool = "data_value_results" in search_results
+        if response_generator.is_low_confidence(confidence_score, threshold=0.6) and not has_data_value_matches:
             return _handle_clarification_response(
                 query_id=query_id,
                 query_text=query_create.query_text,
