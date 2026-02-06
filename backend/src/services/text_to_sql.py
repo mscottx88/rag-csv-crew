@@ -22,8 +22,23 @@ from crewai import Crew
 from psycopg import sql
 from psycopg_pool import ConnectionPool
 
-from src.crew.agents import create_result_analyst_agent, create_sql_generator_agent
-from src.crew.tasks import create_html_formatting_task, create_sql_generation_task
+from src.crew.agents import (
+    create_result_analyst_agent,
+    create_schema_inspector_agent,
+    create_sql_generator_agent,
+)
+from src.crew.tasks import (
+    create_html_formatting_task,
+    create_schema_inspection_task,
+    create_sql_generation_task,
+)
+from src.crew.tools import (
+    get_sample_data_tool,
+    inspect_schema_tool,
+    list_datasets_tool,
+    set_schema_inspector_context,
+)
+from src.services.schema_inspector import SchemaInspectorService
 
 
 class TextToSQLService:
@@ -363,7 +378,9 @@ class TextToSQLService:
 
         return cross_references
 
-    def get_schema_context(self, username: str, dataset_ids: list[UUID] | None = None) -> dict[str, Any]:
+    def get_schema_context(
+        self, username: str, dataset_ids: list[UUID] | None = None
+    ) -> dict[str, Any]:
         """Extract valid table and column names from database schema.
 
         Args:
@@ -439,7 +456,9 @@ class TextToSQLService:
 
         return schema_context
 
-    def validate_sql_against_schema(self, sql_query: str, schema_context: dict[str, Any]) -> dict[str, Any]:
+    def validate_sql_against_schema(
+        self, sql_query: str, schema_context: dict[str, Any]
+    ) -> dict[str, Any]:
         """Validate that SQL only references tables and columns that exist in schema.
 
         Args:
@@ -492,9 +511,31 @@ class TextToSQLService:
             column_lower: str = column.lower()
             # Skip SQL keywords
             sql_keywords: set[str] = {
-                "select", "from", "where", "join", "left", "right", "inner", "outer",
-                "on", "and", "or", "not", "null", "true", "false", "limit", "offset",
-                "order", "by", "group", "having", "as", "distinct", "all", "any"
+                "select",
+                "from",
+                "where",
+                "join",
+                "left",
+                "right",
+                "inner",
+                "outer",
+                "on",
+                "and",
+                "or",
+                "not",
+                "null",
+                "true",
+                "false",
+                "limit",
+                "offset",
+                "order",
+                "by",
+                "group",
+                "having",
+                "as",
+                "distinct",
+                "all",
+                "any",
             }
             if column_lower not in sql_keywords and column_lower not in all_valid_columns:
                 errors.append(
@@ -515,6 +556,7 @@ class TextToSQLService:
         dataset_ids: list[UUID] | None,
         username: str,
         search_results: dict[str, Any] | None = None,
+        use_schema_inspection: bool = False,
     ) -> dict[str, Any]:
         """Generate SQL from natural language query.
 
@@ -523,6 +565,7 @@ class TextToSQLService:
             dataset_ids: Optional list of dataset UUIDs to query
             username: Username for schema isolation
             search_results: Optional search results with column matches and value matches
+            use_schema_inspection: Whether to use Schema Inspector Agent for dynamic schema discovery
 
         Returns:
             Dictionary with sql and params
@@ -546,13 +589,42 @@ class TextToSQLService:
             schema_description += f"\nTable: {table_name}\n"
             schema_description += f"Columns: {', '.join(columns)}\n"
         schema_description += "\n" + "=" * 80 + "\n"
-        schema_description += "⚠️  WARNING: ANY table or column name NOT listed above DOES NOT EXIST.\n"
+        schema_description += (
+            "⚠️  WARNING: ANY table or column name NOT listed above DOES NOT EXIST.\n"
+        )
         schema_description += "⚠️  DO NOT invent, guess, or modify these names. COPY THEM EXACTLY.\n"
+
+        # Optional: Use Schema Inspector Agent for dynamic schema discovery
+        schema_inspection_task: Any | None = None
+        if use_schema_inspection:
+            if self.pool is None:
+                raise ValueError("Database pool is required for schema inspection")
+
+            # Initialize Schema Inspector Service
+            schema_inspector_service: SchemaInspectorService = SchemaInspectorService(self.pool)
+
+            # Set global context for tools
+            set_schema_inspector_context(schema_inspector_service, username)
+
+            # Create Schema Inspector Agent with tools
+            inspector_tools: list[Any] = [
+                list_datasets_tool,
+                inspect_schema_tool,
+                get_sample_data_tool,
+            ]
+            inspector_agent: Any = create_schema_inspector_agent(inspector_tools)
+
+            # Create schema inspection task
+            schema_inspection_task = create_schema_inspection_task(
+                agent=inspector_agent, query_text=query_text, dataset_ids=dataset_ids
+            )
 
         # Create SQL Generator agent
         sql_agent: Any = create_sql_generator_agent()
 
         # Create SQL generation task (with cross-reference context and search results)
+        # If schema inspection is enabled, pass it as context
+        sql_task_context: list[Any] = [schema_inspection_task] if schema_inspection_task else []
         task: Any = create_sql_generation_task(
             agent=sql_agent,
             query_text=query_text,
@@ -562,8 +634,16 @@ class TextToSQLService:
             schema_context=schema_description,  # Pass explicit schema
         )
 
+        # Set context if schema inspection task exists
+        if sql_task_context:
+            task.context = sql_task_context
+
         # Create crew and execute
-        crew: Crew = Crew(agents=[sql_agent], tasks=[task], verbose=False)
+        crew_agents: list[Any] = (
+            [inspector_agent, sql_agent] if schema_inspection_task else [sql_agent]
+        )
+        crew_tasks: list[Any] = [schema_inspection_task, task] if schema_inspection_task else [task]
+        crew: Crew = Crew(agents=crew_agents, tasks=crew_tasks, verbose=False)
 
         # Execute crew (synchronous)
         result: Any = crew.kickoff()
@@ -590,9 +670,7 @@ class TextToSQLService:
 
         if placeholder_count > 0 and search_results:
             # Extract keywords from data_value_results if available
-            data_value_results: list[dict[str, Any]] = search_results.get(
-                "data_value_results", []
-            )
+            data_value_results: list[dict[str, Any]] = search_results.get("data_value_results", [])
 
             if len(data_value_results) > 0:
                 # Use query_text to extract the search keyword

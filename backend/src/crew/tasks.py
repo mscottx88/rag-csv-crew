@@ -80,9 +80,7 @@ def create_sql_generation_task(
                     f"in {match['match_count']} rows\n"
                 )
                 if match.get("sample_values"):
-                    samples: str = ", ".join(
-                        [f"'{v}'" for v in match["sample_values"][:2]]
-                    )
+                    samples: str = ", ".join([f"'{v}'" for v in match["sample_values"][:2]])
                     value_context += f"  Sample values: {samples}\n"
 
             value_context += (
@@ -275,6 +273,65 @@ Output a JSON list of semantically similar columns with their similarity scores.
     expected_output: str = (
         "JSON list of columns ranked by semantic similarity, "
         "including column_name, dataset_id, distance, and similarity score"
+    )
+
+    task: Task = Task(description=description, expected_output=expected_output, agent=agent)
+    return task
+
+
+def create_schema_inspection_task(
+    agent: Agent, query_text: str, dataset_ids: list[UUID] | None
+) -> Task:
+    """Create task for inspecting database schema before SQL generation.
+
+    Args:
+        agent: Schema Inspector agent with schema inspection tools
+        query_text: Natural language query to understand context
+        dataset_ids: Optional list of dataset UUIDs to inspect
+
+    Returns:
+        Task configured for schema inspection
+
+    Task Output:
+    - Complete schema information including table names, column names, and types
+    - Sample data for understanding data structure
+    - Used as context for SQL generation task
+    """
+    dataset_info: str = (
+        f"specific datasets: {dataset_ids}" if dataset_ids else "all available datasets"
+    )
+
+    description: str = f"""Inspect the database schema to provide accurate context for SQL query generation.
+
+Query: "{query_text}"
+Target Datasets: {dataset_info}
+
+Your Task:
+1. Use the list_datasets tool to discover available tables
+2. For each relevant dataset, use inspect_schema tool to get exact table and column names
+3. Optionally use get_sample_data tool to understand data structure (if helpful for the query)
+4. Provide a clear summary of the schema including:
+   - Exact table names
+   - Exact column names with their types
+   - Sample data (if retrieved)
+
+CRITICAL INSTRUCTIONS:
+- ALWAYS use tools - DO NOT guess or rely on prior knowledge
+- Provide EXACT names as returned by the tools
+- Include data types for all columns
+- Be thorough but concise
+
+Output Format:
+Provide a structured summary that includes:
+- Available Tables: [list with exact names]
+- Schema Details: [for each table, list columns with types]
+- Sample Data: [if helpful, show a few example rows]
+
+This information will guide SQL query generation."""
+
+    expected_output: str = (
+        "Structured schema summary with exact table names, column names, "
+        "types, and optional sample data"
     )
 
     task: Task = Task(description=description, expected_output=expected_output, agent=agent)
