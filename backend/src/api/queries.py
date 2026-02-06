@@ -291,12 +291,19 @@ def submit_query(  # pylint: disable=too-many-locals
                 logger.info("Merging data value matches into fused results")
                 # Convert value matches to column format for fused_results
                 for value_match in value_matches:
+                    boosted_score: float = value_match["score"] * 0.8
+                    logger.info(
+                        f"  Data value match: {value_match['column_name']} "
+                        f"(raw score: {value_match['score']:.3f}, "
+                        f"boosted: {boosted_score:.3f}, "
+                        f"matches: {value_match['match_count']})"
+                    )
                     fused_results.append(
                         {
                             "column_name": value_match["column_name"],
                             "dataset_id": value_match["dataset_id"],
                             # Boost score to indicate strong match
-                            "combined_score": value_match["score"] * 0.8,
+                            "combined_score": boosted_score,
                             "source": "data_values",
                             "match_count": value_match["match_count"],
                             "sample_values": value_match["sample_values"],
@@ -305,6 +312,15 @@ def submit_query(  # pylint: disable=too-many-locals
 
                 # Sort fused results by score (descending) so highest scores appear first
                 fused_results.sort(key=lambda x: x.get("combined_score", 0.0), reverse=True)
+
+                # Debug: Log top 5 results after sorting
+                logger.info(f"After sorting, top 5 fused_results:")
+                for i, result in enumerate(fused_results[:5]):
+                    logger.info(
+                        f"  {i+1}. {result.get('column_name', '?')} "
+                        f"(score: {result.get('combined_score', 0.0):.3f}, "
+                        f"source: {result.get('source', 'hybrid')})"
+                    )
 
                 # Update search results with merged and sorted data
                 search_results["fused_results"] = fused_results
