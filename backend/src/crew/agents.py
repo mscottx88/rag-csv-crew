@@ -10,11 +10,14 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
+import logging
 from typing import Any
 
 from crewai import Agent
 
-from src.utils.llm_config import get_llm_for_crew
+from src.utils.llm_config import get_llm_for_crew, get_llm_provider_name
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def create_sql_generator_agent() -> Agent:
@@ -33,6 +36,8 @@ def create_sql_generator_agent() -> Agent:
     - Knowledge: Database schema, SQL best practices
     """
     llm: Any = get_llm_for_crew()
+    provider: str = get_llm_provider_name()
+    logger.info(f"Creating SQL Generator agent with LLM provider: {provider}")
     agent: Agent = Agent(
         role="Database Query Specialist",
         goal=(
