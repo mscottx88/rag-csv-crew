@@ -130,19 +130,12 @@ def _execute_sql_query(
         response_generator: Response generator instance
         username: Current username
     """
-    history_service.update_progress_message(
-        query_id, username, "Initializing Schema Inspector Agent..."
-    )
-
     sql_service: TextToSQLService = TextToSQLService(pool)
 
-    history_service.update_progress_message(
-        query_id, username, "Schema Inspector Agent analyzing database structure..."
-    )
-
-    history_service.update_progress_message(
-        query_id, username, "SQL Generator Agent creating query from natural language..."
-    )
+    # Create progress callback for SQL generation
+    def sql_generation_progress(message: str) -> None:
+        """Progress callback for SQL generation service."""
+        history_service.update_progress_message(query_id, username, message)
 
     sql_result: dict[str, Any] = sql_service.generate_sql(
         query_text=query_text,
@@ -150,6 +143,7 @@ def _execute_sql_query(
         username=username,
         search_results=search_results,
         use_schema_inspection=True,  # Enable Schema Inspector Agent
+        progress_callback=sql_generation_progress
     )
 
     history_service.update_progress_message(
@@ -273,23 +267,17 @@ def _process_query_background(  # pylint: disable=too-many-locals
             [str(uuid) for uuid in dataset_ids] if dataset_ids is not None else None
         )
 
-        history_service.update_progress_message(
-            query_id, username, "Searching for exact column name matches..."
-        )
-
-        history_service.update_progress_message(
-            query_id, username, "Performing full-text search across column descriptions..."
-        )
-
-        history_service.update_progress_message(
-            query_id, username, "Running semantic vector search for column meanings..."
-        )
+        # Create progress callback for hybrid search
+        def hybrid_search_progress(message: str) -> None:
+            """Progress callback for hybrid search service."""
+            history_service.update_progress_message(query_id, username, message)
 
         search_results: dict[str, Any] = hybrid_service.search(
             username=username,
             query_text=query_text,
             dataset_ids=dataset_ids_str,
             limit=10,
+            progress_callback=hybrid_search_progress
         )
 
         history_service.update_progress_message(

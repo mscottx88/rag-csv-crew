@@ -15,6 +15,7 @@ Constitutional Requirements:
 """
 
 import re
+from collections.abc import Callable
 from typing import Any
 from uuid import UUID
 
@@ -567,6 +568,7 @@ class TextToSQLService:
         username: str,
         search_results: dict[str, Any] | None = None,
         use_schema_inspection: bool = False,
+        progress_callback: Callable[[str], None] | None = None
     ) -> dict[str, Any]:
         """Generate SQL from natural language query.
 
@@ -576,6 +578,7 @@ class TextToSQLService:
             username: Username for schema isolation
             search_results: Optional search results with column matches and value matches
             use_schema_inspection: Whether to use Schema Inspector Agent for dynamic schema discovery
+            progress_callback: Optional callback to report progress messages
 
         Returns:
             Dictionary with sql and params
@@ -583,13 +586,20 @@ class TextToSQLService:
         Raises:
             Exception: If SQL generation fails or validation fails
         """
+        if progress_callback:
+            progress_callback("Loading database schema context for SQL generation...")
+
         # Get schema context for validation
         schema_context: dict[str, Any] = self.get_schema_context(username, dataset_ids)
 
         # Retrieve cross-references if multiple datasets specified
         cross_references: list[dict[str, Any]] = []
         if dataset_ids and len(dataset_ids) > 1:
+            if progress_callback:
+                progress_callback(f"Analyzing relationships between {len(dataset_ids)} datasets...")
             cross_references = self.get_cross_references(username, dataset_ids)
+            if progress_callback and cross_references:
+                progress_callback(f"Found {len(cross_references)} cross-dataset relationships")
 
         # Build schema description for agent (explicit table and column names)
         schema_description: str = "\n\nAVAILABLE SCHEMA (YOU MUST USE EXACTLY THESE NAMES):\n"
@@ -610,6 +620,9 @@ class TextToSQLService:
             if self.pool is None:
                 raise ValueError("Database pool is required for schema inspection")
 
+            if progress_callback:
+                progress_callback("Creating Schema Inspector Agent with database tools...")
+
             # Initialize Schema Inspector Service
             schema_inspector_service: SchemaInspectorService = SchemaInspectorService(self.pool)
 
@@ -624,10 +637,16 @@ class TextToSQLService:
             ]
             inspector_agent: Any = create_schema_inspector_agent(inspector_tools)
 
+            if progress_callback:
+                progress_callback("Schema Inspector Agent tools ready (list_datasets, inspect_schema, get_sample_data)")
+
             # Create schema inspection task
             schema_inspection_task = create_schema_inspection_task(
                 agent=inspector_agent, query_text=query_text, dataset_ids=dataset_ids
             )
+
+        if progress_callback:
+            progress_callback("Creating SQL Generator Agent for query translation...")
 
         # Create SQL Generator agent
         sql_agent: Any = create_sql_generator_agent()
@@ -653,25 +672,50 @@ class TextToSQLService:
             [inspector_agent, sql_agent] if schema_inspection_task else [sql_agent]
         )
         crew_tasks: list[Any] = [schema_inspection_task, task] if schema_inspection_task else [task]
+
+        if progress_callback:
+            agent_count: int = len(crew_agents)
+            task_count: int = len(crew_tasks)
+            progress_callback(f"Starting CrewAI with {agent_count} agent(s) and {task_count} task(s)...")
+
         crew: Crew = Crew(agents=crew_agents, tasks=crew_tasks, verbose=False)
+
+        if progress_callback:
+            if use_schema_inspection:
+                progress_callback("Schema Inspector Agent analyzing tables and columns...")
+            progress_callback("SQL Generator Agent translating natural language to SQL...")
 
         # Execute crew (synchronous)
         result: Any = crew.kickoff()
 
+        if progress_callback:
+            progress_callback("CrewAI execution complete, extracting generated SQL...")
+
         # Extract SQL from result
         sql_output: str = str(result.raw) if hasattr(result, "raw") else str(result)
 
+        if progress_callback:
+            progress_callback("Cleaning SQL output (removing markdown formatting)...")
+
         # Clean up SQL (remove markdown code blocks if present)
         cleaned_sql: str = self._clean_sql(sql_output)
+
+        if progress_callback:
+            progress_callback("Validating SQL against database schema...")
 
         # Validate SQL against schema
         validation: dict[str, Any] = self.validate_sql_against_schema(cleaned_sql, schema_context)
 
         if not validation["is_valid"]:
+            if progress_callback:
+                progress_callback(f"SQL validation failed: {len(validation['errors'])} error(s) found")
             error_message: str = "Generated SQL contains invalid table or column names:\n"
             error_message += "\n".join(f"  - {error}" for error in validation["errors"])
             error_message += f"\n\nGenerated SQL:\n{cleaned_sql}"
             raise ValueError(error_message)
+
+        if progress_callback:
+            progress_callback("SQL validation passed, preparing parameterized query...")
 
         # Extract parameters for placeholders (%s)
         # For data value queries, use keywords from query_text wrapped in % for ILIKE

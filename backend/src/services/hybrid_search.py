@@ -15,6 +15,7 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
+from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Any
 
@@ -44,7 +45,8 @@ class HybridSearchService:
         username: str,
         query_text: str,
         dataset_ids: list[str] | None = None,
-        limit: int = 10
+        limit: int = 10,
+        progress_callback: Callable[[str], None] | None = None
     ) -> dict[str, Any]:
         """Execute hybrid search combining three strategies in parallel.
 
@@ -53,6 +55,7 @@ class HybridSearchService:
             query_text: Natural language query to search for.
             dataset_ids: Optional list of dataset IDs to filter results.
             limit: Maximum number of results to return (default: 10).
+            progress_callback: Optional callback to report progress messages.
 
         Returns:
             Dictionary containing:
@@ -70,6 +73,9 @@ class HybridSearchService:
 
         if not query_text or not query_text.strip():
             raise ValueError("Query text cannot be empty")
+
+        if progress_callback:
+            progress_callback("Launching parallel search threads (exact, full-text, vector)...")
 
         # Execute three search strategies in parallel
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -98,11 +104,28 @@ class HybridSearchService:
             )
 
             # Collect results (blocking until all complete)
+            if progress_callback:
+                progress_callback("Exact match search thread started...")
             exact_results: list[dict[str, Any]] = exact_future.result()
+            if progress_callback:
+                progress_callback(f"Exact match complete: {len(exact_results)} columns found")
+
+            if progress_callback:
+                progress_callback("Full-text search thread retrieving results...")
             fulltext_results: list[dict[str, Any]] = fulltext_future.result()
+            if progress_callback:
+                progress_callback(f"Full-text search complete: {len(fulltext_results)} columns found")
+
+            if progress_callback:
+                progress_callback("Vector similarity search thread computing embeddings...")
             vector_results: list[dict[str, Any]] = vector_future.result()
+            if progress_callback:
+                progress_callback(f"Vector search complete: {len(vector_results)} columns found")
 
         # Fuse results with default weights
+        if progress_callback:
+            progress_callback("Fusing results with weighted scoring (40% exact, 30% full-text, 30% vector)...")
+
         default_weights: dict[str, float] = {
             "exact": 0.4,
             "fulltext": 0.3,
@@ -116,8 +139,14 @@ class HybridSearchService:
             weights=default_weights
         )
 
+        if progress_callback:
+            progress_callback(f"Deduplicating and ranking {len(fused_results)} total matches...")
+
         # Apply limit to final results
         fused_results = fused_results[:limit]
+
+        if progress_callback:
+            progress_callback(f"Hybrid search fusion complete: top {len(fused_results)} results selected")
 
         return {
             "exact_results": exact_results,
