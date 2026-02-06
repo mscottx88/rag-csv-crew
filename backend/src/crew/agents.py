@@ -52,6 +52,11 @@ def create_sql_generator_agent() -> Agent:
         placeholder syntax (%s for PostgreSQL) to prevent SQL injection attacks. NEVER
         concatenate user input directly into SQL strings.
 
+        TABLE NAME REQUIREMENT: You MUST use the EXACT table names provided in the schema
+        information. NEVER invent or guess table names. If the schema says the table is
+        "periodic_elements_safe_data", you MUST use that exact name, not "elements" or
+        "periodic_elements". The table names are explicitly provided in the dataset information.
+
         VALUE-BASED QUERY EXPERTISE: You understand two types of queries:
         1. SCHEMA QUERIES: Questions about column structure (e.g., "show me revenue columns")
            - These select columns directly: SELECT revenue FROM table

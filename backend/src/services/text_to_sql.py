@@ -106,10 +106,19 @@ class TextToSQLService:
 
             for dataset_row in dataset_rows:
                 dataset_id: str = str(dataset_row[0])
+                filename: str = dataset_row[1]
+
+                # Handle both "file.csv" and "file" formats
+                table_name: str
+                if filename.endswith(".csv"):
+                    table_name = filename.replace(".csv", "_data")
+                else:
+                    table_name = f"{filename}_data"
+
                 dataset_info: dict[str, Any] = {
                     "id": dataset_id,
-                    "filename": dataset_row[1],
-                    "table_name": dataset_row[1].replace(".csv", "_data"),
+                    "filename": filename,
+                    "table_name": table_name,
                     "row_count": dataset_row[2],
                     "column_count": dataset_row[3],
                     "uploaded_at": str(dataset_row[4]),
