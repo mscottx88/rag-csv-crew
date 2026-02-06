@@ -303,7 +303,10 @@ def submit_query(  # pylint: disable=too-many-locals
                         }
                     )
 
-                # Update search results with merged data
+                # Sort fused results by score (descending) so highest scores appear first
+                fused_results.sort(key=lambda x: x.get("combined_score", 0.0), reverse=True)
+
+                # Update search results with merged and sorted data
                 search_results["fused_results"] = fused_results
                 search_results["data_value_results"] = value_matches
 
