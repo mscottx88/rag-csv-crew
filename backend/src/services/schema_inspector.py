@@ -17,6 +17,8 @@ from uuid import UUID
 from psycopg import sql
 from psycopg_pool import ConnectionPool
 
+from src.services.column_metadata import ColumnMetadataService
+
 
 class SchemaInspectorService:
     """Service for inspecting database schemas and providing context to agents.
@@ -210,7 +212,7 @@ class SchemaInspectorService:
             column_name: Name of the column
 
         Returns:
-            Dictionary with column metadata
+            Dictionary with column metadata including statistics (min/max, distinct count, etc.)
 
         Raises:
             ValueError: If column not found
@@ -220,7 +222,12 @@ class SchemaInspectorService:
                 "column_name": "customer_id",
                 "inferred_type": "INTEGER",
                 "description": "Unique customer identifier",
-                "semantic_type": "identifier"
+                "semantic_type": "identifier",
+                "min_value": "1",
+                "max_value": "1000",
+                "distinct_count": 1000,
+                "null_count": 0,
+                "top_values": [{"value": "1", "count": 5}]
             }
         """
         user_schema: str = f"{username}_schema"
@@ -243,12 +250,35 @@ class SchemaInspectorService:
             if row is None:
                 raise ValueError(f"Column '{column_name}' not found in dataset {dataset_id}")
 
-            return {
+            column_details: dict[str, Any] = {
                 "column_name": row[0],
                 "inferred_type": row[1],
                 "semantic_type": row[2] if row[2] else "",
                 "description": row[3] if row[3] else "",
             }
+
+            # Enrich with column metadata (min/max, distinct count, top values)
+            try:
+                metadata_service: ColumnMetadataService = ColumnMetadataService(self.pool)
+                metadata_list: list[dict[str, Any]] = metadata_service.get_column_metadata(
+                    username=username,
+                    dataset_id=dataset_id,
+                    column_name=column_name,
+                )
+
+                if metadata_list:
+                    metadata: dict[str, Any] = metadata_list[0]
+                    column_details["min_value"] = metadata.get("min_value")
+                    column_details["max_value"] = metadata.get("max_value")
+                    column_details["distinct_count"] = metadata.get("distinct_count")
+                    column_details["null_count"] = metadata.get("null_count")
+                    column_details["top_values"] = metadata.get("top_values")
+            except Exception:  # pylint: disable=broad-exception-caught
+                # JUSTIFICATION: Metadata enrichment is optional - if unavailable,
+                # return basic column details without statistics
+                pass
+
+            return column_details
 
     def get_relationships(self, username: str, dataset_ids: list[UUID]) -> list[dict[str, Any]]:
         """Get cross-references between specified datasets.

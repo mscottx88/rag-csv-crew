@@ -99,26 +99,26 @@ Project uses web app structure:
 
 **Step 1: Schema Query Methods**
 
-- [ ] T028 [P] [US2] Implement get_available_datasets() in backend/src/services/schema_inspector.py
-- [ ] T029 [P] [US2] Implement get_dataset_schema() in backend/src/services/schema_inspector.py
-- [ ] T030 [P] [US2] Implement get_column_details() in backend/src/services/schema_inspector.py
-- [ ] T031 [P] [US2] Implement get_relationships() in backend/src/services/schema_inspector.py
-- [ ] T032 [P] [US2] Implement get_sample_data() in backend/src/services/schema_inspector.py
-- [ ] T033 [US2] Integrate get_column_metadata() call in get_column_details() in backend/src/services/schema_inspector.py
+- [X] T028 [P] [US2] Implement get_available_datasets() in backend/src/services/schema_inspector.py
+- [X] T029 [P] [US2] Implement get_dataset_schema() in backend/src/services/schema_inspector.py
+- [X] T030 [P] [US2] Implement get_column_details() in backend/src/services/schema_inspector.py
+- [X] T031 [P] [US2] Implement get_relationships() in backend/src/services/schema_inspector.py
+- [X] T032 [P] [US2] Implement get_sample_data() in backend/src/services/schema_inspector.py
+- [X] T033 [US2] Integrate get_column_metadata() call in get_column_details() in backend/src/services/schema_inspector.py
 
 **Step 2: CrewAI Tools**
 
-- [ ] T034 [P] [US2] Create set_schema_inspector_context() global state injection in backend/src/crew/tools.py
-- [ ] T035 [P] [US2] Implement list_datasets_tool() with @tool decorator in backend/src/crew/tools.py
-- [ ] T036 [P] [US2] Implement inspect_schema_tool() with @tool decorator in backend/src/crew/tools.py
-- [ ] T037 [P] [US2] Implement get_sample_data_tool() with @tool decorator in backend/src/crew/tools.py
+- [X] T034 [P] [US2] Create set_schema_inspector_context() global state injection in backend/src/crew/tools.py
+- [X] T035 [P] [US2] Implement list_datasets_tool() with @tool decorator in backend/src/crew/tools.py
+- [X] T036 [P] [US2] Implement inspect_schema_tool() with @tool decorator in backend/src/crew/tools.py
+- [X] T037 [P] [US2] Implement get_sample_data_tool() with @tool decorator in backend/src/crew/tools.py
 
 **Step 3: CrewAI Agent & Task**
 
-- [ ] T038 [US2] Create create_schema_inspector_agent() function in backend/src/crew/agents.py
-- [ ] T039 [US2] Define agent role, goal, and backstory in create_schema_inspector_agent() in backend/src/crew/agents.py
-- [ ] T040 [US2] Create create_schema_inspection_task() function in backend/src/crew/tasks.py
-- [ ] T041 [US2] Define task description with tool usage instructions in create_schema_inspection_task() in backend/src/crew/tasks.py
+- [X] T038 [US2] Create create_schema_inspector_agent() function in backend/src/crew/agents.py
+- [X] T039 [US2] Define agent role, goal, and backstory in create_schema_inspector_agent() in backend/src/crew/agents.py
+- [X] T040 [US2] Create create_schema_inspection_task() function in backend/src/crew/tasks.py
+- [X] T041 [US2] Define task description with tool usage instructions in create_schema_inspection_task() in backend/src/crew/tasks.py
 
 **Step 4: Integration with Text-to-SQL**
 
