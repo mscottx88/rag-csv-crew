@@ -165,13 +165,21 @@ cd ..
 
 ### 5. Start Development Servers
 
-**Backend (FastAPI)**:
+**Option 1: Use the launcher script (recommended)**:
+```bash
+python launch.py
+```
+This starts both backend and frontend servers with graceful shutdown handling (Ctrl+C).
+
+**Option 2: Start servers manually**:
+
+Backend (FastAPI):
 ```bash
 cd backend
 uvicorn src.main:app --reload --port 8000
 ```
 
-**Frontend (React)**:
+Frontend (React):
 ```bash
 cd frontend
 npm run dev  # Starts Vite dev server on http://localhost:5173
