@@ -20,6 +20,41 @@ from psycopg_pool import ConnectionPool
 # Configure logger
 logger: logging.Logger = logging.getLogger(__name__)
 
+# Common stop words to filter out from queries
+STOP_WORDS: set[str] = {
+    "tell", "me", "about", "show", "give", "get", "find", "what", "is", "are",
+    "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
+    "of", "with", "by", "from", "as", "that", "this", "these", "those",
+    "it", "its", "i", "you", "we", "they", "all", "any", "some", "many",
+}
+
+
+def extract_keywords(query_text: str) -> list[str]:
+    """Extract meaningful keywords from query text by removing stop words.
+
+    Args:
+        query_text: Natural language query text
+
+    Returns:
+        List of keywords (lowercase, non-stop words, length >= 2)
+
+    Example:
+        "tell me about gold" -> ["gold"]
+        "show me revenue and profit data" -> ["revenue", "profit", "data"]
+    """
+    # Split on whitespace and punctuation, convert to lowercase
+    words: list[str] = query_text.lower().split()
+
+    # Filter out stop words and short words (< 2 chars)
+    keywords: list[str] = [
+        word.strip(".,;:!?()[]{}\"'")
+        for word in words
+        if len(word.strip(".,;:!?()[]{}\"'")) >= 2
+        and word.strip(".,;:!?()[]{}\"'") not in STOP_WORDS
+    ]
+
+    return keywords
+
 
 class DataValueSearchService:
     """Service for searching query terms in actual data values."""
@@ -73,12 +108,19 @@ class DataValueSearchService:
             raise ValueError("Query text cannot be empty")
 
         user_schema: str = f"{username}_schema"
-        query_lower: str = query_text.strip().lower()
+
+        # Extract keywords from query (removes stop words like "tell me about")
+        keywords: list[str] = extract_keywords(query_text)
+
+        if not keywords:
+            logger.warning(f"No keywords extracted from query: '{query_text}'")
+            return []
+
         results: list[dict[str, Any]] = []
 
         logger.info(
             f"DataValueSearch: Starting search for '{query_text}' "
-            f"(user: {username}, sample_size: {sample_size})"
+            f"(keywords: {keywords}, user: {username}, sample_size: {sample_size})"
         )
 
         try:
@@ -203,7 +245,8 @@ class DataValueSearchService:
                             value: Any = sampled_row[0]
                             if value is not None:
                                 value_str: str = str(value).lower()
-                                if query_lower in value_str:
+                                # Check if any keyword appears in the value
+                                if any(keyword in value_str for keyword in keywords):
                                     match_count += 1
                                     if len(matching_values) < 3:
                                         matching_values.append(str(value))
