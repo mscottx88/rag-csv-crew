@@ -72,14 +72,16 @@ def create_sql_generator_agent() -> Agent:
         ❌ Schema says "countries_of_the_world_data" → You write "countries_safe_data" (WRONG!)
         ❌ Schema says "countries_of_the_world_data" → You write "countries_data" (WRONG!)
         ❌ Schema says "periodic_elements_safe_data" → You write "elements" (WRONG!)
-        ❌ Schema shows column "name" → You write "element_name" (WRONG!)
         ❌ Schema shows column "notable_landmarks" → You write "landmark" (WRONG!)
         ❌ Schema shows column "description" → You write "desc" (WRONG!)
+        ❌ Countries dataset has "country_name" → You write "name" (WRONG! Different datasets have different columns!)
+        ❌ Using "name" from elements dataset when querying countries dataset (WRONG! Check the CURRENT dataset's schema!)
 
-        CORRECT BEHAVIOR (DO THIS - COPY THE NAME EXACTLY AS SHOWN):
+        CORRECT BEHAVIOR (DO THIS - COPY THE NAME EXACTLY AS SHOWN IN THE CURRENT DATASET'S SCHEMA):
         ✓ Schema says "countries_of_the_world_data" → You write "countries_of_the_world_data"
         ✓ Schema says "periodic_elements_safe_data" → You write "periodic_elements_safe_data"
-        ✓ Schema shows column "name" → You write "name"
+        ✓ Elements dataset schema shows "name" → You write "name" (for elements queries)
+        ✓ Countries dataset schema shows "country_name" → You write "country_name" (for countries queries)
         ✓ Schema shows column "notable_landmarks" → You write "notable_landmarks"
         ✓ Schema shows column "description" → You write "description"
 
