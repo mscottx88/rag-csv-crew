@@ -65,8 +65,16 @@ def _handle_clarification_response(
     Returns:
         Query object with clarification response stored
     """
+    history_service.update_progress_message(
+        query_id, username, "Preparing clarification with top column matches..."
+    )
+
     clarification_response: dict[str, Any] = response_generator.generate_clarification_request(
         query_text=query_text, search_results=search_results
+    )
+
+    history_service.update_progress_message(
+        query_id, username, "Formatting clarification response as HTML..."
     )
 
     execution_time_ms: int = int((time.time() - start_time) * 1000)
@@ -122,13 +130,30 @@ def _execute_sql_query(
         response_generator: Response generator instance
         username: Current username
     """
+    history_service.update_progress_message(
+        query_id, username, "Initializing Schema Inspector Agent..."
+    )
+
     sql_service: TextToSQLService = TextToSQLService(pool)
+
+    history_service.update_progress_message(
+        query_id, username, "Schema Inspector Agent analyzing database structure..."
+    )
+
+    history_service.update_progress_message(
+        query_id, username, "SQL Generator Agent creating query from natural language..."
+    )
+
     sql_result: dict[str, Any] = sql_service.generate_sql(
         query_text=query_text,
         dataset_ids=dataset_ids,
         username=username,
         search_results=search_results,
         use_schema_inspection=True,  # Enable Schema Inspector Agent
+    )
+
+    history_service.update_progress_message(
+        query_id, username, "SQL query generated successfully, validating syntax..."
     )
 
     history_service.update_progress_message(
@@ -143,7 +168,11 @@ def _execute_sql_query(
     )
 
     history_service.update_progress_message(
-        query_id, username, "Generating HTML response..."
+        query_id, username, f"Query completed, processing {query_results['row_count']} rows..."
+    )
+
+    history_service.update_progress_message(
+        query_id, username, "Result Analyst Agent formatting results as HTML..."
     )
     response_data: dict[str, Any] = response_generator.generate_html_response(
         query_text=query_text, query_results=query_results, _query_id=query_id
@@ -236,13 +265,26 @@ def _process_query_background(  # pylint: disable=too-many-locals
 
         # Run hybrid search to find relevant columns (semantic + keyword + exact match)
         history_service.update_progress_message(
-            query_id, username, "Running hybrid search (exact match + full-text + semantic)..."
+            query_id, username, "Starting hybrid search: exact match, full-text, semantic..."
         )
         hybrid_service: HybridSearchService = HybridSearchService(pool)
         # Convert UUID list to string list for hybrid search
         dataset_ids_str: list[str] | None = (
             [str(uuid) for uuid in dataset_ids] if dataset_ids is not None else None
         )
+
+        history_service.update_progress_message(
+            query_id, username, "Searching for exact column name matches..."
+        )
+
+        history_service.update_progress_message(
+            query_id, username, "Performing full-text search across column descriptions..."
+        )
+
+        history_service.update_progress_message(
+            query_id, username, "Running semantic vector search for column meanings..."
+        )
+
         search_results: dict[str, Any] = hybrid_service.search(
             username=username,
             query_text=query_text,
@@ -250,8 +292,14 @@ def _process_query_background(  # pylint: disable=too-many-locals
             limit=10,
         )
 
+        history_service.update_progress_message(
+            query_id, username, f"Hybrid search complete, found {len(search_results.get('fused_results', []))} matches"
+        )
+
         # Calculate initial confidence score
-        history_service.update_progress_message(query_id, username, "Calculating confidence score...")
+        history_service.update_progress_message(
+            query_id, username, "Analyzing search results and calculating confidence score..."
+        )
         response_generator: ResponseGenerator = ResponseGenerator()
         confidence_score: float = response_generator.calculate_confidence_score(search_results)
 
@@ -266,11 +314,20 @@ def _process_query_background(  # pylint: disable=too-many-locals
         if confidence_score < 0.4:
             logger.info(f"Low confidence ({confidence_score:.2f}). Attempting data value search...")
             history_service.update_progress_message(
-                query_id, username, "Low confidence - searching data values..."
+                query_id, username, f"Low confidence ({confidence_score:.1%}) - searching actual data values..."
+            )
+
+            history_service.update_progress_message(
+                query_id, username, "Extracting keywords from query for data value search..."
             )
 
             # Search for query terms in actual data values
             data_value_service: DataValueSearchService = DataValueSearchService(pool)
+
+            history_service.update_progress_message(
+                query_id, username, "Scanning database tables for matching data values..."
+            )
+
             value_matches: list[dict[str, Any]] = data_value_service.search_data_values(
                 username=username,
                 query_text=query_text,
@@ -281,8 +338,16 @@ def _process_query_background(  # pylint: disable=too-many-locals
 
             logger.info(f"Data value search returned {len(value_matches)} matches")
 
+            history_service.update_progress_message(
+                query_id, username, f"Data value search complete, found {len(value_matches)} matches"
+            )
+
             # If data value matches found, boost confidence and merge results
             if len(value_matches) > 0:
+                history_service.update_progress_message(
+                    query_id, username, "Merging data value matches with column search results..."
+                )
+
                 logger.info("Merging data value matches into fused results")
                 for value_match in value_matches:
                     boosted_score: float = value_match["score"] * 0.8
@@ -319,8 +384,16 @@ def _process_query_background(  # pylint: disable=too-many-locals
                 search_results["fused_results"] = fused_results
                 search_results["data_value_results"] = value_matches
 
+                history_service.update_progress_message(
+                    query_id, username, "Recalculating confidence with data value matches..."
+                )
+
                 # Recalculate confidence with data value matches
                 confidence_score = response_generator.calculate_confidence_score(search_results)
+
+                history_service.update_progress_message(
+                    query_id, username, f"Confidence improved to {confidence_score:.1%}, proceeding with SQL generation"
+                )
 
                 logger.info(
                     f"Data value matches found with confidence {confidence_score:.2f}. "
@@ -333,6 +406,10 @@ def _process_query_background(  # pylint: disable=too-many-locals
             response_generator.is_low_confidence(confidence_score, threshold=0.6)
             and not has_data_value_matches
         ):
+            history_service.update_progress_message(
+                query_id, username, f"Confidence too low ({confidence_score:.1%}), generating clarification request..."
+            )
+
             _handle_clarification_response(
                 query_id=query_id,
                 query_text=query_text,
