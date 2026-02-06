@@ -502,7 +502,15 @@ class TextToSQLService:
         # Order alternatives longest-first to avoid matching "IS" within "ILIKE"
         # Add word boundary after operators to prevent partial matches
         column_pattern: str = r"\b([a-z_][a-z0-9_]*)\s*(?:ILIKE|LIKE|IN|IS|=|<|>)\b"
+
+        # DEBUG: Log the pattern and SQL being validated
+        import logging
+        logger: logging.Logger = logging.getLogger(__name__)
+        logger.info(f"[VALIDATION DEBUG] Using regex pattern: {column_pattern}")
+        logger.info(f"[VALIDATION DEBUG] Validating SQL: {sql_query[:200]}")
+
         potential_columns: list[str] = re.findall(column_pattern, sql_query, re.IGNORECASE)
+        logger.info(f"[VALIDATION DEBUG] Extracted columns: {potential_columns}")
 
         # Check columns against all valid tables (since we may not know which table each column belongs to)
         all_valid_columns: set[str] = set()
