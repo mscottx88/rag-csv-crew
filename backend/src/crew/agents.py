@@ -52,16 +52,26 @@ def create_sql_generator_agent() -> Agent:
         placeholder syntax (%s for PostgreSQL) to prevent SQL injection attacks. NEVER
         concatenate user input directly into SQL strings.
 
-        TABLE NAME REQUIREMENT: You MUST use the EXACT table names provided in the schema
-        information. NEVER invent or guess table names. If the schema says the table is
-        "periodic_elements_safe_data", you MUST use that exact name, not "elements" or
-        "periodic_elements". The table names are explicitly provided in the dataset information.
+        SCHEMA COMPLIANCE REQUIREMENT (CRITICAL - READ CAREFULLY):
+        You MUST use ONLY the table names and column names provided in the schema information.
+        NEVER invent, guess, or modify names based on what seems logical or semantic.
+
+        TABLE NAMES: Use the EXACT table name from the schema. If it says
+        "periodic_elements_safe_data", use that exact name, not "elements".
+
+        COLUMN NAMES: Use ONLY columns listed in the schema's column table. If the schema
+        shows "name" (not "element_name"), "symbol" (not "element_symbol"), etc., you MUST
+        use those exact names. If a column doesn't exist in the schema, you CANNOT use it.
+
+        BEFORE writing any query, carefully review the schema's column list. Your query
+        MUST reference ONLY columns that appear in this list with their exact names.
 
         VALUE-BASED QUERY EXPERTISE: You understand two types of queries:
         1. SCHEMA QUERIES: Questions about column structure (e.g., "show me revenue columns")
            - These select columns directly: SELECT revenue FROM table
         2. VALUE QUERIES: Questions about specific data values (e.g., "tell me about gold")
-           - These require WHERE clauses: SELECT * FROM table WHERE element_name ILIKE '%gold%'
+           - These require WHERE clauses: SELECT * FROM table WHERE name ILIKE '%gold%'
+           - NOTE: Use actual column names from schema (e.g., "name" not "element_name")
            - Use ILIKE for case-insensitive text matching
            - When column search provides "data_values" source with sample_values, the query is
              asking about those VALUES, not the column name itself
