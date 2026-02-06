@@ -153,7 +153,7 @@ def _execute_sql_query(
 
 
 @router.post("", response_model=Query, status_code=status.HTTP_201_CREATED)
-def submit_query(
+def submit_query(  # pylint: disable=too-many-locals
     query_create: QueryCreate, current_username: Annotated[str, Depends(get_current_user)]
 ) -> Query:
     """Submit a natural language query for processing.
@@ -228,8 +228,10 @@ def submit_query(
                 confidence_score=1.0,  # Metadata queries always have 100% confidence
             )
 
-            query_obj: dict[str, Any] = history_service.get_query_by_id(query_id, current_username)
-            return Query(**query_obj)
+            metadata_query_obj: dict[str, Any] = history_service.get_query_by_id(
+                query_id, current_username
+            )
+            return Query(**metadata_query_obj)
 
         # Run hybrid search to find relevant columns (semantic + keyword + exact match)
         hybrid_service: HybridSearchService = HybridSearchService(pool)

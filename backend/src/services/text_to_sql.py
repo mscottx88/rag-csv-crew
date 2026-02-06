@@ -67,11 +67,7 @@ class TextToSQLService:
             r"\b(list|enumerate)\s+(all|my)\b",
         ]
 
-        for pattern in metadata_patterns:
-            if re.search(pattern, query_lower):
-                return True
-
-        return False
+        return any(re.search(pattern, query_lower) for pattern in metadata_patterns)
 
     def get_available_metadata(self, username: str) -> dict[str, Any]:
         """Retrieve metadata about available datasets, tables, and columns for a user.
@@ -135,10 +131,12 @@ class TextToSQLService:
 
                 column_rows: list[tuple[Any, ...]] = cur.fetchall()
                 for column_row in column_rows:
-                    dataset_info["columns"].append({
-                        "name": column_row[0],
-                        "type": column_row[1],
-                    })
+                    dataset_info["columns"].append(
+                        {
+                            "name": column_row[0],
+                            "type": column_row[1],
+                        }
+                    )
 
                 metadata["datasets"].append(dataset_info)
 
@@ -189,38 +187,53 @@ class TextToSQLService:
             column_count: int = dataset["column_count"]
             columns: list[dict[str, str]] = dataset["columns"]
 
-            html_parts.extend([
-                "<section style='margin-bottom: 2em; padding: 1em; border: 1px solid #ddd; border-radius: 4px;'>",
-                f"<h3>{filename}</h3>",
-                "<ul style='list-style: none; padding: 0; margin: 0.5em 0;'>",
-                f"<li><strong>Table:</strong> {table_name}</li>",
-                f"<li><strong>Rows:</strong> {row_count:,}</li>",
-                f"<li><strong>Columns:</strong> {column_count}</li>",
-                "</ul>",
-                f"<h4>Columns ({column_count})</h4>",
-                "<table style='width: 100%; border-collapse: collapse;'>",
-                "<thead>",
-                "<tr style='background-color: #f5f5f5;'>",
-                "<th style='padding: 8px; text-align: left; border: 1px solid #ddd;'>Column Name</th>",
-                "<th style='padding: 8px; text-align: left; border: 1px solid #ddd;'>Data Type</th>",
-                "</tr>",
-                "</thead>",
-                "<tbody>",
-            ])
+            html_parts.extend(
+                [
+                    (
+                        "<section style='margin-bottom: 2em; padding: 1em; "
+                        "border: 1px solid #ddd; border-radius: 4px;'>"
+                    ),
+                    f"<h3>{filename}</h3>",
+                    "<ul style='list-style: none; padding: 0; margin: 0.5em 0;'>",
+                    f"<li><strong>Table:</strong> {table_name}</li>",
+                    f"<li><strong>Rows:</strong> {row_count:,}</li>",
+                    f"<li><strong>Columns:</strong> {column_count}</li>",
+                    "</ul>",
+                    f"<h4>Columns ({column_count})</h4>",
+                    "<table style='width: 100%; border-collapse: collapse;'>",
+                    "<thead>",
+                    "<tr style='background-color: #f5f5f5;'>",
+                    (
+                        "<th style='padding: 8px; text-align: left; "
+                        "border: 1px solid #ddd;'>Column Name</th>"
+                    ),
+                    (
+                        "<th style='padding: 8px; text-align: left; "
+                        "border: 1px solid #ddd;'>Data Type</th>"
+                    ),
+                    "</tr>",
+                    "</thead>",
+                    "<tbody>",
+                ]
+            )
 
             for column in columns:
-                html_parts.extend([
-                    "<tr>",
-                    f"<td style='padding: 8px; border: 1px solid #ddd;'>{column['name']}</td>",
-                    f"<td style='padding: 8px; border: 1px solid #ddd;'>{column['type']}</td>",
-                    "</tr>",
-                ])
+                html_parts.extend(
+                    [
+                        "<tr>",
+                        f"<td style='padding: 8px; border: 1px solid #ddd;'>{column['name']}</td>",
+                        f"<td style='padding: 8px; border: 1px solid #ddd;'>{column['type']}</td>",
+                        "</tr>",
+                    ]
+                )
 
-            html_parts.extend([
-                "</tbody>",
-                "</table>",
-                "</section>",
-            ])
+            html_parts.extend(
+                [
+                    "</tbody>",
+                    "</table>",
+                    "</section>",
+                ]
+            )
 
         html_parts.append("</article>")
 
@@ -228,7 +241,7 @@ class TextToSQLService:
 
     def resolve_datasets(
         self,
-        username: str,
+        _username: str,
         query_text: str,
         available_datasets: list[str],
         dataset_ids: list[str] | None = None,
@@ -236,13 +249,15 @@ class TextToSQLService:
         """Identify relevant datasets for a query based on content and relationships.
 
         Args:
-            username: Username for schema isolation
             query_text: Natural language question text
             available_datasets: List of available dataset names/IDs
             dataset_ids: Optional user-specified filter (if provided, limits to these)
 
         Returns:
             List of dataset names/IDs relevant to the query
+
+        Note:
+            _username parameter reserved for future cross-reference support
 
         Algorithm:
         1. If dataset_ids filter provided, return intersection with available_datasets
@@ -266,13 +281,13 @@ class TextToSQLService:
             dataset_name: str = dataset.replace(".csv", "").lower()
 
             # Check if dataset name (or singular/plural variant) appears in query
-            if dataset_name in query_lower:
-                matched_datasets.append(dataset)
-            # Check for singular variant (e.g., "customer" matches "customers")
-            elif dataset_name.endswith("s") and dataset_name[:-1] in query_lower:
-                matched_datasets.append(dataset)
-            # Check for plural variant (e.g., "customers" matches "customer")
-            elif not dataset_name.endswith("s") and f"{dataset_name}s" in query_lower:
+            if (
+                dataset_name in query_lower
+                # Check for singular variant (e.g., "customer" matches "customers")
+                or (dataset_name.endswith("s") and dataset_name[:-1] in query_lower)
+                # Check for plural variant (e.g., "customers" matches "customer")
+                or (not dataset_name.endswith("s") and f"{dataset_name}s" in query_lower)
+            ):
                 matched_datasets.append(dataset)
 
         # If no matches found, return all available datasets (query all by default)
@@ -281,9 +296,7 @@ class TextToSQLService:
 
         return matched_datasets
 
-    def get_cross_references(
-        self, username: str, dataset_ids: list[UUID]
-    ) -> list[dict[str, Any]]:
+    def get_cross_references(self, username: str, dataset_ids: list[UUID]) -> list[dict[str, Any]]:
         """Retrieve cross-references between specified datasets.
 
         Args:
@@ -382,27 +395,27 @@ class TextToSQLService:
         result: Any = crew.kickoff()
 
         # Extract SQL from result
-        generated_sql: str = str(result.raw) if hasattr(result, "raw") else str(result)  # pylint: disable=redefined-outer-name
+        sql_output: str = str(result.raw) if hasattr(result, "raw") else str(result)
 
         # Clean up SQL (remove markdown code blocks if present)
-        sql: str = self._clean_sql(generated_sql)  # pylint: disable=redefined-outer-name
+        cleaned_sql: str = self._clean_sql(sql_output)
 
         return {
-            "sql": sql,
+            "sql": cleaned_sql,
             "params": [],  # Params would be extracted from user input if needed
         }
 
-    def _clean_sql(self, sql: str) -> str:
+    def _clean_sql(self, raw_sql: str) -> str:
         """Clean generated SQL by removing markdown formatting.
 
         Args:
-            sql: Raw SQL string possibly with markdown
+            raw_sql: Raw SQL string possibly with markdown
 
         Returns:
             Clean SQL string
         """
         # Remove markdown code block markers
-        cleaned_sql: str = sql.replace("```sql", "").replace("```", "")  # pylint: disable=redefined-outer-name
+        cleaned_sql: str = raw_sql.replace("```sql", "").replace("```", "")
         # Trim whitespace
         return cleaned_sql.strip()
 
@@ -504,14 +517,14 @@ class TextToSQLOrchestrator:
             "query_results": mock_results,
         }
 
-    def _clean_sql(self, sql: str) -> str:  # pylint: disable=redefined-outer-name
+    def _clean_sql(self, raw_sql: str) -> str:
         """Clean generated SQL by removing markdown formatting.
 
         Args:
-            sql: Raw SQL string possibly with markdown
+            raw_sql: Raw SQL string possibly with markdown
 
         Returns:
             Clean SQL string
         """
-        cleaned_sql: str = sql.replace("```sql", "").replace("```", "")  # pylint: disable=redefined-outer-name
+        cleaned_sql: str = raw_sql.replace("```sql", "").replace("```", "")
         return cleaned_sql.strip()
