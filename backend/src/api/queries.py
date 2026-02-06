@@ -12,6 +12,7 @@ Constitutional Requirements:
 """
 
 import logging
+import threading
 import time
 from typing import Annotated, Any
 from uuid import UUID
@@ -169,64 +170,45 @@ def _execute_sql_query(
     )
 
 
-@router.post("", response_model=Query, status_code=status.HTTP_201_CREATED)
-def submit_query(  # pylint: disable=too-many-locals
-    query_create: QueryCreate, current_username: Annotated[str, Depends(get_current_user)]
-) -> Query:
-    """Submit a natural language query for processing.
+def _process_query_background(  # pylint: disable=too-many-locals
+    query_id: UUID,
+    query_text: str,
+    dataset_ids: list[UUID] | None,
+    username: str,
+) -> None:
+    """Background worker to process query asynchronously.
+
+    This function runs in a background thread to allow immediate API response
+    while processing continues. Updates query status and progress in database.
 
     Args:
-        query_create: Query submission request
-        current_username: Username from authenticated JWT token
-
-    Returns:
-        Query object with pending status
-
-    Raises:
-        HTTPException: 400 if validation fails, 500 if processing fails
-
-    Workflow:
-    1. Store query in database with pending status
-    2. Run hybrid search (exact match + full-text + semantic vector search)
-    3. Calculate confidence score based on search results
-    4. If low confidence (<0.6): Return clarification request with alternatives
-    5. If high confidence (>=0.6): Generate SQL using CrewAI
-    6. Execute SQL query
-    7. Generate HTML response
-    8. Update query status to completed
-    9. Store response
+        query_id: Query UUID
+        query_text: Natural language query text
+        dataset_ids: Optional list of dataset UUIDs to query
+        username: Username for schema context
 
     Constitutional Compliance:
-    - Synchronous handler (def, not async def)
-    - Thread-based processing (HybridSearchService uses ThreadPoolExecutor)
-    - Confidence threshold: 0.6 per FR-038
+        - Thread-based processing (function runs in Thread, not async)
+        - All variables have explicit type annotations
+        - All services use synchronous operations
     """
     pool: Any = get_global_pool()
     history_service: QueryHistoryService = QueryHistoryService(pool)
 
-    # Store query as pending
-    query_id: UUID = history_service.store_query(
-        query_text=query_create.query_text, username=current_username, status="pending"
-    )
-
-    # Process query in synchronous manner
-    # (In production, this would be done in background thread/worker)
     try:
         start_time: float = time.time()
 
         # Update to processing status
         history_service.update_query_status(
-            query_id, current_username, "processing", progress_message="Starting query processing..."
+            query_id, username, "processing", progress_message="Starting query processing..."
         )
 
         # Check if this is a metadata query (asking for available datasets/tables/columns)
-        history_service.update_progress_message(
-            query_id, current_username, "Analyzing query type..."
-        )
+        history_service.update_progress_message(query_id, username, "Analyzing query type...")
         sql_service: TextToSQLService = TextToSQLService(pool)
-        if sql_service.is_metadata_query(query_create.query_text):
+        if sql_service.is_metadata_query(query_text):
             # Retrieve and format metadata
-            metadata: dict[str, Any] = sql_service.get_available_metadata(current_username)
+            metadata: dict[str, Any] = sql_service.get_available_metadata(username)
             html_content: str = sql_service.format_metadata_as_html(metadata)
             plain_text: str = f"Found {metadata['total_datasets']} dataset(s)"
 
@@ -235,7 +217,7 @@ def submit_query(  # pylint: disable=too-many-locals
             # Store metadata response
             history_service.update_query_status(
                 query_id,
-                current_username,
+                username,
                 "completed",
                 generated_sql=None,
                 result_count=metadata["total_datasets"],
@@ -245,64 +227,53 @@ def submit_query(  # pylint: disable=too-many-locals
 
             history_service.store_response(
                 query_id=query_id,
-                username=current_username,
+                username=username,
                 html_content=html_content,
                 plain_text=plain_text,
                 confidence_score=1.0,  # Metadata queries always have 100% confidence
             )
-
-            metadata_query_obj: dict[str, Any] = history_service.get_query_by_id(
-                query_id, current_username
-            )
-            return Query(**metadata_query_obj)
+            return
 
         # Run hybrid search to find relevant columns (semantic + keyword + exact match)
         history_service.update_progress_message(
-            query_id, current_username, "Running hybrid search (exact match + full-text + semantic)..."
+            query_id, username, "Running hybrid search (exact match + full-text + semantic)..."
         )
         hybrid_service: HybridSearchService = HybridSearchService(pool)
         # Convert UUID list to string list for hybrid search
         dataset_ids_str: list[str] | None = (
-            [str(uuid) for uuid in query_create.dataset_ids]
-            if query_create.dataset_ids is not None
-            else None
+            [str(uuid) for uuid in dataset_ids] if dataset_ids is not None else None
         )
         search_results: dict[str, Any] = hybrid_service.search(
-            username=current_username,
-            query_text=query_create.query_text,
+            username=username,
+            query_text=query_text,
             dataset_ids=dataset_ids_str,
             limit=10,
         )
 
         # Calculate initial confidence score
-        history_service.update_progress_message(
-            query_id, current_username, "Calculating confidence score..."
-        )
+        history_service.update_progress_message(query_id, username, "Calculating confidence score...")
         response_generator: ResponseGenerator = ResponseGenerator()
         confidence_score: float = response_generator.calculate_confidence_score(search_results)
 
         logger.info(
-            f"Hybrid search complete. Query: '{query_create.query_text}', "
+            f"Hybrid search complete. Query: '{query_text}', "
             f"Confidence: {confidence_score:.2f}, "
             f"Fused results: {len(search_results.get('fused_results', []))}"
         )
 
         # If confidence is very low (<0.4), try data value search
-        # This helps find data values like "gold" in a "name" column
         fused_results: list[dict[str, Any]] = search_results.get("fused_results", [])
         if confidence_score < 0.4:
-            logger.info(
-                f"Low confidence ({confidence_score:.2f}). Attempting data value search..."
-            )
+            logger.info(f"Low confidence ({confidence_score:.2f}). Attempting data value search...")
             history_service.update_progress_message(
-                query_id, current_username, "Low confidence - searching data values..."
+                query_id, username, "Low confidence - searching data values..."
             )
 
             # Search for query terms in actual data values
             data_value_service: DataValueSearchService = DataValueSearchService(pool)
             value_matches: list[dict[str, Any]] = data_value_service.search_data_values(
-                username=current_username,
-                query_text=query_create.query_text,
+                username=username,
+                query_text=query_text,
                 dataset_ids=dataset_ids_str,
                 sample_size=100,
                 min_match_threshold=1,
@@ -313,7 +284,6 @@ def submit_query(  # pylint: disable=too-many-locals
             # If data value matches found, boost confidence and merge results
             if len(value_matches) > 0:
                 logger.info("Merging data value matches into fused results")
-                # Convert value matches to column format for fused_results
                 for value_match in value_matches:
                     boosted_score: float = value_match["score"] * 0.8
                     logger.info(
@@ -326,7 +296,6 @@ def submit_query(  # pylint: disable=too-many-locals
                         {
                             "column_name": value_match["column_name"],
                             "dataset_id": value_match["dataset_id"],
-                            # Boost score to indicate strong match
                             "combined_score": boosted_score,
                             "source": "data_values",
                             "match_count": value_match["match_count"],
@@ -334,7 +303,7 @@ def submit_query(  # pylint: disable=too-many-locals
                         }
                     )
 
-                # Sort fused results by score (descending) so highest scores appear first
+                # Sort fused results by score (descending)
                 fused_results.sort(key=lambda x: x.get("combined_score", 0.0), reverse=True)
 
                 # Debug: Log top 5 results after sorting
@@ -353,54 +322,111 @@ def submit_query(  # pylint: disable=too-many-locals
                 # Recalculate confidence with data value matches
                 confidence_score = response_generator.calculate_confidence_score(search_results)
 
-                # When data value matches are found, we have concrete data to query
-                # Proceed with SQL generation instead of returning clarification
                 logger.info(
                     f"Data value matches found with confidence {confidence_score:.2f}. "
                     "Proceeding with SQL generation to retrieve actual data."
                 )
 
         # If low confidence AND no data value matches, return clarification
-        # If data value matches exist, proceed with SQL generation (they're in fused_results)
         has_data_value_matches: bool = "data_value_results" in search_results
-        if response_generator.is_low_confidence(confidence_score, threshold=0.6) and not has_data_value_matches:
-            return _handle_clarification_response(
+        if (
+            response_generator.is_low_confidence(confidence_score, threshold=0.6)
+            and not has_data_value_matches
+        ):
+            _handle_clarification_response(
                 query_id=query_id,
-                query_text=query_create.query_text,
+                query_text=query_text,
                 search_results=search_results,
                 confidence_score=confidence_score,
                 start_time=start_time,
                 history_service=history_service,
                 response_generator=response_generator,
-                username=current_username,
+                username=username,
             )
+            return
 
         # High confidence: proceed with SQL generation and execution
         history_service.update_progress_message(
-            query_id, current_username, "Generating SQL query with Schema Inspector Agent..."
+            query_id, username, "Generating SQL query with Schema Inspector Agent..."
         )
         _execute_sql_query(
             query_id=query_id,
-            query_text=query_create.query_text,
-            dataset_ids=query_create.dataset_ids,
+            query_text=query_text,
+            dataset_ids=dataset_ids,
             search_results=search_results,
             start_time=start_time,
             pool=pool,
             history_service=history_service,
             response_generator=response_generator,
-            username=current_username,
+            username=username,
         )
 
     except Exception as e:
         # Update query as failed
-        history_service.update_query_status(query_id, current_username, "failed")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Query processing failed: {e!s}",
-        ) from e
+        logger.error(f"Query processing failed for {query_id}: {e!s}", exc_info=True)
+        history_service.update_query_status(query_id, username, "failed")
 
-    # Return query object (type annotation required by constitution, even though mypy
-    # sees this as redefinition from clarification branch - both paths don't execute together)
+
+@router.post("", response_model=Query, status_code=status.HTTP_201_CREATED)
+def submit_query(
+    query_create: QueryCreate, current_username: Annotated[str, Depends(get_current_user)]
+) -> Query:
+    """Submit a natural language query for processing.
+
+    Returns immediately with pending query while processing continues in background thread.
+    Clients should poll GET /queries/{query_id} for status updates and results.
+
+    Args:
+        query_create: Query submission request
+        current_username: Username from authenticated JWT token
+
+    Returns:
+        Query object with pending status
+
+    Raises:
+        HTTPException: 400 if validation fails
+
+    Workflow:
+    1. Store query in database with pending status
+    2. Start background thread to process query
+    3. Return immediately with pending query
+    4. Background thread updates progress and completes query
+
+    Background Processing (in _process_query_background):
+    - Run hybrid search (exact match + full-text + semantic vector search)
+    - Calculate confidence score based on search results
+    - If low confidence (<0.6): Generate clarification request
+    - If high confidence (>=0.6): Generate and execute SQL
+    - Update query status to completed/failed
+
+    Constitutional Compliance:
+    - Synchronous handler (def, not async def)
+    - Thread-based background processing (threading.Thread)
+    - All database operations remain synchronous
+    """
+    pool: Any = get_global_pool()
+    history_service: QueryHistoryService = QueryHistoryService(pool)
+
+    # Store query as pending
+    query_id: UUID = history_service.store_query(
+        query_text=query_create.query_text, username=current_username, status="pending"
+    )
+
+    # Start background thread to process query
+    # This allows immediate API response while processing continues
+    worker_thread: threading.Thread = threading.Thread(
+        target=_process_query_background,
+        args=(query_id, query_create.query_text, query_create.dataset_ids, current_username),
+        daemon=True,  # Thread will not prevent application shutdown
+        name=f"query-worker-{query_id}"
+    )
+    worker_thread.start()
+
+    logger.info(
+        f"Query {query_id} submitted and background processing started in thread {worker_thread.name}"
+    )
+
+    # Return pending query immediately for client to poll
     query_obj: dict[str, Any] = history_service.get_query_by_id(query_id, current_username)
     return Query(**query_obj)
 
