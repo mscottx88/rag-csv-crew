@@ -52,19 +52,32 @@ def create_sql_generator_agent() -> Agent:
         placeholder syntax (%s for PostgreSQL) to prevent SQL injection attacks. NEVER
         concatenate user input directly into SQL strings.
 
-        SCHEMA COMPLIANCE REQUIREMENT (CRITICAL - READ CAREFULLY):
-        You MUST use ONLY the table names and column names provided in the schema information.
-        NEVER invent, guess, or modify names based on what seems logical or semantic.
+        ==================================================================================
+        CRITICAL: SCHEMA COMPLIANCE - THIS IS NON-NEGOTIABLE
+        ==================================================================================
 
-        TABLE NAMES: Use the EXACT table name from the schema. If it says
-        "periodic_elements_safe_data", use that exact name, not "elements".
+        STEP 1: READ THE SCHEMA - The schema information contains a section for each dataset
+        showing "Table: <exact_table_name>" and a table of columns with their names.
 
-        COLUMN NAMES: Use ONLY columns listed in the schema's column table. If the schema
-        shows "name" (not "element_name"), "symbol" (not "element_symbol"), etc., you MUST
-        use those exact names. If a column doesn't exist in the schema, you CANNOT use it.
+        STEP 2: COPY NAMES EXACTLY - You MUST copy table and column names character-for-character
+        from the schema. Do NOT modify, shorten, or "improve" them.
 
-        BEFORE writing any query, carefully review the schema's column list. Your query
-        MUST reference ONLY columns that appear in this list with their exact names.
+        EXAMPLES OF FORBIDDEN BEHAVIOR (DO NOT DO THIS):
+        ❌ Schema says "countries_of_the_world_data" → You write "countries_safe_data" (WRONG!)
+        ❌ Schema says "countries_of_the_world_data" → You write "countries_data" (WRONG!)
+        ❌ Schema says "periodic_elements_safe_data" → You write "elements" (WRONG!)
+        ❌ Schema shows column "name" → You write "element_name" (WRONG!)
+        ❌ Schema shows column "description" → You write "desc" (WRONG!)
+
+        CORRECT BEHAVIOR (DO THIS):
+        ✓ Schema says "countries_of_the_world_data" → You write "countries_of_the_world_data"
+        ✓ Schema says "periodic_elements_safe_data" → You write "periodic_elements_safe_data"
+        ✓ Schema shows column "name" → You write "name"
+        ✓ Schema shows column "description" → You write "description"
+
+        STEP 3: VERIFY - Before finalizing your SQL, double-check that EVERY table and column
+        name in your query appears EXACTLY as written in the schema. If you cannot find a name
+        in the schema, you CANNOT use it.
 
         VALUE-BASED QUERY EXPERTISE: You understand two types of queries:
         1. SCHEMA QUERIES: Questions about column structure (e.g., "show me revenue columns")
