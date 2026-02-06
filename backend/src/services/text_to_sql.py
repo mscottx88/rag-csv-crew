@@ -96,12 +96,10 @@ class TextToSQLService:
             # Get all datasets for this user
             cur.execute(
                 """
-                SELECT id, filename, row_count, column_count, created_at
+                SELECT id, filename, row_count, column_count, uploaded_at
                 FROM datasets
-                WHERE username = %s
-                ORDER BY created_at DESC
+                ORDER BY uploaded_at DESC
                 """,
-                (username,),
             )
 
             dataset_rows: list[tuple[Any, ...]] = cur.fetchall()
@@ -114,14 +112,14 @@ class TextToSQLService:
                     "table_name": dataset_row[1].replace(".csv", "_data"),
                     "row_count": dataset_row[2],
                     "column_count": dataset_row[3],
-                    "created_at": str(dataset_row[4]),
+                    "uploaded_at": str(dataset_row[4]),
                     "columns": [],
                 }
 
                 # Get columns for this dataset
                 cur.execute(
                     """
-                    SELECT column_name, data_type
+                    SELECT column_name, inferred_type
                     FROM column_mappings
                     WHERE dataset_id = %s
                     ORDER BY column_name
