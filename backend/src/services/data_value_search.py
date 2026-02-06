@@ -253,7 +253,13 @@ class DataValueSearchService:
 
                         # If matches found above threshold, add to results
                         if match_count >= min_match_threshold:
-                            score: float = min(1.0, match_count / sample_size)
+                            # High base score for keyword matches (0.9) + small frequency bonus
+                            # Finding exact keyword in data is strong signal - should beat
+                            # semantic similarity to column names (~0.2-0.3)
+                            base_score: float = 0.9
+                            frequency_bonus: float = 0.1 * min(1.0, match_count / 10.0)
+                            score: float = min(1.0, base_score + frequency_bonus)
+
                             results.append(
                                 {
                                     "column_name": column_name,
