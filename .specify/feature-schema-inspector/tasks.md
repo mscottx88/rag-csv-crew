@@ -71,11 +71,11 @@ Project uses web app structure:
 
 **Step 3: Enriched Embeddings**
 
-- [ ] T018 [US1] Add include_metadata parameter to generate_column_embeddings() in backend/src/services/ingestion.py
-- [ ] T019 [US1] Implement metadata enrichment logic in generate_column_embeddings() in backend/src/services/ingestion.py
-- [ ] T020 [US1] Add numeric range context to embedding text (min/max) in backend/src/services/ingestion.py
-- [ ] T021 [US1] Add sample values context to embedding text (top 5) in backend/src/services/ingestion.py
-- [ ] T022 [US1] Add cardinality context to embedding text (distinct count) in backend/src/services/ingestion.py
+- [X] T018 [US1] Add include_metadata parameter to generate_column_embeddings() in backend/src/services/ingestion.py
+- [X] T019 [US1] Implement metadata enrichment logic in generate_column_embeddings() in backend/src/services/ingestion.py
+- [X] T020 [US1] Add numeric range context to embedding text (min/max) in backend/src/services/ingestion.py
+- [X] T021 [US1] Add sample values context to embedding text (top 5) in backend/src/services/ingestion.py
+- [X] T022 [US1] Add cardinality context to embedding text (distinct count) in backend/src/services/ingestion.py
 
 **Step 4: Quality & Performance**
 

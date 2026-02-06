@@ -26,6 +26,7 @@ from psycopg import Connection, sql
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
+from src.services.column_metadata import ColumnMetadataService
 from src.services.vector_search import VectorSearchService
 
 
@@ -875,7 +876,12 @@ def store_column_mappings(
 
 
 def generate_column_embeddings(
-    pool: ConnectionPool, username: str, dataset_id: str, columns: list[dict[str, Any]]
+    pool: ConnectionPool,
+    username: str,
+    dataset_id: str,
+    columns: list[dict[str, Any]],
+    *,
+    include_metadata: bool = True,
 ) -> None:
     """Generate and UPDATE embeddings for existing column mappings (optional).
 
@@ -889,6 +895,7 @@ def generate_column_embeddings(
         username: Username for schema isolation
         dataset_id: Dataset UUID
         columns: List of column dictionaries with name, data_type, description
+        include_metadata: Whether to enrich embeddings with column metadata (default: True)
 
     Raises:
         RuntimeError: If embedding generation or database update fails
@@ -898,6 +905,22 @@ def generate_column_embeddings(
     vector_service: VectorSearchService = VectorSearchService(pool=pool)
     schema_name: str = f"{username}_schema"
 
+    # Retrieve column metadata if requested
+    metadata_by_column: dict[str, dict[str, Any]] = {}
+    if include_metadata:
+        try:
+            metadata_service: ColumnMetadataService = ColumnMetadataService(pool)
+            metadata_list: list[dict[str, Any]] = metadata_service.get_column_metadata(
+                username=username,
+                dataset_id=dataset_id,
+            )
+            # Index metadata by column name for quick lookup
+            metadata_by_column = {m["column_name"]: m for m in metadata_list}
+        except Exception:  # pylint: disable=broad-exception-caught
+            # JUSTIFICATION: Metadata retrieval failure shouldn't block embedding generation
+            # If metadata unavailable, fall back to basic embeddings without enrichment
+            pass
+
     # Generate embeddings for each column
     embeddings: list[list[float]] = []
     column_names: list[str] = []
@@ -906,8 +929,37 @@ def generate_column_embeddings(
         column_name: str = col.get("name", col.get("column_name", ""))
         description: str = col.get("description", "")
 
-        # Create embedding text: "column_name description"
+        # Start with basic embedding text: "column_name description"
         embedding_text: str = f"{column_name} {description}".strip()
+
+        # Enrich with metadata if available
+        if include_metadata and column_name in metadata_by_column:
+            metadata: dict[str, Any] = metadata_by_column[column_name]
+            enrichment_parts: list[str] = []
+
+            # Add numeric range context (min/max) for numeric columns
+            if metadata.get("min_value") is not None and metadata.get("max_value") is not None:
+                enrichment_parts.append(
+                    f"range {metadata['min_value']} to {metadata['max_value']}"
+                )
+
+            # Add cardinality context (distinct count)
+            if metadata.get("distinct_count") is not None:
+                distinct_count: int = metadata["distinct_count"]
+                enrichment_parts.append(f"{distinct_count} distinct values")
+
+            # Add sample values context (top 5 for text columns)
+            if metadata.get("top_values") is not None:
+                top_values: list[dict[str, Any]] = metadata["top_values"]
+                if top_values:
+                    # Take top 5 values
+                    sample_values: list[str] = [str(v["value"]) for v in top_values[:5]]
+                    enrichment_parts.append(f"values: {', '.join(sample_values)}")
+
+            # Append enrichment to embedding text
+            if enrichment_parts:
+                enrichment_text: str = "; ".join(enrichment_parts)
+                embedding_text = f"{embedding_text} ({enrichment_text})"
 
         # Generate embedding for this column
         try:
