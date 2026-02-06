@@ -592,6 +592,12 @@ class TextToSQLService:
         # Get schema context for validation
         schema_context: dict[str, Any] = self.get_schema_context(username, dataset_ids)
 
+        # Report which tables were loaded
+        tables: list[str] = schema_context["tables"]
+        if progress_callback and tables:
+            table_list: str = ", ".join(tables) if len(tables) <= 5 else f"{', '.join(tables[:5])} and {len(tables) - 5} more"
+            progress_callback(f"Loaded schema for tables: {table_list}")
+
         # Retrieve cross-references if multiple datasets specified
         cross_references: list[dict[str, Any]] = []
         if dataset_ids and len(dataset_ids) > 1:
@@ -599,7 +605,14 @@ class TextToSQLService:
                 progress_callback(f"Analyzing relationships between {len(dataset_ids)} datasets...")
             cross_references = self.get_cross_references(username, dataset_ids)
             if progress_callback and cross_references:
-                progress_callback(f"Found {len(cross_references)} cross-dataset relationships")
+                # List the tables involved in relationships
+                relationship_tables: set[str] = set()
+                for ref in cross_references:
+                    relationship_tables.add(ref.get("from_table", ""))
+                    relationship_tables.add(ref.get("to_table", ""))
+                relationship_tables.discard("")
+                tables_str: str = ", ".join(sorted(relationship_tables))
+                progress_callback(f"Found {len(cross_references)} relationships between tables: {tables_str}")
 
         # Build schema description for agent (explicit table and column names)
         schema_description: str = "\n\nAVAILABLE SCHEMA (YOU MUST USE EXACTLY THESE NAMES):\n"
@@ -621,7 +634,8 @@ class TextToSQLService:
                 raise ValueError("Database pool is required for schema inspection")
 
             if progress_callback:
-                progress_callback("Creating Schema Inspector Agent with database tools...")
+                table_list_inspector: str = ", ".join(tables) if len(tables) <= 5 else f"{', '.join(tables[:5])} and {len(tables) - 5} more"
+                progress_callback(f"Creating Schema Inspector Agent to analyze: {table_list_inspector}...")
 
             # Initialize Schema Inspector Service
             schema_inspector_service: SchemaInspectorService = SchemaInspectorService(self.pool)
@@ -644,6 +658,9 @@ class TextToSQLService:
             schema_inspection_task = create_schema_inspection_task(
                 agent=inspector_agent, query_text=query_text, dataset_ids=dataset_ids
             )
+
+            if progress_callback:
+                progress_callback(f"Schema Inspector Agent will examine {len(tables)} table(s) for relevant columns")
 
         if progress_callback:
             progress_callback("Creating SQL Generator Agent for query translation...")

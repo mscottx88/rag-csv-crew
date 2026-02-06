@@ -258,8 +258,20 @@ def _process_query_background(  # pylint: disable=too-many-locals
             return
 
         # Run hybrid search to find relevant columns (semantic + keyword + exact match)
+        # Get dataset/table names for progress reporting
+        table_context: str = "all tables"
+        if dataset_ids and len(dataset_ids) > 0:
+            sql_service_temp: TextToSQLService = TextToSQLService(pool)
+            schema_ctx: dict[str, Any] = sql_service_temp.get_schema_context(username, dataset_ids)
+            tables_list: list[str] = schema_ctx.get("tables", [])
+            if tables_list:
+                if len(tables_list) <= 3:
+                    table_context = f"tables: {', '.join(tables_list)}"
+                else:
+                    table_context = f"tables: {', '.join(tables_list[:3])} and {len(tables_list) - 3} more"
+
         history_service.update_progress_message(
-            query_id, username, "Starting hybrid search: exact match, full-text, semantic..."
+            query_id, username, f"Starting hybrid search across {table_context}..."
         )
         hybrid_service: HybridSearchService = HybridSearchService(pool)
         # Convert UUID list to string list for hybrid search
@@ -312,9 +324,9 @@ def _process_query_background(  # pylint: disable=too-many-locals
             # Search for query terms in actual data values
             data_value_service: DataValueSearchService = DataValueSearchService(pool)
 
-            history_service.update_progress_message(
-                query_id, username, "Scanning database tables for matching data values..."
-            )
+            # Use table_context from earlier (recompute if needed for clarity)
+            scan_context: str = f"Scanning {table_context} for matching data values..."
+            history_service.update_progress_message(query_id, username, scan_context)
 
             value_matches: list[dict[str, Any]] = data_value_service.search_data_values(
                 username=username,
