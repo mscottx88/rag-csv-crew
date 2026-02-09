@@ -897,9 +897,13 @@ def delete_dataset(
 
                 table_name: str = row[0]
 
-            # Drop the data table
+            # Drop the data table (T208-POLISH: SQL injection prevention)
             with conn.cursor() as cur:
-                cur.execute(f"DROP TABLE IF EXISTS {username}_schema.{table_name} CASCADE")
+                drop_sql: sql.Composed = sql.SQL("DROP TABLE IF EXISTS {schema}.{table} CASCADE").format(
+                    schema=sql.Identifier(f"{username}_schema"),
+                    table=sql.Identifier(table_name),
+                )
+                cur.execute(drop_sql)
 
             # Delete the dataset metadata
             with conn.cursor() as cur:

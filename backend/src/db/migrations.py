@@ -209,8 +209,11 @@ def create_user_schema(conn: "Connection", username: str) -> None:
     logger.info("Creating user schema: %s", schema_name)
 
     with conn.cursor() as cur:
-        # Create user schema
-        cur.execute(f"CREATE SCHEMA IF NOT EXISTS {schema_name}")
+        # Create user schema (T208-POLISH: SQL injection prevention)
+        create_schema_sql: sql.Composed = sql.SQL("CREATE SCHEMA IF NOT EXISTS {schema}").format(
+            schema=sql.Identifier(schema_name)
+        )
+        cur.execute(create_schema_sql)
         logger.debug("Created schema: %s", schema_name)
 
         # Create datasets table
