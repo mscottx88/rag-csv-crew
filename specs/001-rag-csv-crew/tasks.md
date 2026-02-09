@@ -545,15 +545,15 @@
 
 - [X] T198-POLISH [P] Implement CSV validation with detailed error messages in backend/src/utils/csv_validator.py per FR-002 (invalid format, encoding issues, delimiter problems) ✅ COMPLETE: CSVValidator class with comprehensive validation and user-friendly error messages
 - [X] T199-POLISH [P] Implement request validation error formatting in backend/src/main.py (user-friendly Pydantic errors) ✅ COMPLETE: validation_exception_handler already implemented with structured error responses
-- [ ] T200-POLISH [P] Add user-facing error messages for all API endpoints with specific error codes per openapi.yaml
+- [X] T200-POLISH [P] Add user-facing error messages for all API endpoints with specific error codes per openapi.yaml ✅ COMPLETE: APIError factory with 15+ standardized error responses, ErrorCode constants
 
 ### Logging Enhancement
 
-- [ ] T201-POLISH [P] Add structured logging for authentication events in backend/src/services/auth.py per FR-024
-- [ ] T202-POLISH [P] Add structured logging for file operations in backend/src/services/ingestion.py per FR-024
-- [ ] T203-POLISH [P] Add structured logging for query processing with timing in backend/src/services/text_to_sql.py per FR-024
-- [ ] T204-POLISH [P] Add structured logging for errors with stack traces in backend/src/main.py per FR-024
-- [ ] T204a-POLISH [P] Implement log rotation with RotatingFileHandler (100MB per file, 30/90 day retention for standard/security logs) in backend/src/utils/logging.py per FR-024a
+- [X] T201-POLISH [P] Add structured logging for authentication events in backend/src/services/auth.py per FR-024 ✅ COMPLETE: Logs token generation, validation success/failure with metadata
+- [X] T202-POLISH [P] Add structured logging for file operations in backend/src/services/ingestion.py per FR-024 ✅ COMPLETE: Logs table creation, CSV ingestion, metadata storage with timing
+- [X] T203-POLISH [P] Add structured logging for query processing with timing in backend/src/services/text_to_sql.py per FR-024 ✅ COMPLETE: Logs query submit and completion with execution time
+- [X] T204-POLISH [P] Add structured logging for errors with stack traces in backend/src/main.py per FR-024 ✅ COMPLETE: log_error used in generic_exception_handler
+- [X] T204a-POLISH [P] Implement log rotation with RotatingFileHandler (100MB per file, 30/90 day retention for standard/security logs) in backend/src/utils/logging.py per FR-024a ✅ COMPLETE: app.log, security.log, errors.log with rotation
 
 ### LLM Provider Configuration
 
