@@ -195,14 +195,56 @@ def create_app() -> FastAPI:
     # Load configuration
     config: AppConfig = AppConfig()
 
-    # Create FastAPI app instance
+    # Create FastAPI app instance with comprehensive API documentation (T215-POLISH)
     fastapi_app: FastAPI = FastAPI(
         title="RAG CSV Crew API",
         version="0.1.0",
-        description="Hybrid Search RAG for CSV Data with Multi-Agent Orchestration",
+        description="""
+## Intelligent Natural Language Query System for CSV Data
+
+Convert natural language questions into SQL queries using hybrid search
+(exact + full-text + semantic vector) and CrewAI multi-agent orchestration.
+
+### Key Features
+
+- **Natural Language Queries**: Ask questions in plain English about CSV data
+- **Hybrid Search**: Combines exact matching, full-text search (ts_rank), and semantic similarity (pgvector)
+- **Cross-Dataset JOINs**: Automatic relationship detection via value overlap analysis
+- **Intelligent Clarification**: Confidence scoring triggers clarification for ambiguous queries
+- **SQL Injection Prevention**: Parameterized queries with automatic escaping
+- **Rate Limiting**: 100 requests/minute per user with token bucket algorithm
+- **JWT Authentication**: Secure user-based schema isolation
+
+### Documentation
+
+- **Swagger UI**: Interactive API documentation at `/docs`
+- **ReDoc**: Alternative documentation at `/redoc`
+- **OpenAPI Schema**: JSON specification at `/openapi.json`
+
+### Example Workflow
+
+1. **Login**: `POST /auth/login` with username (no password required for demo)
+2. **Upload CSV**: `POST /datasets/` with multipart form data
+3. **Submit Query**: `POST /queries` with natural language question
+4. **Poll Results**: `GET /queries/{query_id}` to check status and retrieve HTML response
+
+### Security
+
+- JWT tokens expire after 30 minutes (configurable)
+- Rate limit: 100 requests/minute per user
+- CORS: Explicit origin whitelisting
+- SQL injection protection via parameterized queries
+        """,
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
+        contact={
+            "name": "RAG CSV Crew Team",
+            "url": "https://github.com/nearform/rag-csv-crew",
+        },
+        license_info={
+            "name": "MIT",
+        },
     )
 
     # Configure CORS middleware
