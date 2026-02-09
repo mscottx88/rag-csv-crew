@@ -597,7 +597,7 @@
 - [ ] T226-REFACTOR [P] Address pylint TODO markers: Refactor query_execution.py, query_history.py function signatures to use keyword-only args or dataclasses (reduce too-many-positional-arguments)
 - [ ] T227-REFACTOR [P] Address pylint TODO markers: Create specific exception classes (QueryNotFoundException, ResponseNotFoundException, QueryCancelledException, QueryTimeoutException) to replace broad Exception usage
 - [ ] T228-REFACTOR [P] Address pylint TODO markers: Extract common exception handling pattern from auth.py and datasets.py into shared utility function in utils/exception_handlers.py to eliminate duplicate-code
-- [ ] T229-HOTFIX [US1-FIX] Fix SQL reserved keyword handling in CSV ingestion: Add column name sanitization function in backend/src/services/ingestion.py to detect and quote SQL reserved keywords (e.g., "group", "order", "select") during dynamic table creation per FR-002 to prevent "syntax error at or near" failures
+- [x] T229-HOTFIX [US1-FIX] Fix SQL reserved keyword handling in CSV ingestion: Add column name sanitization function in backend/src/services/ingestion.py to detect and quote SQL reserved keywords (e.g., "group", "order", "select") during dynamic table creation per FR-002 to prevent "syntax error at or near" failures
 
 **Checkpoint**: Production-ready application with full test coverage, documentation, and constitutional compliance
 
