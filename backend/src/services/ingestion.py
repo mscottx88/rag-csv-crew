@@ -28,6 +28,10 @@ from psycopg_pool import ConnectionPool
 
 from src.services.column_metadata import ColumnMetadataService
 from src.services.vector_search import VectorSearchService
+from src.utils.logging import get_structured_logger, log_error, log_event
+
+# Get logger for file operations (T202-POLISH)
+logger = get_structured_logger(__name__)
 
 
 def detect_csv_format(csv_file: BytesIO) -> dict[str, Any]:
@@ -312,6 +316,19 @@ def create_dataset_table(  # pylint: disable=too-many-locals
     if not columns:
         raise ValueError("Schema must have at least one column")
 
+    # Log table creation start (T202-POLISH: Structured logging for file operations)
+    log_event(
+        logger=logger,
+        level="info",
+        event="table_creation_start",
+        user=username,
+        extra={
+            "filename": filename,
+            "table_name": table_name,
+            "column_count": len(columns),
+        },
+    )
+
     # Build CREATE TABLE statement using psycopg.sql for SQL injection protection
     column_defs: list[sql.SQL] = [
         sql.SQL("_row_id BIGSERIAL PRIMARY KEY"),
@@ -376,6 +393,20 @@ def create_dataset_table(  # pylint: disable=too-many-locals
         cur.execute(dataset_id_index_sql)
 
     conn.commit()
+
+    # Log successful table creation (T202-POLISH)
+    log_event(
+        logger=logger,
+        level="info",
+        event="table_created",
+        user=username,
+        extra={
+            "filename": filename,
+            "table_name": table_name,
+            "schema_name": schema_name,
+            "column_count": len(columns),
+        },
+    )
 
     return table_name
 
@@ -591,6 +622,20 @@ def ingest_csv_data(  # pylint: disable=too-many-locals
 
     schema_name: str = f"{username}_schema"
 
+    # Log CSV ingestion start (T202-POLISH: Structured logging for file operations)
+    ingestion_start_time: datetime = datetime.now()
+    log_event(
+        logger=logger,
+        level="info",
+        event="file_upload",
+        user=username,
+        extra={
+            "table_name": table_name,
+            "dataset_id": dataset_id,
+            "file_size_bytes": len(csv_file.getvalue()),
+        },
+    )
+
     # Read CSV to determine columns (excluding metadata columns)
     csv_file.seek(0)
     csv_data: bytes = csv_file.read()
@@ -656,6 +701,21 @@ def ingest_csv_data(  # pylint: disable=too-many-locals
         cur.execute(count_sql, (dataset_id,))
         result: tuple[Any, ...] | None = cur.fetchone()
         row_count: int = result[0] if result else 0
+
+    # Log successful ingestion (T202-POLISH)
+    ingestion_time_ms: int = int((datetime.now() - ingestion_start_time).total_seconds() * 1000)
+    log_event(
+        logger=logger,
+        level="info",
+        event="file_upload_complete",
+        user=username,
+        extra={
+            "table_name": table_name,
+            "dataset_id": dataset_id,
+            "row_count": row_count,
+            "execution_time_ms": ingestion_time_ms,
+        },
+    )
 
     return row_count
 
@@ -765,6 +825,21 @@ def store_dataset_metadata(
         dataset_id: str = str(result[0])
 
     conn.commit()
+
+    # Log metadata storage (T202-POLISH)
+    log_event(
+        logger=logger,
+        level="info",
+        event="dataset_metadata_stored",
+        user=username,
+        extra={
+            "dataset_id": dataset_id,
+            "filename": metadata["filename"],
+            "row_count": metadata["row_count"],
+            "column_count": metadata["column_count"],
+            "file_size_bytes": metadata["file_size_bytes"],
+        },
+    )
 
     return dataset_id
 
