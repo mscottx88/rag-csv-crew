@@ -68,8 +68,18 @@ A production-ready Python application that converts natural language questions i
 - **pgvector Integration**: HNSW indexing for sub-100ms semantic similarity search
 - **Google Gemini Embeddings**: Native 768-dimensional embeddings padded to 1536d for compatibility
 - **JWT Authentication**: Secure user-based schema isolation
-- **Rate Limiting**: 100 requests/minute per user
+- **Rate Limiting**: 100 requests/minute per user with token bucket algorithm
 - **React Frontend**: Modern TypeScript UI with query history and dataset management
+
+### Security Features
+
+- **SQL Injection Prevention**: All queries use parameterized statements with `psycopg.sql.Identifier` and `sql.Literal`
+- **Rate Limiting**: Token bucket rate limiter (100 requests/min per user) with X-RateLimit-* headers
+- **CORS Validation**: Explicit origin whitelisting, wildcard (*) origins rejected
+- **Input Validation**: Pydantic validators enforce length limits (username: 3-50 chars, query: 1-5000 chars)
+- **JWT Token Security**: HS256 signing with configurable expiration (default: 30 minutes)
+- **User Isolation**: Per-user PostgreSQL schemas prevent cross-user data access
+- **Structured Logging**: JSON logs with security event tracking (auth, rate limits, access denied)
 
 ## Requirements
 
