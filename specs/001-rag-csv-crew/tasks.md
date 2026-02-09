@@ -575,10 +575,10 @@
 
 ### Documentation
 
-- [ ] T212-POLISH [P] Create comprehensive README.md with project overview and quickstart reference
+- [x] T212-POLISH [P] Create comprehensive README.md with project overview and quickstart reference
 - [ ] T213-POLISH [P] Validate quickstart.md instructions (test full setup on fresh machine)
-- [ ] T214-POLISH [P] Create example CSV files in examples/ directory (sales.csv, customers.csv)
-- [ ] T215-POLISH [P] Add API documentation links to Swagger UI at /docs
+- [x] T214-POLISH [P] Create example CSV files in examples/ directory (sales.csv, customers.csv)
+- [x] T215-POLISH [P] Add API documentation links to Swagger UI at /docs
 - [ ] T216-POLISH Create requirements traceability matrix in specs/001-rag-csv-crew/traceability-matrix.md mapping FR-001 to FR-048 to acceptance scenarios, success criteria, tasks per FR-045
 - [ ] T216a-POLISH-TEST Write validation script in tests/validation/test_traceability.py ensuring traceability matrix completeness (all FRs mapped to scenarios, all tasks mapped to FRs) per FR-045
 - [ ] T217-POLISH Add design system specification to specs/001-rag-csv-crew/design-system.md documenting HTML formatting standards (font sizes, spacing, contrast ratios WCAG 2.1 AA minimum) per FR-008
