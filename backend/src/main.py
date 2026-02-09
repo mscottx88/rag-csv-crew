@@ -103,6 +103,7 @@ def validation_exception_handler(request: Request, exc: RequestValidationError) 
         JSON response with validation error details
 
     Per FR-002: Clear error messages requirement
+    Per T200-POLISH: Standardized error messages with error codes
     """
     # Extract validation errors
     errors: list[dict[str, Any]] = []
@@ -131,14 +132,14 @@ def validation_exception_handler(request: Request, exc: RequestValidationError) 
         },
     )
 
-    # Return structured validation error response
+    # Return standardized validation error response (T200-POLISH)
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
-            "error": "ValidationError",
-            "status_code": 422,
-            "detail": "Request validation failed",
+            "error_code": "VALIDATION_FAILED",
+            "message": "Request validation failed. Please check the 'errors' field for details.",
             "errors": errors,
+            "hint": "Ensure all required fields are provided with correct data types.",
             "path": str(request.url),
         },
     )

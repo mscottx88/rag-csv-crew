@@ -16,6 +16,8 @@ Constitutional Requirements:
 from datetime import UTC, datetime
 import json
 import logging
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 import traceback
 from typing import Any
 
@@ -258,15 +260,28 @@ def log_error(
 
 
 # Initialize application-level logger
-def setup_application_logging(log_level: str = "INFO") -> None:
-    """Setup application-level logging configuration.
+def setup_application_logging(
+    log_level: str = "INFO", enable_file_logging: bool = True, log_dir: str = "logs"
+) -> None:
+    """Setup application-level logging configuration with rotation support.
 
     Args:
         log_level: Default log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        enable_file_logging: Enable file-based logging with rotation (default: True)
+        log_dir: Directory for log files (default: "logs")
 
     Call this once at application startup to configure logging globally.
 
     Per FR-024: Application logging setup
+    Per T204a-POLISH: Log rotation with RotatingFileHandler
+        - Standard logs: 100MB per file, 5 backup files (500MB total)
+        - Security logs: 100MB per file, 10 backup files (1GB total)
+        - Retention: Standard 30 days (handled by external cleanup), Security 90 days
+
+    Log Files:
+        - logs/app.log: Standard application logs (rotated at 100MB, 5 backups)
+        - logs/security.log: Security events (auth, access) (rotated at 100MB, 10 backups)
+        - logs/errors.log: Error-level logs only (rotated at 100MB, 5 backups)
     """
     level_map: dict[str, int] = {
         "DEBUG": logging.DEBUG,
@@ -286,8 +301,84 @@ def setup_application_logging(log_level: str = "INFO") -> None:
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
 
-    # Add console handler with JSON formatter
-    console_handler: logging.StreamHandler[Any] = logging.StreamHandler()
+    # Create JSON formatter
     formatter: StructuredJSONFormatter = StructuredJSONFormatter()
+
+    # Add console handler (always enabled)
+    console_handler: logging.StreamHandler[Any] = logging.StreamHandler()
     console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)
+
+    # Add file handlers with rotation (if enabled)
+    if enable_file_logging:
+        # Create log directory if it doesn't exist
+        log_path: Path = Path(log_dir)
+        log_path.mkdir(parents=True, exist_ok=True)
+
+        # Standard application logs (100MB per file, 5 backups = 500MB total)
+        app_log_file: Path = log_path / "app.log"
+        app_handler: RotatingFileHandler = RotatingFileHandler(
+            filename=str(app_log_file),
+            maxBytes=100 * 1024 * 1024,  # 100MB
+            backupCount=5,  # Keep 5 backup files (app.log.1 through app.log.5)
+            encoding="utf-8",
+        )
+        app_handler.setFormatter(formatter)
+        app_handler.setLevel(logging.INFO)  # Log INFO and above to app.log
+        root_logger.addHandler(app_handler)
+
+        # Security logs (auth, access events) (100MB per file, 10 backups = 1GB total)
+        # These are filtered to only include security-related events
+        security_log_file: Path = log_path / "security.log"
+        security_handler: RotatingFileHandler = RotatingFileHandler(
+            filename=str(security_log_file),
+            maxBytes=100 * 1024 * 1024,  # 100MB
+            backupCount=10,  # Keep 10 backup files (security.log.1 through security.log.10)
+            encoding="utf-8",
+        )
+        security_handler.setFormatter(formatter)
+        security_handler.setLevel(logging.INFO)
+
+        # Add filter for security events
+        class SecurityEventFilter(logging.Filter):
+            """Filter that only passes security-related log events."""
+
+            def filter(self, record: logging.LogRecord) -> bool:
+                """Check if log record is a security event.
+
+                Args:
+                    record: Log record to filter
+
+                Returns:
+                    True if record should be logged, False otherwise
+                """
+                # Security events: auth_login, auth_logout, access_denied, permission_check
+                security_events: set[str] = {
+                    "auth_login",
+                    "auth_logout",
+                    "access_denied",
+                    "permission_check",
+                    "token_validation_failed",
+                    "invalid_credentials",
+                }
+
+                # Check if event field exists and is a security event
+                has_security_event: bool = (
+                    hasattr(record, "event") and record.event in security_events
+                )
+                return has_security_event
+
+        security_handler.addFilter(SecurityEventFilter())
+        root_logger.addHandler(security_handler)
+
+        # Error logs (100MB per file, 5 backups = 500MB total)
+        error_log_file: Path = log_path / "errors.log"
+        error_handler: RotatingFileHandler = RotatingFileHandler(
+            filename=str(error_log_file),
+            maxBytes=100 * 1024 * 1024,  # 100MB
+            backupCount=5,  # Keep 5 backup files (errors.log.1 through errors.log.5)
+            encoding="utf-8",
+        )
+        error_handler.setFormatter(formatter)
+        error_handler.setLevel(logging.ERROR)  # Only ERROR and CRITICAL logs
+        root_logger.addHandler(error_handler)
