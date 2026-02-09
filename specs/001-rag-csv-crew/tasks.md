@@ -568,10 +568,10 @@
 
 ### Security Hardening
 
-- [ ] T208-POLISH [P] Verify SQL injection prevention in backend/src/services/text_to_sql.py (parameterized queries, input sanitization) per FR-040
-- [ ] T209-POLISH [P] Add rate limiting (100 requests/minute per user) in backend/src/main.py middleware
-- [ ] T210-POLISH [P] Implement CORS origin validation per AppConfig.cors_origins
-- [ ] T211-POLISH [P] Verify input length limits for all text fields per openapi.yaml
+- [x] T208-POLISH [P] Verify SQL injection prevention in backend/src/services/text_to_sql.py (parameterized queries, input sanitization) per FR-040
+- [x] T209-POLISH [P] Add rate limiting (100 requests/minute per user) in backend/src/main.py middleware
+- [x] T210-POLISH [P] Implement CORS origin validation per AppConfig.cors_origins
+- [x] T211-POLISH [P] Verify input length limits for all text fields per openapi.yaml
 
 ### Documentation
 
