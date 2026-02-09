@@ -16,6 +16,11 @@ import uuid
 
 from jose import JWTError, jwt
 
+from src.utils.logging import get_structured_logger, log_error, log_event
+
+# Get logger for authentication events (T201-POLISH)
+logger = get_structured_logger(__name__)
+
 
 def generate_jwt_token(
     username: str,
@@ -63,6 +68,19 @@ def generate_jwt_token(
     # Encode token
     token: str = jwt.encode(payload, secret_key, algorithm=algorithm)
 
+    # Log successful token generation (T201-POLISH: Structured logging for auth events)
+    log_event(
+        logger=logger,
+        level="info",
+        event="auth_login",
+        user=username,
+        extra={
+            "token_expires_at": expire_time.isoformat(),
+            "token_lifetime_minutes": expire_minutes,
+            "jti": str(payload["jti"]),
+        },
+    )
+
     return token
 
 
@@ -106,13 +124,43 @@ def validate_jwt_token(
         username: str | None = payload.get("sub")
 
         if not username:
-            raise ValueError("Token does not contain username (sub claim)")
+            error: ValueError = ValueError("Token does not contain username (sub claim)")
+            log_error(
+                logger=logger,
+                event="token_validation_failed",
+                user=None,
+                error=error,
+            )
+            raise error
+
+        # Log successful token validation (T201-POLISH)
+        log_event(
+            logger=logger,
+            level="debug",
+            event="token_validated",
+            user=username,
+            extra={"jti": payload.get("jti", "unknown")},
+        )
 
         return username
 
     except JWTError as e:
+        # Log JWT validation failure (T201-POLISH)
+        log_error(
+            logger=logger,
+            event="token_validation_failed",
+            user=None,
+            error=e,
+        )
         # Re-raise JWT-specific errors (expired, invalid signature, etc.)
         raise e
     except Exception as e:
+        # Log unexpected validation error (T201-POLISH)
+        log_error(
+            logger=logger,
+            event="token_validation_error",
+            user=None,
+            error=e,
+        )
         # Wrap unexpected errors as JWTError for consistent error handling
         raise JWTError(f"Token validation failed: {e!s}") from e
