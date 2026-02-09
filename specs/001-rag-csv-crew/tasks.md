@@ -543,8 +543,8 @@
 
 ### Error Handling & Validation
 
-- [ ] T198-POLISH [P] Implement CSV validation with detailed error messages in backend/src/services/ingestion.py per FR-002 (invalid format, encoding issues, delimiter problems)
-- [ ] T199-POLISH [P] Implement request validation error formatting in backend/src/main.py (user-friendly Pydantic errors)
+- [X] T198-POLISH [P] Implement CSV validation with detailed error messages in backend/src/utils/csv_validator.py per FR-002 (invalid format, encoding issues, delimiter problems) ✅ COMPLETE: CSVValidator class with comprehensive validation and user-friendly error messages
+- [X] T199-POLISH [P] Implement request validation error formatting in backend/src/main.py (user-friendly Pydantic errors) ✅ COMPLETE: validation_exception_handler already implemented with structured error responses
 - [ ] T200-POLISH [P] Add user-facing error messages for all API endpoints with specific error codes per openapi.yaml
 
 ### Logging Enhancement
