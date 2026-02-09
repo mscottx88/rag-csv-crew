@@ -44,6 +44,10 @@ from src.crew.tools import (
     set_schema_inspector_context,
 )
 from src.services.schema_inspector import SchemaInspectorService
+from src.utils.logging import get_structured_logger, log_error, log_event
+
+# Get logger for query processing (T203-POLISH)
+logger = get_structured_logger(__name__)
 
 
 def _execute_crew_with_progress(
@@ -1097,6 +1101,21 @@ class TextToSQLOrchestrator:
         - Uses CrewAI synchronously (not async)
         - Thread-based execution
         """
+        # Log query processing start (T203-POLISH: Structured logging for query processing)
+        from datetime import datetime  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
+
+        query_start_time: datetime = datetime.now()
+        log_event(
+            logger=logger,
+            level="info",
+            event="query_submit",
+            user=username,
+            extra={
+                "query_text": query_text[:100],  # Truncate for logging
+                "dataset_count": len(dataset_ids) if dataset_ids else 0,
+            },
+        )
+
         # Retrieve cross-references if multiple datasets specified
         cross_references: list[dict[str, Any]] = []
         if dataset_ids and len(dataset_ids) > 1:
@@ -1153,6 +1172,24 @@ class TextToSQLOrchestrator:
                 if hasattr(tasks_output[1], "raw")
                 else str(tasks_output[1])
             )
+
+        # Log successful query processing (T203-POLISH)
+        from datetime import datetime  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
+
+        query_time_ms: int = int((datetime.now() - query_start_time).total_seconds() * 1000)
+        log_event(
+            logger=logger,
+            level="info",
+            event="query_complete",
+            user=username,
+            extra={
+                "query_text": query_text[:100],  # Truncate for logging
+                "execution_time_ms": query_time_ms,
+                "result_count": mock_results["row_count"],
+                "sql_length": len(generated_sql),
+                "html_length": len(html_content),
+            },
+        )
 
         return {
             "generated_sql": generated_sql,
