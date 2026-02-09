@@ -101,6 +101,7 @@ class AppConfig(BaseSettings):
         """Parse comma-separated CORS origins from environment variable.
 
         Handles both string (comma-separated) and list formats.
+        Validates that wildcard (*) is not used for security.
 
         Args:
             value: Raw value from environment variable or direct assignment
@@ -108,12 +109,33 @@ class AppConfig(BaseSettings):
         Returns:
             List of CORS origin strings
 
+        Raises:
+            ValueError: If wildcard (*) origin is specified (security violation)
+
         Examples:
             "http://localhost:3000,http://localhost:5173" -> ["http://localhost:3000", "http://localhost:5173"]  # pylint: disable=line-too-long
             ["http://localhost:3000"] -> ["http://localhost:3000"]
+
+        Security (T210-POLISH):
+            - Wildcard "*" origins are rejected to prevent CORS bypass
+            - All origins must be explicit fully-qualified URLs
         """
+        origins: list[str]
+
         if isinstance(value, str):
             # Split comma-separated string and strip whitespace
-            origins: list[str] = [origin.strip() for origin in value.split(",") if origin.strip()]
-            return origins
-        return value
+            origins = [origin.strip() for origin in value.split(",") if origin.strip()]
+        elif isinstance(value, list):
+            origins = value
+        else:
+            return value
+
+        # Security validation: Reject wildcard origins (T210-POLISH)
+        for origin in origins:
+            if origin == "*":
+                raise ValueError(
+                    "Wildcard '*' CORS origin is not allowed for security reasons. "
+                    "Please specify explicit origins (e.g., 'http://localhost:5173')."
+                )
+
+        return origins
