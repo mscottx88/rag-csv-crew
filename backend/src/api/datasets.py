@@ -36,6 +36,7 @@ from src.services.ingestion import (  # pylint: disable=import-outside-toplevel
     store_column_mappings,
     store_dataset_metadata,
 )
+from src.utils.csv_validator import CSVValidationError, CSVValidator
 from src.utils.logging import get_structured_logger, log_event
 
 # Initialize router and logger
@@ -123,13 +124,6 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
     # Read file content
     try:
         file_content: bytes = file.file.read()
-        file_size: int = len(file_content)
-
-        if file_size == 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Empty file",
-            )
     except Exception as e:
         log_event(
             logger=logger,
@@ -141,6 +135,40 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to read file: {e!s}",
+        ) from e
+
+    # Comprehensive CSV validation with detailed error messages (T198-POLISH)
+    try:
+        csv_file_bytes: BytesIO = BytesIO(file_content)
+        validation_result: dict[str, Any] = CSVValidator.validate_csv_file(csv_file_bytes)
+        log_event(
+            logger=logger,
+            level="info",
+            event="csv_validation_passed",
+            user=username,
+            extra={
+                "filename": filename,
+                "encoding": validation_result["encoding"],
+                "delimiter": validation_result["delimiter"],
+                "column_count": len(validation_result["columns"]),
+            },
+        )
+    except CSVValidationError as e:
+        log_event(
+            logger=logger,
+            level="warning",
+            event="csv_validation_failed",
+            user=username,
+            extra={
+                "filename": filename,
+                "error_code": e.error_code,
+                "error_message": e.message,
+                "details": e.details,
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=e.message,  # User-friendly error message
         ) from e
 
     # Get database connection
