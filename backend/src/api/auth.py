@@ -13,12 +13,12 @@ Constitutional Requirements:
 import os
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi.security import HTTPBearer
 from jose import JWTError
 from pydantic import ValidationError
 
-from src.api.dependencies import get_current_user
+from src.api.dependencies import check_rate_limit
 from src.api.utils import get_pool_with_error_handling
 from src.db.connection import DatabaseConnectionPool
 from src.models.user import AuthToken, User, UserLogin
@@ -179,16 +179,18 @@ def login(login_request: UserLogin) -> AuthToken:
 
 
 @router.get("/me", response_model=User, status_code=status.HTTP_200_OK)
-def get_current_user_profile(  # pylint: disable=duplicate-code
-    # TODO(pylint-refactor): Extract exception handling pattern shared with datasets.py
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+def get_current_user_profile(
+    response: Response,
+    username: str = Depends(check_rate_limit),
 ) -> User:
     """Get current authenticated user information.
 
     Requires valid JWT bearer token in Authorization header.
+    Rate limited to 100 requests/minute per user.
 
     Args:
-        credentials: HTTPAuthorizationCredentials from bearer_scheme
+        response: FastAPI Response object for rate limit headers
+        username: Username from authenticated JWT token (via check_rate_limit)
 
     Returns:
         User model with username, schema_name, created_at, last_login_at, is_active
@@ -196,6 +198,7 @@ def get_current_user_profile(  # pylint: disable=duplicate-code
     Raises:
         HTTPException 401: If token is missing, invalid, or expired
         HTTPException 404: If user not found in database
+        HTTPException 429: If rate limit exceeded
         HTTPException 500: If database query fails
 
     Per openapi.yaml GET /auth/me:
@@ -204,27 +207,9 @@ def get_current_user_profile(  # pylint: disable=duplicate-code
     - Response 401: Unauthorized (token invalid/expired)
 
     Per FR-021: Token-based user profile retrieval
+    Per T209-POLISH: Rate limiting applied via check_rate_limit dependency
     """
-    # Extract and validate username from token
-    try:
-        username: str = get_current_user(credentials=credentials)
-    except HTTPException:  # pylint: disable=duplicate-code
-        # TODO(pylint-refactor): Extract common exception handling pattern into utility function
-        # Re-raise HTTP exceptions (401 Unauthorized)
-        raise
-    except Exception as e:
-        log_event(
-            logger=logger,
-            level="error",
-            event="get_user_failed",
-            user=None,
-            extra={"error": str(e), "error_type": type(e).__name__},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication failed",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from e
+    # Username already extracted and validated by check_rate_limit dependency
 
     # Query user from database
     pool: DatabaseConnectionPool = get_pool_with_error_handling(

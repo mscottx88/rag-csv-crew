@@ -17,9 +17,9 @@ import time
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from src.api.dependencies import get_current_user
+from src.api.dependencies import check_rate_limit
 from src.db.connection import get_global_pool
 from src.models.query import Query, QueryCreate, QueryHistory, QueryWithResponse
 from src.services.data_value_search import DataValueSearchService
@@ -448,7 +448,9 @@ def _process_query_background(  # pylint: disable=too-many-locals
 
 @router.post("", response_model=Query, status_code=status.HTTP_201_CREATED)
 def submit_query(
-    query_create: QueryCreate, current_username: Annotated[str, Depends(get_current_user)]
+    response: Response,
+    query_create: QueryCreate,
+    current_username: Annotated[str, Depends(check_rate_limit)],
 ) -> Query:
     """Submit a natural language query for processing.
 
@@ -512,7 +514,8 @@ def submit_query(
 
 @router.get("/examples", response_model=dict[str, Any])
 def get_example_queries(
-    _current_username: Annotated[str, Depends(get_current_user)],
+    response: Response,
+    _current_username: Annotated[str, Depends(check_rate_limit)],
 ) -> dict[str, Any]:
     """Get example queries to help users understand capabilities.
 
@@ -583,17 +586,18 @@ def get_example_queries(
 
 @router.get("/history", response_model=QueryHistory)
 def get_query_history(
+    response: Response,
     page: int = 1,
     page_size: int = 50,
-    status: str | None = None,
-    current_username: str = Depends(get_current_user),
+    status_filter: str | None = None,
+    current_username: str = Depends(check_rate_limit),
 ) -> QueryHistory:
     """Get paginated query history for current user.
 
     Args:
         page: Page number (1-indexed)
         page_size: Items per page (1-100)
-        status: Optional status filter
+        status_filter: Optional status filter
         current_username: Username from authenticated JWT token
 
     Returns:
@@ -614,7 +618,7 @@ def get_query_history(
     history_service: QueryHistoryService = QueryHistoryService(pool)
 
     history: dict[str, Any] = history_service.get_query_history(
-        username=current_username, page=page, page_size=page_size, status=status
+        username=current_username, page=page, page_size=page_size, status=status_filter
     )
 
     return QueryHistory(**history)
@@ -622,7 +626,9 @@ def get_query_history(
 
 @router.get("/{query_id}", response_model=QueryWithResponse)
 def get_query(
-    query_id: UUID, current_username: Annotated[str, Depends(get_current_user)]
+    response: Response,
+    query_id: UUID,
+    current_username: Annotated[str, Depends(check_rate_limit)],
 ) -> QueryWithResponse:
     """Get query status and result by ID.
 
@@ -652,7 +658,9 @@ def get_query(
 
 @router.post("/{query_id}/cancel", response_model=Query)
 def cancel_query(
-    query_id: UUID, current_username: Annotated[str, Depends(get_current_user)]
+    response: Response,
+    query_id: UUID,
+    current_username: Annotated[str, Depends(check_rate_limit)],
 ) -> Query:
     """Cancel a running query.
 

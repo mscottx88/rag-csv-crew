@@ -16,12 +16,13 @@ Constitutional Requirements:
 from io import BytesIO, StringIO
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from fastapi.responses import JSONResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import HTTPBearer
+from psycopg import sql
 from psycopg_pool import ConnectionPool
 
-from src.api.dependencies import get_current_user
+from src.api.dependencies import check_rate_limit
 from src.api.utils import get_pool_with_error_handling
 from src.db.connection import DatabaseConnectionPool
 from src.models.dataset import ColumnSchema, Dataset, DatasetList
@@ -43,32 +44,17 @@ from src.utils.logging import get_structured_logger, log_event
 router: APIRouter = APIRouter(prefix="/datasets", tags=["Datasets"])
 logger = get_structured_logger(__name__)
 
-# Security scheme for Bearer token
+# Security scheme for Bearer token (kept for backward compatibility, though check_rate_limit is preferred)
 bearer_scheme: HTTPBearer = HTTPBearer()
-
-
-def get_current_username(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)) -> str:
-    """Extract username from JWT token.
-
-    Args:
-        credentials: HTTPAuthorizationCredentials from bearer_scheme
-
-    Returns:
-        Username from validated token
-
-    Raises:
-        HTTPException: 401 if token is invalid
-    """
-    username: str = get_current_user(credentials=credentials)
-    return username
 
 
 @router.post("/", response_model=Dataset, status_code=status.HTTP_201_CREATED)
 # pylint: disable=too-complex  # TODO(T225): Refactor to reduce McCabe complexity
 def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
     # TODO(pylint-refactor): Complex function - refactor into: file_validation, csv_processing, conflict_handling, metadata_storage  # pylint: disable=line-too-long
+    response: Response,
     file: UploadFile = File(...),
-    username: str = Depends(get_current_username),
+    username: str = Depends(check_rate_limit),
 ) -> Dataset | JSONResponse:
     """Upload CSV file and create dataset.
 
@@ -124,6 +110,7 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
     # Read file content
     try:
         file_content: bytes = file.file.read()
+        file_size: int = len(file_content)
     except Exception as e:
         log_event(
             logger=logger,
@@ -590,9 +577,10 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
 @router.get("/", response_model=DatasetList, status_code=status.HTTP_200_OK)
 def list_datasets(  # pylint: disable=too-many-locals
     # TODO(pylint-refactor): Extract SQL generation and result processing into helper methods
+    response: Response,
     page: int = 1,
     page_size: int = 50,
-    username: str = Depends(get_current_username),
+    username: str = Depends(check_rate_limit),
 ) -> DatasetList:
     """List datasets for authenticated user with pagination.
 
@@ -722,8 +710,9 @@ def list_datasets(  # pylint: disable=too-many-locals
 
 @router.get("/{dataset_id}", response_model=Dataset, status_code=status.HTTP_200_OK)
 def get_dataset(
+    response: Response,
     dataset_id: str,
-    username: str = Depends(get_current_username),
+    username: str = Depends(check_rate_limit),
 ) -> Dataset:
     """Get single dataset by ID for authenticated user.
 
@@ -832,8 +821,9 @@ def get_dataset(
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
     # pylint: disable=redundant-returns-doc
 def delete_dataset(
+    response: Response,
     dataset_id: str,
-    username: str = Depends(get_current_username),
+    username: str = Depends(check_rate_limit),
 ) -> None:
     """Delete dataset and associated data for authenticated user.
 
