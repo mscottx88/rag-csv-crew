@@ -165,9 +165,9 @@ Project uses web app structure:
 
 **Documentation**
 
-- [ ] T064 [P] Update MEMORY.md with metadata precomputation learnings
-- [ ] T065 [P] Update MEMORY.md with schema inspector integration patterns
-- [ ] T066 [P] Document metadata computation performance characteristics
+- [x] T064 [P] Update MEMORY.md with metadata precomputation learnings
+- [x] T065 [P] Update MEMORY.md with schema inspector integration patterns
+- [x] T066 [P] Document metadata computation performance characteristics
 
 ---
 
