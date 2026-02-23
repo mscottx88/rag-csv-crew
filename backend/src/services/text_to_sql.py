@@ -14,12 +14,11 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
+from collections.abc import Callable
 import io
 import re
 import sys
 import threading
-import time
-from collections.abc import Callable
 from typing import Any
 from uuid import UUID
 
@@ -44,16 +43,14 @@ from src.crew.tools import (
     set_schema_inspector_context,
 )
 from src.services.schema_inspector import SchemaInspectorService
-from src.utils.logging import get_structured_logger, log_error, log_event
+from src.utils.logging import get_structured_logger, log_event
 
 # Get logger for query processing (T203-POLISH)
 logger = get_structured_logger(__name__)
 
 
 def _execute_crew_with_progress(
-    crew: Crew,
-    progress_callback: Callable[[str], None] | None,
-    progress_messages: list[str]
+    crew: Crew, progress_callback: Callable[[str], None] | None, progress_messages: list[str]
 ) -> tuple[Any, str]:
     """Execute CrewAI crew with periodic progress updates and capture agent logs.
 
@@ -604,6 +601,7 @@ class TextToSQLService:
 
         # DEBUG: Log the pattern and SQL being validated
         import logging
+
         logger: logging.Logger = logging.getLogger(__name__)
         logger.info(f"[VALIDATION DEBUG] Using regex pattern: {column_pattern}")
         logger.info(f"[VALIDATION DEBUG] Validating SQL: {sql_query[:200]}")
@@ -666,7 +664,7 @@ class TextToSQLService:
         username: str,
         search_results: dict[str, Any] | None = None,
         use_schema_inspection: bool = False,
-        progress_callback: Callable[[str], None] | None = None
+        progress_callback: Callable[[str], None] | None = None,
     ) -> dict[str, Any]:
         """Generate SQL from natural language query.
 
@@ -693,7 +691,11 @@ class TextToSQLService:
         # Report which tables were loaded
         tables: list[str] = schema_context["tables"]
         if progress_callback and tables:
-            table_list: str = ", ".join(tables) if len(tables) <= 5 else f"{', '.join(tables[:5])} and {len(tables) - 5} more"
+            table_list: str = (
+                ", ".join(tables)
+                if len(tables) <= 5
+                else f"{', '.join(tables[:5])} and {len(tables) - 5} more"
+            )
             progress_callback(f"Loaded schema for tables: {table_list}")
 
         # Retrieve cross-references if multiple datasets specified
@@ -710,7 +712,9 @@ class TextToSQLService:
                     relationship_tables.add(ref.get("to_table", ""))
                 relationship_tables.discard("")
                 tables_str: str = ", ".join(sorted(relationship_tables))
-                progress_callback(f"Found {len(cross_references)} relationships between tables: {tables_str}")
+                progress_callback(
+                    f"Found {len(cross_references)} relationships between tables: {tables_str}"
+                )
 
         # Build schema description for agent (explicit table and column names)
         schema_description: str = "\n\nAVAILABLE SCHEMA (YOU MUST USE EXACTLY THESE NAMES):\n"
@@ -732,8 +736,14 @@ class TextToSQLService:
                 raise ValueError("Database pool is required for schema inspection")
 
             if progress_callback:
-                table_list_inspector: str = ", ".join(tables) if len(tables) <= 5 else f"{', '.join(tables[:5])} and {len(tables) - 5} more"
-                progress_callback(f"Creating Schema Inspector Agent to analyze: {table_list_inspector}...")
+                table_list_inspector: str = (
+                    ", ".join(tables)
+                    if len(tables) <= 5
+                    else f"{', '.join(tables[:5])} and {len(tables) - 5} more"
+                )
+                progress_callback(
+                    f"Creating Schema Inspector Agent to analyze: {table_list_inspector}..."
+                )
 
             # Initialize Schema Inspector Service
             schema_inspector_service: SchemaInspectorService = SchemaInspectorService(self.pool)
@@ -750,7 +760,9 @@ class TextToSQLService:
             inspector_agent: Any = create_schema_inspector_agent(inspector_tools)
 
             if progress_callback:
-                progress_callback("Schema Inspector Agent tools ready (list_datasets, inspect_schema, get_sample_data)")
+                progress_callback(
+                    "Schema Inspector Agent tools ready (list_datasets, inspect_schema, get_sample_data)"
+                )
 
             # Create schema inspection task
             schema_inspection_task = create_schema_inspection_task(
@@ -758,7 +770,9 @@ class TextToSQLService:
             )
 
             if progress_callback:
-                progress_callback(f"Schema Inspector Agent will examine {len(tables)} table(s) for relevant columns")
+                progress_callback(
+                    f"Schema Inspector Agent will examine {len(tables)} table(s) for relevant columns"
+                )
 
         if progress_callback:
             progress_callback("Creating SQL Generator Agent for query translation...")
@@ -791,7 +805,9 @@ class TextToSQLService:
         if progress_callback:
             agent_count: int = len(crew_agents)
             task_count: int = len(crew_tasks)
-            progress_callback(f"Starting CrewAI with {agent_count} agent(s) and {task_count} task(s)...")
+            progress_callback(
+                f"Starting CrewAI with {agent_count} agent(s) and {task_count} task(s)..."
+            )
 
         crew: Crew = Crew(agents=crew_agents, tasks=crew_tasks, verbose=False)
 
@@ -824,9 +840,7 @@ class TextToSQLService:
         result: Any
         agent_logs: str
         result, agent_logs = _execute_crew_with_progress(
-            crew=crew,
-            progress_callback=progress_callback,
-            progress_messages=progress_messages
+            crew=crew, progress_callback=progress_callback, progress_messages=progress_messages
         )
 
         if progress_callback:
@@ -849,7 +863,9 @@ class TextToSQLService:
 
         if not validation["is_valid"]:
             if progress_callback:
-                progress_callback(f"SQL validation failed: {len(validation['errors'])} error(s) found")
+                progress_callback(
+                    f"SQL validation failed: {len(validation['errors'])} error(s) found"
+                )
             error_message: str = "Generated SQL contains invalid table or column names:\n"
             error_message += "\n".join(f"  - {error}" for error in validation["errors"])
             error_message += f"\n\nGenerated SQL:\n{cleaned_sql}"
@@ -941,10 +957,41 @@ class TextToSQLService:
         # Strategy 3: Fallback to last significant word (legacy behavior)
         # Filter out common stop words and query structure words
         stop_words: set[str] = {
-            "show", "me", "the", "a", "an", "all", "by", "for", "in", "on", "at",
-            "from", "to", "of", "with", "about", "tell", "give", "get", "find",
-            "display", "list", "see", "view", "hour", "day", "month", "year",
-            "time", "date", "detailed", "analysis", "report", "data", "sales",
+            "show",
+            "me",
+            "the",
+            "a",
+            "an",
+            "all",
+            "by",
+            "for",
+            "in",
+            "on",
+            "at",
+            "from",
+            "to",
+            "of",
+            "with",
+            "about",
+            "tell",
+            "give",
+            "get",
+            "find",
+            "display",
+            "list",
+            "see",
+            "view",
+            "hour",
+            "day",
+            "month",
+            "year",
+            "time",
+            "date",
+            "detailed",
+            "analysis",
+            "report",
+            "data",
+            "sales",
         }
 
         query_words: list[str] = [
@@ -988,7 +1035,9 @@ class TextToSQLService:
         keywords: list[str] = []
 
         # Extract WHERE clause from SQL
-        where_match: re.Match[str] | None = re.search(r"WHERE\s+(.+?)(?:GROUP BY|ORDER BY|LIMIT|$)", sql, re.IGNORECASE)
+        where_match: re.Match[str] | None = re.search(
+            r"WHERE\s+(.+?)(?:GROUP BY|ORDER BY|LIMIT|$)", sql, re.IGNORECASE
+        )
         if not where_match:
             return keywords
 
@@ -1037,18 +1086,45 @@ class TextToSQLService:
 
                 # Filter out stop words and find potential values
                 stop_words: set[str] = {
-                    "show", "me", "the", "a", "an", "all", "by", "for", "in", "on",
-                    "of", "with", "about", "tell", "find", "get", "sales", "analysis",
-                    "hour", "day", "month", "year", "time", "date", "detailed", "report",
+                    "show",
+                    "me",
+                    "the",
+                    "a",
+                    "an",
+                    "all",
+                    "by",
+                    "for",
+                    "in",
+                    "on",
+                    "of",
+                    "with",
+                    "about",
+                    "tell",
+                    "find",
+                    "get",
+                    "sales",
+                    "analysis",
+                    "hour",
+                    "day",
+                    "month",
+                    "year",
+                    "time",
+                    "date",
+                    "detailed",
+                    "report",
                 }
 
                 for word in words:
                     word_clean: str = word.strip(",.!?;:")
-                    if word_clean not in stop_words and len(word_clean) > 2:
-                        # Check if this word appears before common aggregate keywords
-                        if any(agg in query_lower for agg in ["sales", "orders", "customers", "by"]):
-                            keywords.append(word_clean)
-                            break
+                    if (
+                        word_clean not in stop_words
+                        and len(word_clean) > 2
+                        and any(
+                            agg in query_lower for agg in ["sales", "orders", "customers", "by"]
+                        )
+                    ):
+                        keywords.append(word_clean)
+                        break
 
         return keywords
 
@@ -1102,7 +1178,7 @@ class TextToSQLOrchestrator:
         - Thread-based execution
         """
         # Log query processing start (T203-POLISH: Structured logging for query processing)
-        from datetime import datetime  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
+        from datetime import datetime  # pylint: disable=import-outside-toplevel
 
         query_start_time: datetime = datetime.now()
         log_event(
@@ -1174,7 +1250,7 @@ class TextToSQLOrchestrator:
             )
 
         # Log successful query processing (T203-POLISH)
-        from datetime import datetime  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
+        from datetime import datetime  # pylint: disable=import-outside-toplevel
 
         query_time_ms: int = int((datetime.now() - query_start_time).total_seconds() * 1000)
         log_event(

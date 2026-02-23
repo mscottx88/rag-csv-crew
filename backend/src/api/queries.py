@@ -143,7 +143,7 @@ def _execute_sql_query(
         username=username,
         search_results=search_results,
         use_schema_inspection=True,  # Enable Schema Inspector Agent
-        progress_callback=sql_generation_progress
+        progress_callback=sql_generation_progress,
     )
 
     history_service.update_progress_message(
@@ -270,7 +270,9 @@ def _process_query_background(  # pylint: disable=too-many-locals
                 if len(tables_list) <= 3:
                     table_context = f"tables: {', '.join(tables_list)}"
                 else:
-                    table_context = f"tables: {', '.join(tables_list[:3])} and {len(tables_list) - 3} more"
+                    table_context = (
+                        f"tables: {', '.join(tables_list[:3])} and {len(tables_list) - 3} more"
+                    )
 
         history_service.update_progress_message(
             query_id, username, f"Starting hybrid search across {table_context}..."
@@ -291,11 +293,13 @@ def _process_query_background(  # pylint: disable=too-many-locals
             query_text=query_text,
             dataset_ids=dataset_ids_str,
             limit=10,
-            progress_callback=hybrid_search_progress
+            progress_callback=hybrid_search_progress,
         )
 
         history_service.update_progress_message(
-            query_id, username, f"Hybrid search complete, found {len(search_results.get('fused_results', []))} matches"
+            query_id,
+            username,
+            f"Hybrid search complete, found {len(search_results.get('fused_results', []))} matches",
         )
 
         # Calculate initial confidence score
@@ -316,7 +320,9 @@ def _process_query_background(  # pylint: disable=too-many-locals
         if confidence_score < 0.4:
             logger.info(f"Low confidence ({confidence_score:.2f}). Attempting data value search...")
             history_service.update_progress_message(
-                query_id, username, f"Low confidence ({confidence_score:.1%}) - searching actual data values..."
+                query_id,
+                username,
+                f"Low confidence ({confidence_score:.1%}) - searching actual data values...",
             )
 
             history_service.update_progress_message(
@@ -341,7 +347,9 @@ def _process_query_background(  # pylint: disable=too-many-locals
             logger.info(f"Data value search returned {len(value_matches)} matches")
 
             history_service.update_progress_message(
-                query_id, username, f"Data value search complete, found {len(value_matches)} matches"
+                query_id,
+                username,
+                f"Data value search complete, found {len(value_matches)} matches",
             )
 
             # If data value matches found, boost confidence and merge results
@@ -394,7 +402,9 @@ def _process_query_background(  # pylint: disable=too-many-locals
                 confidence_score = response_generator.calculate_confidence_score(search_results)
 
                 history_service.update_progress_message(
-                    query_id, username, f"Confidence improved to {confidence_score:.1%}, proceeding with SQL generation"
+                    query_id,
+                    username,
+                    f"Confidence improved to {confidence_score:.1%}, proceeding with SQL generation",
                 )
 
                 logger.info(
@@ -409,7 +419,9 @@ def _process_query_background(  # pylint: disable=too-many-locals
             and not has_data_value_matches
         ):
             history_service.update_progress_message(
-                query_id, username, f"Confidence too low ({confidence_score:.1%}), generating clarification request..."
+                query_id,
+                username,
+                f"Confidence too low ({confidence_score:.1%}), generating clarification request...",
             )
 
             _handle_clarification_response(
@@ -499,7 +511,7 @@ def submit_query(
         target=_process_query_background,
         args=(query_id, query_create.query_text, query_create.dataset_ids, current_username),
         daemon=True,  # Thread will not prevent application shutdown
-        name=f"query-worker-{query_id}"
+        name=f"query-worker-{query_id}",
     )
     worker_thread.start()
 

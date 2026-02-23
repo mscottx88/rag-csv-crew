@@ -31,6 +31,11 @@ load_dotenv(dotenv_path=env_path)
 
 # Import after load_dotenv() to ensure environment variables are available
 # pylint: disable=wrong-import-position
+# pylint: enable=wrong-import-position
+# Setup application logging (configurable via LOG_LEVEL environment variable)
+import os  # noqa: E402
+
+# JUSTIFICATION: load_dotenv() must run before these imports to ensure env vars are available
 from src.api.auth import router as auth_router  # noqa: E402
 from src.api.datasets import router as datasets_router  # noqa: E402
 from src.api.health import router as health_router  # noqa: E402
@@ -43,10 +48,6 @@ from src.utils.logging import (  # noqa: E402
     log_event,
     setup_application_logging,
 )
-# pylint: enable=wrong-import-position
-
-# Setup application logging (configurable via LOG_LEVEL environment variable)
-import os  # noqa: E402
 
 log_level: str = os.getenv("LOG_LEVEL", "INFO")
 setup_application_logging(log_level=log_level)

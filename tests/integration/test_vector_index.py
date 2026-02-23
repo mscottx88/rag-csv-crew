@@ -57,7 +57,6 @@ class TestVectorIndex:
             row: tuple[Any, ...] | None = cur.fetchone()
 
         assert row is not None, "HNSW index not found on column_mappings table"
-        index_name: str = row[0]
         index_def: str = row[1]
 
         # Verify index uses HNSW algorithm
@@ -133,28 +132,29 @@ class TestVectorIndex:
             # Insert sample embeddings
             for i in range(100):
                 embedding: list[float] = [float(i % 10) / 10.0] * 1536
-                cur.execute("""
+                cur.execute(
+                    """
                     INSERT INTO column_mappings
                     (dataset_id, original_column, mapped_column, embedding)
                     VALUES (%s, %s, %s, %s)
-                """, (
-                    f"dataset-{i}",
-                    f"column_{i}",
-                    f"column_{i}",
-                    embedding
-                ))
+                """,
+                    (f"dataset-{i}", f"column_{i}", f"column_{i}", embedding),
+                )
             test_db_connection.commit()
 
             # Query vector similarity with EXPLAIN
             query_embedding: list[float] = [0.5] * 1536
-            cur.execute("""
+            cur.execute(
+                """
                 EXPLAIN (FORMAT JSON)
                 SELECT original_column,
                        embedding <=> %s::vector AS distance
                 FROM column_mappings
                 ORDER BY embedding <=> %s::vector
                 LIMIT 10
-            """, (query_embedding, query_embedding))
+            """,
+                (query_embedding, query_embedding),
+            )
 
             explain_result: list[dict[str, Any]] = cur.fetchone()[0]
 
@@ -187,30 +187,39 @@ class TestVectorIndex:
 
             # Insert embedding
             embedding_1: list[float] = [0.1] * 1536
-            cur.execute("""
+            cur.execute(
+                """
                 INSERT INTO column_mappings
                 (dataset_id, original_column, mapped_column, embedding)
                 VALUES (%s, %s, %s, %s)
                 RETURNING id
-            """, ("dataset-1", "revenue", "revenue", embedding_1))
+            """,
+                ("dataset-1", "revenue", "revenue", embedding_1),
+            )
             row_id: int = cur.fetchone()[0]
             test_db_connection.commit()
 
             # Update embedding
             embedding_2: list[float] = [0.9] * 1536
-            cur.execute("""
+            cur.execute(
+                """
                 UPDATE column_mappings
                 SET embedding = %s
                 WHERE id = %s
-            """, (embedding_2, row_id))
+            """,
+                (embedding_2, row_id),
+            )
             test_db_connection.commit()
 
             # Query to verify updated embedding
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT embedding <=> %s::vector AS distance
                 FROM column_mappings
                 WHERE id = %s
-            """, (embedding_2, row_id))
+            """,
+                (embedding_2, row_id),
+            )
             distance: float = cur.fetchone()[0]
 
             # Distance to itself should be ~0
@@ -257,11 +266,14 @@ class TestVectorIndex:
             # Insert data without index
             for i in range(50):
                 embedding: list[float] = [float(i) / 50.0] * 1536
-                cur.execute("""
+                cur.execute(
+                    """
                     INSERT INTO column_mappings
                     (dataset_id, original_column, mapped_column, embedding)
                     VALUES (%s, %s, %s, %s)
-                """, (f"dataset-{i}", f"col_{i}", f"col_{i}", embedding))
+                """,
+                    (f"dataset-{i}", f"col_{i}", f"col_{i}", embedding),
+                )
             test_db_connection.commit()
 
             # Recreate index
@@ -275,11 +287,14 @@ class TestVectorIndex:
 
             # Verify index exists and is usable
             query_embedding: list[float] = [0.5] * 1536
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT COUNT(*)
                 FROM column_mappings
                 WHERE embedding <=> %s::vector < 0.5
-            """, (query_embedding,))
+            """,
+                (query_embedding,),
+            )
             count: int = cur.fetchone()[0]
 
             # Should find some similar vectors

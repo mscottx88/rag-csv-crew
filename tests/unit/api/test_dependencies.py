@@ -11,7 +11,6 @@ Constitutional Requirements:
 - All functions have return type annotations
 """
 
-import os
 from typing import Any
 
 from fastapi import HTTPException

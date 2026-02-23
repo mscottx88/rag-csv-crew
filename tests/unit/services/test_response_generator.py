@@ -163,7 +163,9 @@ class TestResponseGenerator:
 
         mock_crew_instance: MagicMock = MagicMock()
         mock_result: MagicMock = MagicMock()
-        mock_result.raw = "<p>The total revenue is <strong>$1,234.56</strong> across 42 transactions.</p>"
+        mock_result.raw = (
+            "<p>The total revenue is <strong>$1,234.56</strong> across 42 transactions.</p>"
+        )
         mock_crew_instance.kickoff.return_value = mock_result
         mock_crew.return_value = mock_crew_instance
 

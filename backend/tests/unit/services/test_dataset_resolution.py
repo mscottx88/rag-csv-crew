@@ -12,7 +12,6 @@ Requirements:
 - Respect user dataset_ids filter if provided
 """
 
-
 # pylint: disable=redefined-outer-name,docstring-first-line-empty
 from psycopg_pool import ConnectionPool
 import pytest
@@ -38,7 +37,7 @@ class TestDatasetRelationshipResolution:
         query: str = "Show all customers"
         available_datasets: list[str] = ["customers", "orders", "products"]
 
-        # Expected: ["customers"]  # noqa: ERA001
+        # Expects only the customers dataset to be resolved
         result: list[str] = text_to_sql_service.resolve_datasets(
             username=test_username,
             query_text=query,
@@ -57,7 +56,7 @@ class TestDatasetRelationshipResolution:
         query: str = "Which customers have orders with high-value products?"
         available_datasets: list[str] = ["customers", "orders", "products"]
 
-        # Expected: ["customers", "orders", "products"]  # noqa: ERA001
+        # Expects all three datasets to be resolved
         result: list[str] = text_to_sql_service.resolve_datasets(
             username=test_username,
             query_text=query,

@@ -14,7 +14,6 @@ Requirements:
 - Proper result aggregation across tables
 """
 
-
 # pylint: disable=redefined-outer-name,broad-exception-caught,docstring-first-line-empty
 from psycopg_pool import ConnectionPool
 import pytest
@@ -38,13 +37,8 @@ class TestAutomaticJoinGeneration:
         """Should generate and execute JOIN query from natural language."""
         # RED: Implementation needed
         # Setup: Upload customers.csv and orders.csv with matching customer_id
-        # Query: "Which customers have the most orders?"  # noqa: ERA001
-        # Expected:
-        # 1. Identify datasets: customers, orders
-        # 2. Find cross_reference: orders.customer_id → customers.customer_id
-        # 3. Generate SQL with INNER JOIN
-        # 4. Execute query successfully
-        # 5. Return aggregated results
+        # Validate cross-dataset join query about customers with most orders
+        # Expects: dataset identification, cross-reference lookup, INNER JOIN SQL, aggregated results
 
     def test_three_table_join_chain(
         self,
@@ -53,9 +47,8 @@ class TestAutomaticJoinGeneration:
     ) -> None:
         """Should handle three-table JOIN chains."""
         # RED: Implementation needed
-        # Setup: customers, orders, products (orders links both)
-        # Query: "Which customers bought expensive products?"  # noqa: ERA001
-        # Expected: customers ← orders → products (two JOINs)
+        # Setup: customers, orders, products datasets (orders links both)
+        # Validates two-hop join: customers linked to products via orders table
 
     def test_aggregation_across_joined_tables(
         self,
@@ -64,8 +57,7 @@ class TestAutomaticJoinGeneration:
     ) -> None:
         """Should aggregate data from multiple tables correctly."""
         # RED: Implementation needed
-        # Query: "What is the total revenue per customer?"  # noqa: ERA001
-        # Expected: SUM(orders.amount) GROUP BY customers.customer_name
+        # Validates: aggregation query generates SUM with GROUP BY across joined tables
 
     def test_filter_on_joined_table(
         self,
@@ -74,8 +66,7 @@ class TestAutomaticJoinGeneration:
     ) -> None:
         """Should apply WHERE clauses on joined tables."""
         # RED: Implementation needed
-        # Query: "Show orders for customers in California"  # noqa: ERA001
-        # Expected: WHERE customers.state = 'CA'
+        # Validates: filter condition on joined table generates correct WHERE clause
 
     def test_left_join_for_optional_relationships(
         self,
@@ -84,9 +75,8 @@ class TestAutomaticJoinGeneration:
     ) -> None:
         """Should use LEFT JOIN when relationship is optional."""
         # RED: Implementation needed
-        # Query: "Show all products with their category if available"  # noqa: ERA001
         # Some products have no category
-        # Expected: LEFT JOIN to include products without categories
+        # Validates: optional relationships generate LEFT JOIN to include unmatched rows
 
     def test_handle_no_matching_cross_reference(
         self,

@@ -10,7 +10,6 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -54,10 +53,7 @@ class TestHybridSearchOrchestration:
 
         # Execute hybrid search
         results: dict[str, Any] = service.search(
-            username="testuser",
-            query_text="revenue data",
-            dataset_ids=None,
-            limit=10
+            username="testuser", query_text="revenue data", dataset_ids=None, limit=10
         )
 
         # Verify all three strategies executed
@@ -104,24 +100,18 @@ class TestHybridSearchOrchestration:
             exact_results=exact_results,
             fulltext_results=fulltext_results,
             vector_results=vector_results,
-            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3}
+            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3},
         )
 
         # Verify weighted combination
         assert len(fused_results) == 1
         result: dict[str, Any] = fused_results[0]
 
-        # Combined score should reflect weights
-        # exact: 1.0 * 0.4 = 0.4
-        # fulltext: 0.8 * 0.3 = 0.24
-        # vector: (1 - 0.2) * 0.3 = 0.24 (distance converted to similarity)
-        # total: 0.4 + 0.24 + 0.24 = 0.88
+        # Combined score: exact weight 0.4, fulltext weight 0.3, vector weight 0.3 = 0.88
         expected_score: float = 0.88
         assert abs(result["combined_score"] - expected_score) < 0.01
 
-    def test_result_fusion_handles_missing_strategies(
-        self, test_db_connection: Any
-    ) -> None:
+    def test_result_fusion_handles_missing_strategies(self, test_db_connection: Any) -> None:
         """Test fusion handles cases where some strategies return no results.
 
         Validates:
@@ -152,7 +142,7 @@ class TestHybridSearchOrchestration:
             exact_results=exact_results,
             fulltext_results=fulltext_results,
             vector_results=vector_results,
-            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3}
+            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3},
         )
 
         # Should still return fulltext result with weighted score
@@ -198,7 +188,7 @@ class TestHybridSearchOrchestration:
             exact_results=exact_results,
             fulltext_results=fulltext_results,
             vector_results=vector_results,
-            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3}
+            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3},
         )
 
         # Test custom weights (emphasize vector search)
@@ -206,15 +196,13 @@ class TestHybridSearchOrchestration:
             exact_results=exact_results,
             fulltext_results=fulltext_results,
             vector_results=vector_results,
-            weights={"exact": 0.2, "fulltext": 0.2, "vector": 0.6}
+            weights={"exact": 0.2, "fulltext": 0.2, "vector": 0.6},
         )
 
         # Scores should differ based on weights
         assert default_fused[0]["combined_score"] != custom_fused[0]["combined_score"]
 
-    def test_hybrid_search_ranking_consistency(
-        self, test_db_connection: Any
-    ) -> None:
+    def test_hybrid_search_ranking_consistency(self, test_db_connection: Any) -> None:
         """Test hybrid search produces consistent ranking across multiple calls.
 
         Validates:
@@ -242,17 +230,11 @@ class TestHybridSearchOrchestration:
 
             # Run search twice with same parameters
             results_1: dict[str, Any] = service.search(
-                username="testuser",
-                query_text="revenue",
-                dataset_ids=None,
-                limit=10
+                username="testuser", query_text="revenue", dataset_ids=None, limit=10
             )
 
             results_2: dict[str, Any] = service.search(
-                username="testuser",
-                query_text="revenue",
-                dataset_ids=None,
-                limit=10
+                username="testuser", query_text="revenue", dataset_ids=None, limit=10
             )
 
             # Results should be identical
@@ -297,10 +279,7 @@ class TestHybridSearchOrchestration:
 
         # Should not raise exception, return partial results
         results: dict[str, Any] = service.search(
-            username="testuser",
-            query_text="revenue",
-            dataset_ids=None,
-            limit=10
+            username="testuser", query_text="revenue", dataset_ids=None, limit=10
         )
 
         # Should have results from successful strategies
@@ -336,23 +315,16 @@ class TestHybridSearchOrchestration:
 
             dataset_ids: list[str] = ["dataset-A", "dataset-B"]
 
-            results: dict[str, Any] = service.search(
-                username="testuser",
-                query_text="revenue",
-                dataset_ids=dataset_ids,
-                limit=10
+            service.search(
+                username="testuser", query_text="revenue", dataset_ids=dataset_ids, limit=10
             )
 
             # Verify vector search received dataset filter
             mock_vector_service.find_similar_columns.assert_called_once()
-            call_kwargs: dict[str, Any] = (
-                mock_vector_service.find_similar_columns.call_args.kwargs
-            )
+            call_kwargs: dict[str, Any] = mock_vector_service.find_similar_columns.call_args.kwargs
             assert call_kwargs["dataset_ids"] == dataset_ids
 
-    def test_hybrid_search_result_limit_applied(
-        self, test_db_connection: Any
-    ) -> None:
+    def test_hybrid_search_result_limit_applied(self, test_db_connection: Any) -> None:
         """Test result limit is applied to final fused results.
 
         Validates:
@@ -381,7 +353,7 @@ class TestHybridSearchOrchestration:
             exact_results=exact_results,
             fulltext_results=[],
             vector_results=[],
-            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3}
+            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3},
         )
 
         # Apply limit
@@ -392,7 +364,4 @@ class TestHybridSearchOrchestration:
 
         # Verify top-ranked results (highest scores first)
         for i in range(len(limited_results) - 1):
-            assert (
-                limited_results[i]["combined_score"]
-                >= limited_results[i + 1]["combined_score"]
-            )
+            assert limited_results[i]["combined_score"] >= limited_results[i + 1]["combined_score"]

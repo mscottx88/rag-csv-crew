@@ -37,7 +37,9 @@ def set_schema_inspector_context(service: SchemaInspectorService, username: str)
         This must be called before using schema inspector tools.
         Uses module-level globals for CrewAI tool compatibility.
     """
-    global _schema_inspector_service, _schema_inspector_username  # noqa: PLW0603  # pylint: disable=global-statement
+    # pylint: disable=global-statement  # JUSTIFICATION: CrewAI tool pattern requires module-level globals
+    global _schema_inspector_service, _schema_inspector_username  # noqa: PLW0603
+    # pylint: enable=global-statement
     _schema_inspector_service = service
     _schema_inspector_username = username
 

@@ -8,9 +8,9 @@ Constitutional Requirements:
 - All functions have return type annotations
 """
 
-import time
 from collections import defaultdict
-from typing import Callable
+from collections.abc import Callable
+import time
 
 from fastapi import Request, Response, status
 from fastapi.responses import JSONResponse

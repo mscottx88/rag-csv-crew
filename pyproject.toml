@@ -62,7 +62,7 @@ dev = [
     "httpx>=0.26.0",  # FastAPI test client
 
     # Quality Tools
-    "ruff>=0.1.11",  # Linting and formatting
+    "ruff==0.8.4",  # Linting and formatting (pinned to match pre-commit hook version)
     "mypy>=1.8.0",  # Type checking
     "pylint>=3.0.3",  # Additional linting
 

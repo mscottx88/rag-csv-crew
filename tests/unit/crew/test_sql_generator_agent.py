@@ -81,7 +81,9 @@ class TestSQLGeneratorAgent:
         tool_names: list[str] = [str(tool.name).lower() for tool in agent.tools]
         # If tools are populated, they should include schema inspection capabilities
         if len(tool_names) > 0:
-            assert any("schema" in name or "table" in name or "column" in name for name in tool_names)
+            assert any(
+                "schema" in name or "table" in name or "column" in name for name in tool_names
+            )
 
     @patch("backend.src.crew.agents.Agent")
     def test_sql_generator_agent_creation_parameters(self, mock_agent_class: MagicMock) -> None:

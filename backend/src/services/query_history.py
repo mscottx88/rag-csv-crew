@@ -10,8 +10,8 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
-import json
 from datetime import UTC, datetime
+import json
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -121,9 +121,7 @@ class QueryHistoryService:
             )
             conn.commit()
 
-    def update_progress_message(
-        self, query_id: UUID, username: str, progress_message: str
-    ) -> None:
+    def update_progress_message(self, query_id: UUID, username: str, progress_message: str) -> None:
         """Update only the progress message for a query.
 
         Args:
@@ -307,7 +305,11 @@ class QueryHistoryService:
 
     def get_query_history(  # pylint: disable=too-many-locals
         # TODO(pylint-refactor): Extract helper methods to reduce local variables (e.g., build_query, fetch_results)  # pylint: disable=line-too-long
-        self, username: str, page: int = 1, page_size: int = 50, status: str | None = None
+        self,
+        username: str,
+        page: int = 1,
+        page_size: int = 50,
+        status: str | None = None,
     ) -> dict[str, Any]:
         """Retrieve paginated query history.
 

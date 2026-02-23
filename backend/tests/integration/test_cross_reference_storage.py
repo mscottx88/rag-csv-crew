@@ -11,7 +11,6 @@ Requirements:
 - Validate relationship_type and confidence_score constraints
 """
 
-
 # pylint: disable=redefined-outer-name,broad-exception-caught,docstring-first-line-empty
 from psycopg_pool import ConnectionPool
 import pytest

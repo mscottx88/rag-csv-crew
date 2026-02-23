@@ -46,7 +46,7 @@ class HybridSearchService:
         query_text: str,
         dataset_ids: list[str] | None = None,
         limit: int = 10,
-        progress_callback: Callable[[str], None] | None = None
+        progress_callback: Callable[[str], None] | None = None,
     ) -> dict[str, Any]:
         """Execute hybrid search combining three strategies in parallel.
 
@@ -84,7 +84,7 @@ class HybridSearchService:
                 username=username,
                 query_text=query_text,
                 dataset_ids=dataset_ids,
-                limit=limit
+                limit=limit,
             )
 
             fulltext_future: Future[list[dict[str, Any]]] = executor.submit(
@@ -92,7 +92,7 @@ class HybridSearchService:
                 username=username,
                 query_text=query_text,
                 dataset_ids=dataset_ids,
-                limit=limit
+                limit=limit,
             )
 
             vector_future: Future[list[dict[str, Any]]] = executor.submit(
@@ -100,7 +100,7 @@ class HybridSearchService:
                 username=username,
                 query_text=query_text,
                 limit=limit,
-                dataset_ids=dataset_ids
+                dataset_ids=dataset_ids,
             )
 
             # Collect results (blocking until all complete)
@@ -114,7 +114,9 @@ class HybridSearchService:
                 progress_callback("Full-text search thread retrieving results...")
             fulltext_results: list[dict[str, Any]] = fulltext_future.result()
             if progress_callback:
-                progress_callback(f"Full-text search complete: {len(fulltext_results)} columns found")
+                progress_callback(
+                    f"Full-text search complete: {len(fulltext_results)} columns found"
+                )
 
             if progress_callback:
                 progress_callback("Vector similarity search thread computing embeddings...")
@@ -124,19 +126,17 @@ class HybridSearchService:
 
         # Fuse results with default weights
         if progress_callback:
-            progress_callback("Fusing results with weighted scoring (40% exact, 30% full-text, 30% vector)...")
+            progress_callback(
+                "Fusing results with weighted scoring (40% exact, 30% full-text, 30% vector)..."
+            )
 
-        default_weights: dict[str, float] = {
-            "exact": 0.4,
-            "fulltext": 0.3,
-            "vector": 0.3
-        }
+        default_weights: dict[str, float] = {"exact": 0.4, "fulltext": 0.3, "vector": 0.3}
 
         fused_results: list[dict[str, Any]] = self.fuse_results(
             exact_results=exact_results,
             fulltext_results=fulltext_results,
             vector_results=vector_results,
-            weights=default_weights
+            weights=default_weights,
         )
 
         if progress_callback:
@@ -146,13 +146,15 @@ class HybridSearchService:
         fused_results = fused_results[:limit]
 
         if progress_callback:
-            progress_callback(f"Hybrid search fusion complete: top {len(fused_results)} results selected")
+            progress_callback(
+                f"Hybrid search fusion complete: top {len(fused_results)} results selected"
+            )
 
         return {
             "exact_results": exact_results,
             "fulltext_results": fulltext_results,
             "vector_results": vector_results,
-            "fused_results": fused_results
+            "fused_results": fused_results,
         }
 
     # pylint: disable=too-many-locals
@@ -160,11 +162,7 @@ class HybridSearchService:
     # placeholders for dataset filtering) and result processing (row unpacking: column_name,
     # dataset_id, description). Reducing would sacrifice clarity or require over-engineering.
     def exact_search(
-        self,
-        username: str,
-        query_text: str,
-        dataset_ids: list[str] | None = None,
-        limit: int = 10
+        self, username: str, query_text: str, dataset_ids: list[str] | None = None, limit: int = 10
     ) -> list[dict[str, Any]]:
         """Perform case-insensitive exact match search on column names.
 
@@ -214,11 +212,13 @@ class HybridSearchService:
                     column_name: str = row[0]
                     dataset_id: str = row[1]
 
-                    results.append({
-                        "column_name": column_name,
-                        "dataset_id": dataset_id,
-                        "score": 1.0  # Exact match always has score 1.0
-                    })
+                    results.append(
+                        {
+                            "column_name": column_name,
+                            "dataset_id": dataset_id,
+                            "score": 1.0,  # Exact match always has score 1.0
+                        }
+                    )
 
                 return results
 
@@ -230,11 +230,7 @@ class HybridSearchService:
     # sql_parts, params, placeholders) and result processing (row unpacking: column_name,
     # dataset_id, description, rank). Reducing would harm code clarity or require over-engineering.
     def fulltext_search(
-        self,
-        username: str,
-        query_text: str,
-        dataset_ids: list[str] | None = None,
-        limit: int = 10
+        self, username: str, query_text: str, dataset_ids: list[str] | None = None, limit: int = 10
     ) -> list[dict[str, Any]]:
         """Perform full-text search using PostgreSQL tsvector and ts_rank.
 
@@ -288,11 +284,9 @@ class HybridSearchService:
                     dataset_id: str = row[1]
                     rank: float = float(row[2])
 
-                    results.append({
-                        "column_name": column_name,
-                        "dataset_id": dataset_id,
-                        "rank": rank
-                    })
+                    results.append(
+                        {"column_name": column_name, "dataset_id": dataset_id, "rank": rank}
+                    )
 
                 return results
 
@@ -308,7 +302,7 @@ class HybridSearchService:
         exact_results: list[dict[str, Any]],
         fulltext_results: list[dict[str, Any]],
         vector_results: list[dict[str, Any]],
-        weights: dict[str, float]
+        weights: dict[str, float],
     ) -> list[dict[str, Any]]:
         """Fuse results from multiple search strategies with weighted scoring.
 
@@ -352,7 +346,7 @@ class HybridSearchService:
                     "column_name": column_name,
                     "dataset_id": dataset_id,
                     "combined_score": 0.0,
-                    "strategy_scores": {}
+                    "strategy_scores": {},
                 }
 
             # Add weighted exact score
@@ -373,7 +367,7 @@ class HybridSearchService:
                     "column_name": column_name,
                     "dataset_id": dataset_id,
                     "combined_score": 0.0,
-                    "strategy_scores": {}
+                    "strategy_scores": {},
                 }
 
             # Add weighted fulltext score
@@ -394,7 +388,7 @@ class HybridSearchService:
                     "column_name": column_name,
                     "dataset_id": dataset_id,
                     "combined_score": 0.0,
-                    "strategy_scores": {}
+                    "strategy_scores": {},
                 }
 
             # Add weighted vector score

@@ -59,16 +59,18 @@ class TestColumnEmbeddings:
 
         # Simulate column metadata
         columns: list[dict[str, Any]] = [
-            {"name": "customer_id", "sql_type": "INTEGER", "description": "Unique customer identifier"},
+            {
+                "name": "customer_id",
+                "sql_type": "INTEGER",
+                "description": "Unique customer identifier",
+            },
             {"name": "revenue", "sql_type": "NUMERIC", "description": "Total sales amount"},
             {"name": "region", "sql_type": "TEXT", "description": "Geographic sales region"},
         ]
 
         # Generate embeddings for columns
         service.generate_column_embeddings(
-            username="testuser",
-            dataset_id="test-dataset-id",
-            columns=columns
+            username="testuser", dataset_id="test-dataset-id", columns=columns
         )
 
         # Verify embeddings were generated for each column
@@ -127,14 +129,13 @@ class TestColumnEmbeddings:
             dataset_id="test-dataset-id",
             original_column=column_name,
             mapped_column=column_name,
-            embedding=embedding
+            embedding=embedding,
         )
 
         # Verify stored embedding
         with test_db_connection.cursor() as cur:
             cur.execute(
-                "SELECT embedding FROM column_mappings WHERE original_column = %s",
-                (column_name,)
+                "SELECT embedding FROM column_mappings WHERE original_column = %s", (column_name,)
             )
             row: tuple[Any, ...] | None = cur.fetchone()
 
@@ -143,9 +144,7 @@ class TestColumnEmbeddings:
         assert len(stored_embedding) == 1536
 
     @patch("backend.src.services.vector_search.OpenAI")
-    def test_embeddings_updated_on_column_remapping(
-        self, mock_openai_class: MagicMock
-    ) -> None:
+    def test_embeddings_updated_on_column_remapping(self, mock_openai_class: MagicMock) -> None:
         """Test embeddings are regenerated when column mappings change.
 
         Validates:
@@ -228,9 +227,7 @@ class TestColumnEmbeddings:
 
             with pytest.raises(Exception):
                 service.generate_column_embeddings(
-                    username="testuser",
-                    dataset_id="test-dataset-id",
-                    columns=columns
+                    username="testuser", dataset_id="test-dataset-id", columns=columns
                 )
 
             # Verify rollback was called

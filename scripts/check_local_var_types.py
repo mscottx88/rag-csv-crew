@@ -25,8 +25,8 @@ Exemptions (variables that don't need annotations):
 """
 
 import ast
-import sys
 from pathlib import Path
+import sys
 
 
 # pylint: disable=invalid-name
@@ -46,7 +46,9 @@ class LocalVariableTypeChecker(ast.NodeVisitor):
         self.function_stack: list[str] = []
         self.declared_vars: set[str] = set()  # Track vars declared in current function
 
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+    def visit_FunctionDef(  # noqa: N802  # JUSTIFICATION: ast.NodeVisitor requires visit_* naming
+        self, node: ast.FunctionDef
+    ) -> None:
         """Visit function definition and check its body."""
         self.in_function = True
         self.function_stack.append(node.name)
@@ -57,7 +59,9 @@ class LocalVariableTypeChecker(ast.NodeVisitor):
             self.in_function = False
             self.declared_vars = set()
 
-    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+    def visit_AsyncFunctionDef(  # noqa: N802  # JUSTIFICATION: ast.NodeVisitor requires visit_* naming
+        self, node: ast.AsyncFunctionDef
+    ) -> None:
         """Visit async function definition and check its body."""
         self.in_function = True
         self.function_stack.append(node.name)
@@ -100,7 +104,9 @@ class LocalVariableTypeChecker(ast.NodeVisitor):
 
         return False
 
-    def visit_Assign(self, node: ast.Assign) -> None:
+    def visit_Assign(  # noqa: N802  # JUSTIFICATION: ast.NodeVisitor requires visit_* naming
+        self, node: ast.Assign
+    ) -> None:
         """Check assignment statements for missing type annotations.
 
         Only checks assignments inside functions (local variables).
@@ -159,7 +165,9 @@ class LocalVariableTypeChecker(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+    def visit_AnnAssign(  # noqa: N802  # JUSTIFICATION: ast.NodeVisitor requires visit_* naming
+        self, node: ast.AnnAssign
+    ) -> None:
         """Visit annotated assignments (these are compliant)."""
         # These are fine - they have type annotations
         # Track the variable as declared
@@ -167,7 +175,9 @@ class LocalVariableTypeChecker(ast.NodeVisitor):
             self.declared_vars.add(node.target.id)
         self.generic_visit(node)
 
-    def visit_AugAssign(self, node: ast.AugAssign) -> None:
+    def visit_AugAssign(  # noqa: N802  # JUSTIFICATION: ast.NodeVisitor requires visit_* naming
+        self, node: ast.AugAssign
+    ) -> None:
         """Visit augmented assignments (these are fine).
 
         Augmented assignments (+=, -=, etc.) modify existing variables,
@@ -175,7 +185,9 @@ class LocalVariableTypeChecker(ast.NodeVisitor):
         """
         self.generic_visit(node)
 
-    def visit_For(self, node: ast.For) -> None:
+    def visit_For(  # noqa: N802  # JUSTIFICATION: ast.NodeVisitor requires visit_* naming
+        self, node: ast.For
+    ) -> None:
         """Visit for loops (loop variables are exempted per constitution).
 
         The constitution states loop variables are optional:
@@ -193,7 +205,9 @@ class LocalVariableTypeChecker(ast.NodeVisitor):
                         self.declared_vars.add(elt.id)
         self.generic_visit(node)
 
-    def visit_With(self, node: ast.With) -> None:
+    def visit_With(  # noqa: N802  # JUSTIFICATION: ast.NodeVisitor requires visit_* naming
+        self, node: ast.With
+    ) -> None:
         """Visit with statements (context manager variables are exempted)."""
         self.generic_visit(node)
 
@@ -240,7 +254,7 @@ def check_file(filepath: Path) -> int:
         return 1
     # pylint: disable=broad-exception-caught
     # JUSTIFICATION: Need to catch all exceptions to report file check errors without crashing
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         print(f"Error checking {filepath}: {e}")
         return 1
     # pylint: enable=broad-exception-caught

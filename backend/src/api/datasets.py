@@ -414,7 +414,9 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
             if underlying_pool_metadata is None:
                 raise RuntimeError("Connection pool not initialized")
 
-            metadata_service: ColumnMetadataService = ColumnMetadataService(underlying_pool_metadata)
+            metadata_service: ColumnMetadataService = ColumnMetadataService(
+                underlying_pool_metadata
+            )
             metadata_result: dict[str, Any] = metadata_service.compute_and_store_metadata(
                 username=username,
                 dataset_id=dataset_id,
@@ -819,7 +821,7 @@ def get_dataset(
 
 
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
-    # pylint: disable=redundant-returns-doc
+# pylint: disable=redundant-returns-doc
 def delete_dataset(
     response: Response,
     dataset_id: str,
@@ -889,7 +891,9 @@ def delete_dataset(
 
             # Drop the data table (T208-POLISH: SQL injection prevention)
             with conn.cursor() as cur:
-                drop_sql: sql.Composed = sql.SQL("DROP TABLE IF EXISTS {schema}.{table} CASCADE").format(
+                drop_sql: sql.Composed = sql.SQL(
+                    "DROP TABLE IF EXISTS {schema}.{table} CASCADE"
+                ).format(
                     schema=sql.Identifier(f"{username}_schema"),
                     table=sql.Identifier(table_name),
                 )

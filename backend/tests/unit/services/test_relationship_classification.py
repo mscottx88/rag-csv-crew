@@ -62,7 +62,7 @@ class TestRelationshipTypeClassification:
         source_values: list[str] = ["A", "B", "C", "D"]
         target_values: list[str] = ["B", "C", "E", "F"]
 
-        # Expected: shared_values (50% overlap)  # noqa: ERA001
+        # Expects shared_values relationship type with 50 percent overlap
         result: dict[str, Any] = cross_ref_service.classify_relationship(
             source_values, target_values
         )
@@ -149,7 +149,7 @@ class TestRelationshipTypeClassification:
         source_values: list[str] = ["Apple", "Banana", "Cherry"]
         target_values: list[str] = ["apple", "BANANA", "cherry"]
 
-        # Expected: 100% overlap (case-insensitive)  # noqa: ERA001
+        # Expects full overlap when matching case-insensitively
         result: dict[str, Any] = cross_ref_service.classify_relationship(
             source_values, target_values
         )

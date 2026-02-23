@@ -28,7 +28,7 @@ from psycopg_pool import ConnectionPool
 
 from src.services.column_metadata import ColumnMetadataService
 from src.services.vector_search import VectorSearchService
-from src.utils.logging import get_structured_logger, log_error, log_event
+from src.utils.logging import get_structured_logger, log_event
 
 # Get logger for file operations (T202-POLISH)
 logger = get_structured_logger(__name__)
@@ -226,7 +226,7 @@ def _infer_value_type(value: str) -> str:
         # Check for date patterns: YYYY-MM-DD, MM/DD/YYYY, etc.
         try:
             # Try common date formats
-            from dateutil import parser  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
+            from dateutil import parser  # pylint: disable=import-outside-toplevel
 
             parsed: datetime = parser.parse(value)
             if parsed:
@@ -475,16 +475,82 @@ def _sanitize_table_name(filename: str) -> str:
 # PostgreSQL reserved keywords that require quoting
 # Source: https://www.postgresql.org/docs/current/sql-keywords-appendix.html
 _SQL_RESERVED_KEYWORDS: set[str] = {
-    "all", "analyse", "analyze", "and", "any", "array", "as", "asc", "asymmetric",
-    "both", "case", "cast", "check", "collate", "column", "constraint", "create",
-    "current_catalog", "current_date", "current_role", "current_time",
-    "current_timestamp", "current_user", "default", "deferrable", "desc", "distinct",
-    "do", "else", "end", "except", "false", "fetch", "for", "foreign", "from",
-    "grant", "group", "having", "in", "initially", "intersect", "into", "lateral",
-    "leading", "limit", "localtime", "localtimestamp", "not", "null", "offset",
-    "on", "only", "or", "order", "placing", "primary", "references", "returning",
-    "select", "session_user", "some", "symmetric", "table", "then", "to", "trailing",
-    "true", "union", "unique", "user", "using", "variadic", "when", "where", "window",
+    "all",
+    "analyse",
+    "analyze",
+    "and",
+    "any",
+    "array",
+    "as",
+    "asc",
+    "asymmetric",
+    "both",
+    "case",
+    "cast",
+    "check",
+    "collate",
+    "column",
+    "constraint",
+    "create",
+    "current_catalog",
+    "current_date",
+    "current_role",
+    "current_time",
+    "current_timestamp",
+    "current_user",
+    "default",
+    "deferrable",
+    "desc",
+    "distinct",
+    "do",
+    "else",
+    "end",
+    "except",
+    "false",
+    "fetch",
+    "for",
+    "foreign",
+    "from",
+    "grant",
+    "group",
+    "having",
+    "in",
+    "initially",
+    "intersect",
+    "into",
+    "lateral",
+    "leading",
+    "limit",
+    "localtime",
+    "localtimestamp",
+    "not",
+    "null",
+    "offset",
+    "on",
+    "only",
+    "or",
+    "order",
+    "placing",
+    "primary",
+    "references",
+    "returning",
+    "select",
+    "session_user",
+    "some",
+    "symmetric",
+    "table",
+    "then",
+    "to",
+    "trailing",
+    "true",
+    "union",
+    "unique",
+    "user",
+    "using",
+    "variadic",
+    "when",
+    "where",
+    "window",
     "with",
 }
 
@@ -545,9 +611,7 @@ def _sanitize_column_name(col_name: str) -> str:
     sanitized = sanitized.strip("_")
 
     if not sanitized:
-        raise ValueError(
-            f"Column name '{col_name}' results in empty name after sanitization"
-        )
+        raise ValueError(f"Column name '{col_name}' results in empty name after sanitization")
 
     # Ensure starts with letter or underscore (not number)
     if sanitized[0].isdigit():
@@ -945,9 +1009,7 @@ def store_column_mappings(
             conn.commit()
 
     except Exception as e:
-        raise RuntimeError(
-            f"Failed to store column mappings for dataset {dataset_id}: {e}"
-        ) from e
+        raise RuntimeError(f"Failed to store column mappings for dataset {dataset_id}: {e}") from e
 
 
 def generate_column_embeddings(
@@ -1014,9 +1076,7 @@ def generate_column_embeddings(
 
             # Add numeric range context (min/max) for numeric columns
             if metadata.get("min_value") is not None and metadata.get("max_value") is not None:
-                enrichment_parts.append(
-                    f"range {metadata['min_value']} to {metadata['max_value']}"
-                )
+                enrichment_parts.append(f"range {metadata['min_value']} to {metadata['max_value']}")
 
             # Add cardinality context (distinct count)
             if metadata.get("distinct_count") is not None:
@@ -1114,9 +1174,7 @@ class IngestionService:
             pool=self.pool, username=username, dataset_id=dataset_id, columns=columns
         )
 
-    def detect_and_store_cross_references(
-        self, username: str, new_dataset_id: str
-    ) -> int:
+    def detect_and_store_cross_references(self, username: str, new_dataset_id: str) -> int:
         """Detect and store cross-references between new dataset and existing datasets.
 
         Args:
@@ -1155,22 +1213,18 @@ class IngestionService:
                 # Detect cross-references with each existing dataset
                 for (existing_dataset_id,) in existing_datasets:
                     # Check both directions
-                    refs_forward: list[dict[str, Any]] = (
-                        cross_ref_service.detect_cross_references(
-                            username=username,
-                            source_dataset_id=new_dataset_id,
-                            target_dataset_id=existing_dataset_id,
-                            min_confidence=0.3,
-                        )
+                    refs_forward: list[dict[str, Any]] = cross_ref_service.detect_cross_references(
+                        username=username,
+                        source_dataset_id=new_dataset_id,
+                        target_dataset_id=existing_dataset_id,
+                        min_confidence=0.3,
                     )
 
-                    refs_backward: list[dict[str, Any]] = (
-                        cross_ref_service.detect_cross_references(
-                            username=username,
-                            source_dataset_id=existing_dataset_id,
-                            target_dataset_id=new_dataset_id,
-                            min_confidence=0.3,
-                        )
+                    refs_backward: list[dict[str, Any]] = cross_ref_service.detect_cross_references(
+                        username=username,
+                        source_dataset_id=existing_dataset_id,
+                        target_dataset_id=new_dataset_id,
+                        min_confidence=0.3,
                     )
 
                     # Store detected references
@@ -1183,13 +1237,9 @@ class IngestionService:
             return total_refs
 
         except Exception as e:
-            raise RuntimeError(
-                f"Failed to detect cross-references: {e!s}"
-            ) from e
+            raise RuntimeError(f"Failed to detect cross-references: {e!s}") from e
 
-    def _store_cross_reference(
-        self, conn: Any, user_schema: str, ref: dict[str, Any]
-    ) -> None:
+    def _store_cross_reference(self, conn: Any, user_schema: str, ref: dict[str, Any]) -> None:
         """Store a single cross-reference in the database.
 
         Args:

@@ -77,19 +77,17 @@ def add_progress_message_column(pool: ConnectionPool) -> None:
                     # Add progress_message column
                     # pylint: disable=consider-using-f-string
                     cur.execute(
-                        """
-                        ALTER TABLE {}.queries
+                        f"""
+                        ALTER TABLE {schema_name}.queries
                         ADD COLUMN progress_message TEXT
-                        """.format(schema_name)
+                        """
                     )
                     conn.commit()
 
                     logger.info(f"Added progress_message column to {schema_name}.queries")
 
                 except Exception as e:
-                    logger.error(
-                        f"Failed to migrate schema {schema_name}: {e!s}", exc_info=True
-                    )
+                    logger.error(f"Failed to migrate schema {schema_name}: {e!s}", exc_info=True)
                     conn.rollback()
                     raise
 

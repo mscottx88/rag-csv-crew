@@ -10,7 +10,7 @@ Constitutional Requirements:
 """
 
 
-class QueryNotFoundException(Exception):
+class QueryNotFoundError(Exception):
     """Raised when a query is not found in the database.
 
     Used in QueryHistoryService when attempting to access a non-existent query.
@@ -21,7 +21,7 @@ class QueryNotFoundException(Exception):
     """
 
     def __init__(self, query_id: str, username: str) -> None:
-        """Initialize QueryNotFoundException.
+        """Initialize QueryNotFoundError.
 
         Args:
             query_id: UUID of the query not found
@@ -32,7 +32,7 @@ class QueryNotFoundException(Exception):
         super().__init__(f"Query {query_id} not found for user {username}")
 
 
-class ResponseNotFoundException(Exception):
+class ResponseNotFoundError(Exception):
     """Raised when a response is not found for a given query.
 
     Used when a query has no associated response in the responses table.
@@ -43,7 +43,7 @@ class ResponseNotFoundException(Exception):
     """
 
     def __init__(self, query_id: str, username: str) -> None:
-        """Initialize ResponseNotFoundException.
+        """Initialize ResponseNotFoundError.
 
         Args:
             query_id: UUID of the query with missing response
@@ -54,7 +54,7 @@ class ResponseNotFoundException(Exception):
         super().__init__(f"No response found for query {query_id} (user: {username})")
 
 
-class QueryCancelledException(Exception):
+class QueryCancelledError(Exception):
     """Raised when a query is cancelled during execution.
 
     Used in QueryExecutionService when a query is cancelled by user request
@@ -66,7 +66,7 @@ class QueryCancelledException(Exception):
     """
 
     def __init__(self, query_id: str, reason: str = "user request") -> None:
-        """Initialize QueryCancelledException.
+        """Initialize QueryCancelledError.
 
         Args:
             query_id: UUID of cancelled query
@@ -77,7 +77,7 @@ class QueryCancelledException(Exception):
         super().__init__(f"Query {query_id} cancelled: {reason}")
 
 
-class QueryTimeoutException(Exception):
+class QueryTimeoutError(Exception):
     """Raised when a query exceeds the maximum execution time.
 
     Used when SQL query execution exceeds the configured timeout limit
@@ -89,7 +89,7 @@ class QueryTimeoutException(Exception):
     """
 
     def __init__(self, query_id: str, timeout_seconds: int) -> None:
-        """Initialize QueryTimeoutException.
+        """Initialize QueryTimeoutError.
 
         Args:
             query_id: UUID of timed-out query
@@ -97,12 +97,10 @@ class QueryTimeoutException(Exception):
         """
         self.query_id: str = query_id
         self.timeout_seconds: int = timeout_seconds
-        super().__init__(
-            f"Query {query_id} exceeded timeout of {timeout_seconds} seconds"
-        )
+        super().__init__(f"Query {query_id} exceeded timeout of {timeout_seconds} seconds")
 
 
-class DatasetNotFoundException(Exception):
+class DatasetNotFoundError(Exception):
     """Raised when a dataset is not found in the database.
 
     Used when attempting to access a dataset that doesn't exist or
@@ -114,7 +112,7 @@ class DatasetNotFoundException(Exception):
     """
 
     def __init__(self, dataset_id: str, username: str) -> None:
-        """Initialize DatasetNotFoundException.
+        """Initialize DatasetNotFoundError.
 
         Args:
             dataset_id: UUID of dataset not found
@@ -125,7 +123,7 @@ class DatasetNotFoundException(Exception):
         super().__init__(f"Dataset {dataset_id} not found for user {username}")
 
 
-class UserNotFoundException(Exception):
+class UserNotFoundError(Exception):
     """Raised when a user is not found in the database.
 
     Used in authentication and user management operations.
@@ -135,7 +133,7 @@ class UserNotFoundException(Exception):
     """
 
     def __init__(self, username: str) -> None:
-        """Initialize UserNotFoundException.
+        """Initialize UserNotFoundError.
 
         Args:
             username: Username not found
@@ -198,8 +196,7 @@ class EmbeddingGenerationError(Exception):
         self.provider: str = provider
         self.reason: str = reason
         super().__init__(
-            f"Failed to generate embedding for text '{text[:50]}...' "
-            f"using {provider}: {reason}"
+            f"Failed to generate embedding for text '{text[:50]}...' " f"using {provider}: {reason}"
         )
 
 

@@ -21,9 +21,7 @@ from backend.src.services.hybrid_search import HybridSearchService
 class TestHybridDeduplication:
     """Integration tests for result de-duplication (T106)."""
 
-    def test_duplicate_columns_merged_across_strategies(
-        self, test_db_connection: Any
-    ) -> None:
+    def test_duplicate_columns_merged_across_strategies(self, test_db_connection: Any) -> None:
         """Test same column found by multiple strategies is deduplicated.
 
         Validates:
@@ -56,24 +54,18 @@ class TestHybridDeduplication:
             exact_results=exact_results,
             fulltext_results=fulltext_results,
             vector_results=vector_results,
-            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3}
+            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3},
         )
 
         # Should have only one "revenue" entry
         assert len(fused_results) == 1
         assert fused_results[0]["column_name"] == "revenue"
 
-        # Combined score should reflect all three strategies
-        # exact: 1.0 * 0.4 = 0.4
-        # fulltext: 0.9 * 0.3 = 0.27
-        # vector: (1 - 0.1) * 0.3 = 0.27
-        # total: 0.4 + 0.27 + 0.27 = 0.94
+        # Combined score: exact weight 0.4, fulltext weight 0.3, vector weight 0.3 = 0.94
         expected_score: float = 0.94
         assert abs(fused_results[0]["combined_score"] - expected_score) < 0.01
 
-    def test_deduplication_by_column_name_and_dataset(
-        self, test_db_connection: Any
-    ) -> None:
+    def test_deduplication_by_column_name_and_dataset(self, test_db_connection: Any) -> None:
         """Test deduplication uses both column name AND dataset ID as key.
 
         Validates:
@@ -102,7 +94,7 @@ class TestHybridDeduplication:
             exact_results=exact_results,
             fulltext_results=fulltext_results,
             vector_results=vector_results,
-            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3}
+            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3},
         )
 
         # Should have two entries (different datasets)
@@ -148,7 +140,7 @@ class TestHybridDeduplication:
             exact_results=exact_results,
             fulltext_results=fulltext_results,
             vector_results=vector_results,
-            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3}
+            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3},
         )
 
         # Should have 3 unique columns: revenue, sales, customer_name
@@ -163,10 +155,7 @@ class TestHybridDeduplication:
         revenue_result: dict[str, Any] = next(
             r for r in fused_results if r["column_name"] == "revenue"
         )
-        assert all(
-            revenue_result["combined_score"] >= r["combined_score"]
-            for r in fused_results
-        )
+        assert all(revenue_result["combined_score"] >= r["combined_score"] for r in fused_results)
 
     def test_deduplication_preserves_metadata(self, test_db_connection: Any) -> None:
         """Test deduplication preserves column metadata (dataset, original scores).
@@ -199,7 +188,7 @@ class TestHybridDeduplication:
             exact_results=exact_results,
             fulltext_results=fulltext_results,
             vector_results=vector_results,
-            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3}
+            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3},
         )
 
         result: dict[str, Any] = fused_results[0]
@@ -215,9 +204,7 @@ class TestHybridDeduplication:
             assert "fulltext" in result["strategy_scores"]
             assert "vector" in result["strategy_scores"]
 
-    def test_empty_strategy_results_deduplication(
-        self, test_db_connection: Any
-    ) -> None:
+    def test_empty_strategy_results_deduplication(self, test_db_connection: Any) -> None:
         """Test deduplication when some strategies return no results.
 
         Validates:
@@ -247,16 +234,14 @@ class TestHybridDeduplication:
             exact_results=exact_results,
             fulltext_results=fulltext_results,
             vector_results=vector_results,
-            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3}
+            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3},
         )
 
         # Should have one deduplicated result
         assert len(fused_results) == 1
         assert fused_results[0]["column_name"] == "revenue"
 
-    def test_deduplication_ranking_consistency(
-        self, test_db_connection: Any
-    ) -> None:
+    def test_deduplication_ranking_consistency(self, test_db_connection: Any) -> None:
         """Test deduplication maintains consistent ranking.
 
         Validates:
@@ -290,7 +275,7 @@ class TestHybridDeduplication:
             exact_results=exact_results,
             fulltext_results=fulltext_results,
             vector_results=vector_results,
-            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3}
+            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3},
         )
 
         # Should have 3 unique columns
@@ -301,14 +286,9 @@ class TestHybridDeduplication:
 
         # Verify consistent ordering
         for i in range(len(fused_results) - 1):
-            assert (
-                fused_results[i]["combined_score"]
-                >= fused_results[i + 1]["combined_score"]
-            )
+            assert fused_results[i]["combined_score"] >= fused_results[i + 1]["combined_score"]
 
-    def test_case_sensitivity_in_deduplication(
-        self, test_db_connection: Any
-    ) -> None:
+    def test_case_sensitivity_in_deduplication(self, test_db_connection: Any) -> None:
         """Test deduplication handles case sensitivity correctly.
 
         Validates:
@@ -340,7 +320,7 @@ class TestHybridDeduplication:
             exact_results=exact_results,
             fulltext_results=fulltext_results,
             vector_results=vector_results,
-            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3}
+            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3},
         )
 
         # Depending on implementation:

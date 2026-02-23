@@ -109,7 +109,7 @@ class TestCompleteFlow:
             detail_data: dict[str, Any] = detail_response.json()
 
             # Verify HTML response was generated
-            if "response" in detail_data and detail_data["response"]:
+            if detail_data.get("response"):
                 html_content: str | None = detail_data["response"].get("html_content")
                 assert html_content is not None, "No HTML content generated"
                 assert len(html_content) > 0, "HTML content is empty"

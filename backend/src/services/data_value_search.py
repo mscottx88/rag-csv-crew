@@ -22,10 +22,46 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 # Common stop words to filter out from queries
 STOP_WORDS: set[str] = {
-    "tell", "me", "about", "show", "give", "get", "find", "what", "is", "are",
-    "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
-    "of", "with", "by", "from", "as", "that", "this", "these", "those",
-    "it", "its", "i", "you", "we", "they", "all", "any", "some", "many",
+    "tell",
+    "me",
+    "about",
+    "show",
+    "give",
+    "get",
+    "find",
+    "what",
+    "is",
+    "are",
+    "the",
+    "a",
+    "an",
+    "and",
+    "or",
+    "but",
+    "in",
+    "on",
+    "at",
+    "to",
+    "for",
+    "of",
+    "with",
+    "by",
+    "from",
+    "as",
+    "that",
+    "this",
+    "these",
+    "those",
+    "it",
+    "its",
+    "i",
+    "you",
+    "we",
+    "they",
+    "all",
+    "any",
+    "some",
+    "many",
 }
 
 
@@ -127,9 +163,7 @@ class DataValueSearchService:
             with self.pool.connection() as conn, conn.cursor() as cur:
                 # Set search path
                 cur.execute(
-                    sql.SQL("SET search_path TO {}, public").format(
-                        sql.Identifier(user_schema)
-                    )
+                    sql.SQL("SET search_path TO {}, public").format(sql.Identifier(user_schema))
                 )
 
                 # Get datasets and their columns

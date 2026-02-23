@@ -14,11 +14,11 @@ Performance baseline is established with single user, then compared against
 10 concurrent users to measure degradation.
 """
 
+from concurrent.futures import Future, ThreadPoolExecutor
 import os
+from pathlib import Path
 import sys
 import time
-from concurrent.futures import ThreadPoolExecutor, Future
-from pathlib import Path
 from typing import Any
 
 import requests
@@ -82,9 +82,7 @@ class LoadTestUser:
         start_time: float = time.time()
 
         # Create in-memory file for upload
-        files: dict[str, tuple[str, str, str]] = {
-            "file": (filename, csv_content, "text/csv")
-        }
+        files: dict[str, tuple[str, str, str]] = {"file": (filename, csv_content, "text/csv")}
 
         response: requests.Response = self.session.post(
             f"{self.base_url}/datasets",
@@ -188,21 +186,15 @@ class LoadTestUser:
 
             # Step 2: Upload CSV
             dataset_id: str = self.upload_csv(csv_content, filename)
-            print(
-                f"  [User {self.user_id:02d}] Uploaded {filename} (ID: {dataset_id[:8]}...)"
-            )
+            print(f"  [User {self.user_id:02d}] Uploaded {filename} (ID: {dataset_id[:8]}...)")
 
             # Step 3: Submit query
             result: dict[str, Any] = self.submit_query(query, dataset_id)
-            print(
-                f"  [User {self.user_id:02d}] Query completed with status: {result['status']}"
-            )
+            print(f"  [User {self.user_id:02d}] Query completed with status: {result['status']}")
 
             # Step 4: Get history
             history: list[dict[str, Any]] = self.get_query_history()
-            print(
-                f"  [User {self.user_id:02d}] Retrieved history ({len(history)} queries)"
-            )
+            print(f"  [User {self.user_id:02d}] Retrieved history ({len(history)} queries)")
 
         except Exception as e:
             print(f"  [User {self.user_id:02d}] ERROR: {e}")
@@ -299,8 +291,8 @@ def run_concurrent_users(base_url: str, num_users: int) -> dict[str, list[float]
     }
 
     for user in users:
-        for operation in aggregated:
-            aggregated[operation].extend(user.metrics[operation])
+        for operation, agg_list in aggregated.items():
+            agg_list.extend(user.metrics[operation])
 
     return aggregated
 
@@ -319,12 +311,12 @@ def calculate_degradation(
     """
     results: dict[str, dict[str, float]] = {}
 
-    for operation in baseline:
+    for operation, baseline_val in baseline.items():
         avg_time: float = sum(load_test[operation]) / len(load_test[operation])
-        degradation: float = ((avg_time - baseline[operation]) / baseline[operation]) * 100
+        degradation: float = ((avg_time - baseline_val) / baseline_val) * 100
 
         results[operation] = {
-            "baseline_avg": baseline[operation],
+            "baseline_avg": baseline_val,
             "load_avg": avg_time,
             "degradation_pct": degradation,
         }
@@ -346,9 +338,7 @@ def main() -> None:
 
     # Check if API is accessible
     try:
-        response: requests.Response = requests.get(
-            f"{base_url}/health", timeout=5
-        )
+        response: requests.Response = requests.get(f"{base_url}/health", timeout=5)
         response.raise_for_status()
         print("✓ API is accessible\n")
     except requests.RequestException as e:
@@ -362,14 +352,10 @@ def main() -> None:
     baseline: dict[str, float] = run_single_user_baseline(base_url)
 
     # Step 2: Run load test
-    load_test_metrics: dict[str, list[float]] = run_concurrent_users(
-        base_url, num_concurrent_users
-    )
+    load_test_metrics: dict[str, list[float]] = run_concurrent_users(base_url, num_concurrent_users)
 
     # Step 3: Calculate degradation
-    results: dict[str, dict[str, float]] = calculate_degradation(
-        baseline, load_test_metrics
-    )
+    results: dict[str, dict[str, float]] = calculate_degradation(baseline, load_test_metrics)
 
     # Step 4: Report results
     print("\n=== PERFORMANCE DEGRADATION ANALYSIS ===\n")
@@ -383,8 +369,7 @@ def main() -> None:
         print(f"  Load ({num_concurrent_users} users):    {metrics['load_avg']:.2f}s")
         print(f"  Degradation:        {metrics['degradation_pct']:.1f}%")
 
-        if metrics["degradation_pct"] > max_degradation:
-            max_degradation = metrics["degradation_pct"]
+        max_degradation = max(metrics["degradation_pct"], max_degradation)
 
         if metrics["degradation_pct"] > 20.0:
             failed_operations.append(operation)
@@ -397,11 +382,13 @@ def main() -> None:
     # Final verdict
     print("=== FINAL VERDICT ===\n")
     print(f"Maximum Degradation: {max_degradation:.1f}%")
-    print(f"SC-006 Threshold: 20.0%")
+    print("SC-006 Threshold: 20.0%")
 
     if not failed_operations:
         print("\n✓ SUCCESS: All operations meet SC-006 requirements (<20% degradation)")
-        print(f"   System supports {num_concurrent_users} concurrent users with acceptable performance")
+        print(
+            f"   System supports {num_concurrent_users} concurrent users with acceptable performance"
+        )
     else:
         print(f"\n✗ FAILURE: {len(failed_operations)} operation(s) exceed 20% degradation:")
         for operation in failed_operations:

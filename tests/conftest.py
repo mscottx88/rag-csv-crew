@@ -57,7 +57,7 @@ def mock_agent() -> MagicMock:
 
 
 @pytest.fixture(scope="function", autouse=True)
-def mock_crewai(request: Any) -> Generator[MagicMock | None, None, None]:
+def mock_crewai(request: Any) -> Generator[MagicMock | None]:
     """Mock CrewAI for integration and contract tests to avoid API quota limits.
 
     This fixture automatically mocks the CrewAI Crew class for all tests except
@@ -102,9 +102,7 @@ def mock_crewai(request: Any) -> Generator[MagicMock | None, None, None]:
         WHERE FALSE
         """
         mock_result.tasks_output = [
-            MagicMock(
-                raw="SELECT 'No datasets found' as message, 0 as count WHERE FALSE"
-            ),
+            MagicMock(raw="SELECT 'No datasets found' as message, 0 as count WHERE FALSE"),
             MagicMock(
                 raw="<article><h1>Query Results</h1><p>No data available. Please upload datasets first.</p></article>"
             ),
@@ -140,7 +138,7 @@ def db_config() -> dict[str, Any]:
 
 
 @pytest.fixture(scope="function")
-def connection_pool(db_config: dict[str, Any]) -> Generator[ConnectionPool, None, None]:
+def connection_pool(db_config: dict[str, Any]) -> Generator[ConnectionPool]:
     """Provide a connection pool for integration tests.
 
     Creates a new pool for each test function, ensures cleanup.
@@ -189,7 +187,7 @@ def test_db_connection(connection_pool: ConnectionPool) -> ConnectionPool:
 
 
 @pytest.fixture(scope="function")
-def client(db_config: dict[str, Any]) -> Generator[TestClient, None, None]:
+def client(db_config: dict[str, Any]) -> Generator[TestClient]:
     """Provide FastAPI test client for API tests.
 
     Creates a new test client for each test function with initialized database pool.
@@ -229,7 +227,7 @@ def client(db_config: dict[str, Any]) -> Generator[TestClient, None, None]:
 
 
 @pytest.fixture(scope="function")
-def client_no_db() -> Generator[TestClient, None, None]:
+def client_no_db() -> Generator[TestClient]:
     """Provide FastAPI test client with no database connection.
 
     Creates a test client that simulates database unavailability for testing
@@ -255,9 +253,7 @@ def client_no_db() -> Generator[TestClient, None, None]:
 
 
 @pytest.fixture(scope="function", autouse=True)
-def cleanup_test_data(
-    connection_pool: ConnectionPool, request: Any
-) -> Generator[None, None, None]:
+def cleanup_test_data(connection_pool: ConnectionPool, request: Any) -> Generator[None]:
     """Clean up test data before each test that uses connection_pool.
 
     This fixture runs automatically before each test function that uses the

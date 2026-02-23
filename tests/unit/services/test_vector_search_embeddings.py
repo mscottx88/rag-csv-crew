@@ -56,7 +56,7 @@ class TestVectorSearchEmbeddings:
         # Verify embedding dimensions
         assert isinstance(embedding, list)
         assert len(embedding) == 1536
-        assert all(isinstance(x, (float, int)) for x in embedding)
+        assert all(isinstance(x, float | int) for x in embedding)
 
         # Verify OpenAI API was called with correct parameters
         mock_client.embeddings.create.assert_called_once()

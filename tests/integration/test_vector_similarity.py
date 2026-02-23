@@ -70,12 +70,15 @@ class TestVectorSimilarity:
                 ("customer_name", "Customer full name", customer_embedding),
             ]
 
-            for column_name, description, embedding in test_data:
-                cur.execute("""
+            for column_name, _description, embedding in test_data:
+                cur.execute(
+                    """
                     INSERT INTO column_mappings
                     (dataset_id, original_column, mapped_column, embedding)
                     VALUES (%s, %s, %s, %s)
-                """, ("test-dataset", column_name, column_name, embedding))
+                """,
+                    ("test-dataset", column_name, column_name, embedding),
+                )
             test_db_connection.commit()
 
         # Mock OpenAI to return query embedding
@@ -88,9 +91,7 @@ class TestVectorSimilarity:
         # Search for columns similar to "revenue"
         vector_service: VectorSearchService = VectorSearchService()
         similar_columns: list[dict[str, Any]] = vector_service.find_similar_columns(
-            username=username,
-            query_text="revenue",
-            limit=3
+            username=username, query_text="revenue", limit=3
         )
 
         # Verify results
@@ -139,18 +140,30 @@ class TestVectorSimilarity:
             similar_embedding: list[float] = [0.9, 0.1] + [0.0] * 1534
             different_embedding: list[float] = [0.0, 1.0] + [0.0] * 1534
 
-            cur.execute("""
+            cur.execute(
+                """
                 INSERT INTO column_mappings
                 (dataset_id, original_column, mapped_column, embedding)
                 VALUES
                     (%s, %s, %s, %s),
                     (%s, %s, %s, %s),
                     (%s, %s, %s, %s)
-            """, (
-                "ds1", "col_identical", "col_identical", identical_embedding,
-                "ds2", "col_similar", "col_similar", similar_embedding,
-                "ds3", "col_different", "col_different", different_embedding,
-            ))
+            """,
+                (
+                    "ds1",
+                    "col_identical",
+                    "col_identical",
+                    identical_embedding,
+                    "ds2",
+                    "col_similar",
+                    "col_similar",
+                    similar_embedding,
+                    "ds3",
+                    "col_different",
+                    "col_different",
+                    different_embedding,
+                ),
+            )
             test_db_connection.commit()
 
         # Mock OpenAI to return query embedding
@@ -164,9 +177,7 @@ class TestVectorSimilarity:
 
         vector_service: VectorSearchService = VectorSearchService()
         results: list[dict[str, Any]] = vector_service.find_similar_columns(
-            username=username,
-            query_text="test query",
-            limit=3
+            username=username, query_text="test query", limit=3
         )
 
         # Verify distance scores
@@ -216,18 +227,30 @@ class TestVectorSimilarity:
             cur.execute(f"SET search_path TO {username}_schema, public")
 
             # Insert columns for multiple datasets
-            cur.execute("""
+            cur.execute(
+                """
                 INSERT INTO column_mappings
                 (dataset_id, original_column, mapped_column, embedding)
                 VALUES
                     (%s, %s, %s, %s),
                     (%s, %s, %s, %s),
                     (%s, %s, %s, %s)
-            """, (
-                "dataset-A", "col_a", "col_a", embedding,
-                "dataset-B", "col_b", "col_b", embedding,
-                "dataset-C", "col_c", "col_c", embedding,
-            ))
+            """,
+                (
+                    "dataset-A",
+                    "col_a",
+                    "col_a",
+                    embedding,
+                    "dataset-B",
+                    "col_b",
+                    "col_b",
+                    embedding,
+                    "dataset-C",
+                    "col_c",
+                    "col_c",
+                    embedding,
+                ),
+            )
             test_db_connection.commit()
 
         # Mock OpenAI
@@ -243,10 +266,7 @@ class TestVectorSimilarity:
 
         # Search with dataset filter
         results: list[dict[str, Any]] = vector_service.find_similar_columns(
-            username=username,
-            query_text="test",
-            dataset_ids=["dataset-A", "dataset-B"],
-            limit=10
+            username=username, query_text="test", dataset_ids=["dataset-A", "dataset-B"], limit=10
         )
 
         # Verify only filtered datasets returned
@@ -293,17 +313,13 @@ class TestVectorSimilarity:
 
         # Search on empty database
         results: list[dict[str, Any]] = vector_service.find_similar_columns(
-            username=username,
-            query_text="nonexistent column",
-            limit=10
+            username=username, query_text="nonexistent column", limit=10
         )
 
         # Should return empty list, not error
         assert results == []
 
-    def test_vector_search_performance_with_large_dataset(
-        self, test_db_connection: Any
-    ) -> None:
+    def test_vector_search_performance_with_large_dataset(self, test_db_connection: Any) -> None:
         """Test vector search performance on large column mapping sets.
 
         Validates:
@@ -329,24 +345,31 @@ class TestVectorSimilarity:
             # Insert 1000 embeddings (scaled down for test speed)
             for i in range(1000):
                 embedding: list[float] = [float(i % 100) / 100.0] * 1536
-                cur.execute("""
+                cur.execute(
+                    """
                     INSERT INTO column_mappings
                     (dataset_id, original_column, mapped_column, embedding)
                     VALUES (%s, %s, %s, %s)
-                """, (f"dataset-{i // 100}", f"column_{i}", f"column_{i}", embedding))
+                """,
+                    (f"dataset-{i // 100}", f"column_{i}", f"column_{i}", embedding),
+                )
             test_db_connection.commit()
 
             # Measure query performance
             import time
+
             query_embedding: list[float] = [0.5] * 1536
 
             start_time: float = time.time()
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT original_column, embedding <=> %s::vector AS distance
                 FROM column_mappings
                 ORDER BY embedding <=> %s::vector
                 LIMIT 10
-            """, (query_embedding, query_embedding))
+            """,
+                (query_embedding, query_embedding),
+            )
             results: list[tuple[Any, ...]] = cur.fetchall()
             end_time: float = time.time()
 

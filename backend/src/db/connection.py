@@ -198,7 +198,9 @@ def initialize_global_pool(config: DatabaseConfig) -> None:
     Args:
         config: Database configuration
     """
-    global _global_pool  # noqa: PLW0603  # pylint: disable=global-statement,global-variable-not-assigned
+    # pylint: disable=global-statement  # JUSTIFICATION: Singleton pool pattern requires module-level global
+    global _global_pool  # noqa: PLW0603
+    # pylint: enable=global-statement
     if _global_pool is not None:
         logger.warning("Global pool already initialized")
         return
@@ -230,7 +232,9 @@ def close_global_pool() -> None:
 
     Should be called during application shutdown.
     """
-    global _global_pool  # noqa: PLW0603  # pylint: disable=global-statement,global-variable-not-assigned
+    # pylint: disable=global-statement  # JUSTIFICATION: Singleton pool pattern requires module-level global
+    global _global_pool  # noqa: PLW0603
+    # pylint: enable=global-statement
     if _global_pool is None:
         logger.warning("Global pool not initialized, nothing to close")
         return

@@ -44,9 +44,7 @@ class TestConfidenceDetection:
             ]
         }
 
-        high_score: float = generator.calculate_confidence_score(
-            high_confidence_results
-        )
+        high_score: float = generator.calculate_confidence_score(high_confidence_results)
 
         # Should be above 60% threshold
         assert high_score > 0.6
@@ -75,9 +73,7 @@ class TestConfidenceDetection:
             ]
         }
 
-        low_score: float = generator.calculate_confidence_score(
-            low_confidence_results
-        )
+        low_score: float = generator.calculate_confidence_score(low_confidence_results)
 
         # Should be below 60% threshold
         assert low_score < 0.6
@@ -97,9 +93,7 @@ class TestConfidenceDetection:
         """
         generator: ResponseGenerator = ResponseGenerator()
 
-        empty_results: dict[str, Any] = {
-            "fused_results": []
-        }
+        empty_results: dict[str, Any] = {"fused_results": []}
 
         score: float = generator.calculate_confidence_score(empty_results)
 
@@ -139,12 +133,8 @@ class TestConfidenceDetection:
             ]
         }
 
-        low_diversity_score: float = generator.calculate_confidence_score(
-            low_diversity_results
-        )
-        high_diversity_score: float = generator.calculate_confidence_score(
-            high_diversity_results
-        )
+        low_diversity_score: float = generator.calculate_confidence_score(low_diversity_results)
+        high_diversity_score: float = generator.calculate_confidence_score(high_diversity_results)
 
         # High diversity should have higher confidence
         assert high_diversity_score > low_diversity_score
@@ -164,9 +154,7 @@ class TestConfidenceDetection:
         generator: ResponseGenerator = ResponseGenerator()
 
         results: dict[str, Any] = {
-            "fused_results": [
-                {"column_name": "revenue", "combined_score": 0.70}
-            ]
+            "fused_results": [{"column_name": "revenue", "combined_score": 0.70}]
         }
 
         score: float = generator.calculate_confidence_score(results)
@@ -191,16 +179,12 @@ class TestConfidenceDetection:
 
         # Single high-score result
         high_single_result: dict[str, Any] = {
-            "fused_results": [
-                {"column_name": "revenue", "combined_score": 0.95}
-            ]
+            "fused_results": [{"column_name": "revenue", "combined_score": 0.95}]
         }
 
         # Single low-score result
         low_single_result: dict[str, Any] = {
-            "fused_results": [
-                {"column_name": "revenue", "combined_score": 0.40}
-            ]
+            "fused_results": [{"column_name": "revenue", "combined_score": 0.40}]
         }
 
         high_score: float = generator.calculate_confidence_score(high_single_result)
@@ -228,10 +212,7 @@ class TestConfidenceDetection:
 
         # All identical scores
         identical_scores: dict[str, Any] = {
-            "fused_results": [
-                {"column_name": f"col{i}", "combined_score": 0.5}
-                for i in range(10)
-            ]
+            "fused_results": [{"column_name": f"col{i}", "combined_score": 0.5} for i in range(10)]
         }
 
         score: float = generator.calculate_confidence_score(identical_scores)
@@ -257,15 +238,11 @@ class TestConfidenceDetection:
         generator: ResponseGenerator = ResponseGenerator()
 
         query_results: dict[str, Any] = {
-            "fused_results": [
-                {"column_name": "revenue", "combined_score": 0.85}
-            ]
+            "fused_results": [{"column_name": "revenue", "combined_score": 0.85}]
         }
 
         response: dict[str, Any] = generator.generate_html_response(
-            query_text="show me revenue",
-            query_results=query_results,
-            _query_id="test-query-id"
+            query_text="show me revenue", query_results=query_results, _query_id="test-query-id"
         )
 
         # Verify confidence score included

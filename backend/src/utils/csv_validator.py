@@ -17,7 +17,7 @@ Constitutional Requirements:
 
 import csv
 from io import BytesIO, StringIO
-from typing import Any
+from typing import Any, ClassVar
 
 import chardet
 
@@ -52,10 +52,10 @@ class CSVValidator:
     MAX_FILE_SIZE: int = 100 * 1024 * 1024
 
     # Supported encodings (in preference order)
-    SUPPORTED_ENCODINGS: list[str] = ["utf-8", "latin-1", "windows-1252", "utf-16"]
+    SUPPORTED_ENCODINGS: ClassVar[list[str]] = ["utf-8", "latin-1", "windows-1252", "utf-16"]
 
     # Supported delimiters
-    SUPPORTED_DELIMITERS: list[str] = [",", ";", "\t", "|"]
+    SUPPORTED_DELIMITERS: ClassVar[list[str]] = [",", ";", "\t", "|"]
 
     @staticmethod
     def validate_file_format(csv_file: BytesIO) -> None:
@@ -92,7 +92,10 @@ class CSVValidator:
             raise CSVValidationError(
                 message=f"CSV file is too large ({actual_mb:.1f}MB). Maximum supported size is {max_mb:.0f}MB.",
                 error_code="FILE_TOO_LARGE",
-                details={"file_size_bytes": file_size, "max_size_bytes": CSVValidator.MAX_FILE_SIZE},
+                details={
+                    "file_size_bytes": file_size,
+                    "max_size_bytes": CSVValidator.MAX_FILE_SIZE,
+                },
             )
 
     @staticmethod
@@ -183,7 +186,9 @@ class CSVValidator:
         # Try automatic detection
         try:
             sniffer: csv.Sniffer = csv.Sniffer()
-            dialect: Any = sniffer.sniff(csv_text, delimiters="".join(CSVValidator.SUPPORTED_DELIMITERS))
+            dialect: Any = sniffer.sniff(
+                csv_text, delimiters="".join(CSVValidator.SUPPORTED_DELIMITERS)
+            )
             detected_delimiter: str = dialect.delimiter
 
             if detected_delimiter in CSVValidator.SUPPORTED_DELIMITERS:
@@ -194,7 +199,9 @@ class CSVValidator:
 
         # Manual detection: count occurrences of each delimiter
         sample_lines: list[str] = csv_text.split("\n")[:10]  # Check first 10 lines
-        delimiter_counts: dict[str, list[int]] = {delim: [] for delim in CSVValidator.SUPPORTED_DELIMITERS}
+        delimiter_counts: dict[str, list[int]] = {
+            delim: [] for delim in CSVValidator.SUPPORTED_DELIMITERS
+        }
 
         for line in sample_lines:
             if line.strip():
@@ -355,7 +362,10 @@ class CSVValidator:
             raise CSVValidationError(
                 message=f"CSV has inconsistent column counts. Expected {expected_columns} columns in each row, but found: {error_details}{more}. Please ensure all rows have the same number of columns.",
                 error_code="INCONSISTENT_COLUMN_COUNT",
-                details={"expected_columns": expected_columns, "inconsistent_rows": inconsistent_rows},
+                details={
+                    "expected_columns": expected_columns,
+                    "inconsistent_rows": inconsistent_rows,
+                },
             )
 
     @staticmethod

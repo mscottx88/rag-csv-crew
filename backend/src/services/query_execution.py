@@ -82,9 +82,9 @@ class QueryExecutionService:
                 # Set search path to user schema using Identifier for SQL injection protection
                 user_schema: str = f"{username}_schema"
                 with conn.cursor() as cur:
-                    set_path_sql: sql.Composed = sql.SQL("SET search_path TO {schema}, public").format(
-                        schema=sql.Identifier(user_schema)
-                    )
+                    set_path_sql: sql.Composed = sql.SQL(
+                        "SET search_path TO {schema}, public"
+                    ).format(schema=sql.Identifier(user_schema))
                     cur.execute(set_path_sql)
 
                 # Check cancellation before execution
