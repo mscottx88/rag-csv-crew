@@ -1,0 +1,21 @@
+order_id,customer_id,product_name,category,quantity,unit_price,order_date,status
+1001,C101,Laptop Pro 15,Electronics,1,1299.99,2024-01-15,Delivered
+1002,C102,Office Chair Deluxe,Furniture,2,249.50,2024-01-16,Delivered
+1003,C103,Wireless Mouse,Electronics,3,29.99,2024-01-17,Shipped
+1004,C101,USB-C Hub,Electronics,1,49.99,2024-01-18,Delivered
+1005,C104,Standing Desk,Furniture,1,599.00,2024-01-19,Processing
+1006,C105,Mechanical Keyboard,Electronics,1,149.99,2024-01-20,Delivered
+1007,C102,Monitor 27 inch,Electronics,2,349.99,2024-01-21,Delivered
+1008,C106,Desk Lamp LED,Furniture,1,39.99,2024-01-22,Shipped
+1009,C103,Laptop Bag,Accessories,1,59.99,2024-01-23,Delivered
+1010,C107,Webcam HD,Electronics,1,89.99,2024-01-24,Delivered
+1011,C101,Notebook Set,Office Supplies,5,12.99,2024-01-25,Delivered
+1012,C108,Ergonomic Mouse,Electronics,2,39.99,2024-01-26,Shipped
+1013,C104,Cable Organizer,Accessories,3,15.99,2024-01-27,Delivered
+1014,C109,Headphones Wireless,Electronics,1,199.99,2024-01-28,Processing
+1015,C105,Desk Mat,Accessories,1,24.99,2024-01-29,Delivered
+1016,C110,Surge Protector,Electronics,2,29.99,2024-01-30,Delivered
+1017,C102,Filing Cabinet,Furniture,1,179.99,2024-01-31,Shipped
+1018,C106,Whiteboard,Office Supplies,1,89.99,2024-02-01,Delivered
+1019,C111,Printer Wireless,Electronics,1,249.99,2024-02-02,Processing
+1020,C103,Paper Shredder,Office Supplies,1,79.99,2024-02-03,Delivered

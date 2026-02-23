@@ -1,0 +1,116 @@
+.upload-form {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.upload-form h2 {
+  margin: 0 0 1.5rem 0;
+  font-size: 1.25rem;
+  color: #333;
+}
+
+.drop-zone {
+  border: 2px dashed #ddd;
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+  background-color: #fafafa;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.drop-zone.dragging {
+  border-color: #667eea;
+  background-color: #f0f4ff;
+}
+
+.file-input {
+  display: none;
+}
+
+.file-label {
+  display: block;
+  color: #666;
+  cursor: pointer;
+}
+
+.file-label span {
+  font-size: 0.875rem;
+}
+
+.error-message {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background-color: #fee;
+  border: 1px solid #fcc;
+  border-radius: 4px;
+  color: #c33;
+  font-size: 0.875rem;
+}
+
+.progress-container {
+  position: relative;
+  margin-top: 1rem;
+  height: 2rem;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: #667eea;
+  transition: width 0.3s;
+}
+
+.progress-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-weight: 500;
+  color: #333;
+}
+
+.button-group {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.upload-button,
+.cancel-button {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.upload-button {
+  background-color: #667eea;
+  color: white;
+  flex: 1;
+}
+
+.upload-button:hover:not(:disabled) {
+  background-color: #5568d3;
+}
+
+.upload-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.cancel-button {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.cancel-button:hover {
+  background-color: #e0e0e0;
+}

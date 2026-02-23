@@ -1,0 +1,62 @@
+.dashboard-page {
+  padding: 2rem;
+}
+
+.welcome-section {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.welcome-section h1 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+  font-size: 2rem;
+}
+
+.welcome-section p {
+  margin: 0;
+  color: #666;
+  font-size: 1.125rem;
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.action-card {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.action-card:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.action-icon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.action-card h3 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+  font-size: 1.25rem;
+}
+
+.action-card p {
+  margin: 0;
+  color: #666;
+  font-size: 0.875rem;
+}

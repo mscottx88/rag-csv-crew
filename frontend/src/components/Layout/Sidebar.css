@@ -1,0 +1,42 @@
+.sidebar {
+  width: 250px;
+  background-color: #2c3e50;
+  min-height: calc(100vh - 64px);
+  padding: 1rem 0;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  transition: all 0.2s;
+  border-left: 3px solid transparent;
+}
+
+.nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.nav-link.active {
+  background-color: rgba(102, 126, 234, 0.2);
+  color: white;
+  border-left-color: #667eea;
+}
+
+.nav-icon {
+  font-size: 1.25rem;
+}
+
+.nav-text {
+  font-size: 1rem;
+  font-weight: 500;
+}
