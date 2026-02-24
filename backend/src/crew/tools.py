@@ -44,7 +44,7 @@ def set_schema_inspector_context(service: SchemaInspectorService, username: str)
     _schema_inspector_username = username
 
 
-@tool("list_datasets")  # type: ignore[misc]
+@tool("list_datasets")
 def list_datasets_tool() -> str:
     """List all available datasets with metadata.
 
@@ -86,7 +86,7 @@ def list_datasets_tool() -> str:
         return f"Error listing datasets: {e!s}"
 
 
-@tool("inspect_schema")  # type: ignore[misc]
+@tool("inspect_schema")
 def inspect_schema_tool(dataset_id: str) -> str:
     """Inspect the complete schema of a specific dataset.
 
@@ -134,7 +134,7 @@ def inspect_schema_tool(dataset_id: str) -> str:
         return f"Error inspecting schema: {e!s}"
 
 
-@tool("get_sample_data")  # type: ignore[misc]
+@tool("get_sample_data")
 def get_sample_data_tool(dataset_id: str, limit: int = 3) -> str:
     """Get sample rows from a dataset to understand data structure.
 

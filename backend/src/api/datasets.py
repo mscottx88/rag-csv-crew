@@ -15,6 +15,7 @@ Constitutional Requirements:
 
 from io import BytesIO, StringIO
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from fastapi.responses import JSONResponse
@@ -204,9 +205,9 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
                 detail="Failed to check filename conflict",
             ) from e
 
-        # Detect CSV format
+        # Detect CSV format (csv_file_bytes already declared above; recreated here for format detection)
         try:
-            csv_file_bytes: BytesIO = BytesIO(file_content)
+            csv_file_bytes = BytesIO(file_content)
             format_info: dict[str, Any] = detect_csv_format(csv_file_bytes)
         except Exception as e:
             log_event(
@@ -419,7 +420,7 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
             )
             metadata_result: dict[str, Any] = metadata_service.compute_and_store_metadata(
                 username=username,
-                dataset_id=dataset_id,
+                dataset_id=UUID(dataset_id),
                 table_name=table_name,
             )
 

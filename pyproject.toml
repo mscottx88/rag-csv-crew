@@ -93,6 +93,7 @@ addopts = [
     "--cov-fail-under=80",
 ]
 testpaths = ["tests"]
+pythonpath = ["backend"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -189,6 +190,8 @@ force-sort-within-sections = true
 [tool.mypy]
 python_version = "3.13"
 strict = true
+mypy_path = ["backend"]
+exclude = ["^src/"]
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -266,3 +269,8 @@ min-similarity-lines = 4
 ignore-comments = true
 ignore-docstrings = true
 ignore-imports = true
+
+[dependency-groups]
+dev = [
+    "types-python-dateutil>=2.9.0.20260124",
+]

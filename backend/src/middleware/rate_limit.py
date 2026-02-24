@@ -9,18 +9,18 @@ Constitutional Requirements:
 """
 
 from collections import defaultdict
-from collections.abc import Callable
 import time
 
 from fastapi import Request, Response, status
 from fastapi.responses import JSONResponse
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.types import ASGIApp
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Rate limiting middleware tracking requests per user."""
 
-    def __init__(self, app: Callable[..., Response], requests_per_minute: int = 100) -> None:
+    def __init__(self, app: ASGIApp, requests_per_minute: int = 100) -> None:
         """Initialize rate limiter.
 
         Args:
@@ -31,7 +31,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.requests_per_minute: int = requests_per_minute
         self.request_counts: dict[str, list[float]] = defaultdict(list)
 
-    async def dispatch(self, request: Request, call_next: Callable[..., Response]) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         """Process request with rate limiting check.
 
         Args:

@@ -15,6 +15,7 @@ Constitutional Requirements:
 - All functions have return type annotations
 """
 
+from collections.abc import Iterator
 import csv
 from io import BytesIO, StringIO
 from typing import Any, ClassVar
@@ -256,7 +257,7 @@ class CSVValidator:
         csv_file.seek(0)
 
         try:
-            reader: csv.reader = csv.reader(csv_file)
+            reader: Iterator[list[str]] = csv.reader(csv_file)
             header: list[str] = next(reader)
         except StopIteration as e:
             raise CSVValidationError(
@@ -326,7 +327,7 @@ class CSVValidator:
         - No completely empty rows (except at end)
         """
         csv_file.seek(0)
-        reader: csv.reader = csv.reader(csv_file)
+        reader: Iterator[list[str]] = csv.reader(csv_file)
 
         # Skip header
         try:

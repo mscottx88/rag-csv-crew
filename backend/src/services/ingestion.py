@@ -330,7 +330,7 @@ def create_dataset_table(  # pylint: disable=too-many-locals
     )
 
     # Build CREATE TABLE statement using psycopg.sql for SQL injection protection
-    column_defs: list[sql.SQL] = [
+    column_defs: list[sql.Composable] = [
         sql.SQL("_row_id BIGSERIAL PRIMARY KEY"),
         sql.SQL("_dataset_id UUID NOT NULL"),
         sql.SQL("_ingested_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()"),
@@ -350,7 +350,7 @@ def create_dataset_table(  # pylint: disable=too-many-locals
 
         # Build column definition using Identifier for column name
         nullable_clause: str = "" if col_nullable else " NOT NULL"
-        column_def: sql.SQL = sql.SQL("{col_name} {col_type}{nullable}").format(
+        column_def: sql.Composed = sql.SQL("{col_name} {col_type}{nullable}").format(
             col_name=sql.Identifier(safe_col_name),
             col_type=sql.SQL(pg_type),
             nullable=sql.SQL(nullable_clause),
@@ -1049,7 +1049,7 @@ def generate_column_embeddings(
             metadata_service: ColumnMetadataService = ColumnMetadataService(pool)
             metadata_list: list[dict[str, Any]] = metadata_service.get_column_metadata(
                 username=username,
-                dataset_id=dataset_id,
+                dataset_id=uuid.UUID(dataset_id),
             )
             # Index metadata by column name for quick lookup
             metadata_by_column = {m["column_name"]: m for m in metadata_list}

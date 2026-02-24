@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from backend.src.services.schema_manager import SchemaManager
+from backend.src.services.schema_manager import ensure_user_schema_exists
 
 
 @pytest.mark.integration
@@ -37,11 +37,10 @@ class TestVectorIndex:
         - Index uses cosine distance (vector_cosine_ops)
         - Index parameters: m=16, ef_construction=64
         """
-        schema_manager: SchemaManager = SchemaManager(test_db_connection)
         username: str = "testuser"
 
         # Ensure user schema exists with vector extension
-        schema_manager.ensure_user_schema_exists(test_db_connection, username)
+        ensure_user_schema_exists(test_db_connection, username)
 
         # Verify HNSW index exists
         with test_db_connection.cursor() as cur:
@@ -79,10 +78,9 @@ class TestVectorIndex:
         - Index parameters match spec
         - Optimized for 1536-dimensional vectors
         """
-        schema_manager: SchemaManager = SchemaManager(test_db_connection)
         username: str = "testuser"
 
-        schema_manager.ensure_user_schema_exists(test_db_connection, username)
+        ensure_user_schema_exists(test_db_connection, username)
 
         with test_db_connection.cursor() as cur:
             cur.execute(f"SET search_path TO {username}_schema, public")
@@ -121,10 +119,9 @@ class TestVectorIndex:
         - EXPLAIN shows index scan
         - Query completes in < 100ms for 10K vectors
         """
-        schema_manager: SchemaManager = SchemaManager(test_db_connection)
         username: str = "testuser"
 
-        schema_manager.ensure_user_schema_exists(test_db_connection, username)
+        ensure_user_schema_exists(test_db_connection, username)
 
         with test_db_connection.cursor() as cur:
             cur.execute(f"SET search_path TO {username}_schema, public")
@@ -177,10 +174,9 @@ class TestVectorIndex:
         - Index remains consistent with table data
         - Query performance doesn't degrade
         """
-        schema_manager: SchemaManager = SchemaManager(test_db_connection)
         username: str = "testuser"
 
-        schema_manager.ensure_user_schema_exists(test_db_connection, username)
+        ensure_user_schema_exists(test_db_connection, username)
 
         with test_db_connection.cursor() as cur:
             cur.execute(f"SET search_path TO {username}_schema, public")
@@ -249,10 +245,9 @@ class TestVectorIndex:
         - Index creation succeeds on populated table
         - All rows are accessible via index
         """
-        schema_manager: SchemaManager = SchemaManager(test_db_connection)
         username: str = "testuser"
 
-        schema_manager.ensure_user_schema_exists(test_db_connection, username)
+        ensure_user_schema_exists(test_db_connection, username)
 
         with test_db_connection.cursor() as cur:
             cur.execute(f"SET search_path TO {username}_schema, public")

@@ -10,12 +10,13 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
+import time
 from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backend.src.services.schema_manager import SchemaManager
+from backend.src.services.schema_manager import ensure_user_schema_exists
 from backend.src.services.vector_search import VectorSearchService
 
 
@@ -55,9 +56,8 @@ class TestVectorSimilarity:
         query_embedding: list[float] = [0.9, 0.1] + [0.0] * 1534  # Similar to revenue
 
         # Setup schema
-        schema_manager: SchemaManager = SchemaManager(test_db_connection)
         username: str = "testuser"
-        schema_manager.ensure_user_schema_exists(test_db_connection, username)
+        ensure_user_schema_exists(test_db_connection, username)
 
         # Insert test embeddings
         with test_db_connection.cursor() as cur:
@@ -125,12 +125,8 @@ class TestVectorSimilarity:
         - Results include distance scores
         - Distances are in valid range
         """
-        from backend.src.services.schema_manager import SchemaManager
-        from backend.src.services.vector_search import VectorSearchService
-
-        schema_manager: SchemaManager = SchemaManager(test_db_connection)
         username: str = "testuser"
-        schema_manager.ensure_user_schema_exists(test_db_connection, username)
+        ensure_user_schema_exists(test_db_connection, username)
 
         # Insert test embeddings with known distances
         with test_db_connection.cursor() as cur:
@@ -214,12 +210,8 @@ class TestVectorSimilarity:
         - Filter restricts results to specified datasets
         - Ranking is correct within filtered set
         """
-        from backend.src.services.schema_manager import SchemaManager
-        from backend.src.services.vector_search import VectorSearchService
-
-        schema_manager: SchemaManager = SchemaManager(test_db_connection)
         username: str = "testuser"
-        schema_manager.ensure_user_schema_exists(test_db_connection, username)
+        ensure_user_schema_exists(test_db_connection, username)
 
         embedding: list[float] = [0.5] * 1536
 
@@ -293,12 +285,8 @@ class TestVectorSimilarity:
         - Empty result set handled gracefully
         - No errors on empty database
         """
-        from backend.src.services.schema_manager import SchemaManager
-        from backend.src.services.vector_search import VectorSearchService
-
-        schema_manager: SchemaManager = SchemaManager(test_db_connection)
         username: str = "testuser"
-        schema_manager.ensure_user_schema_exists(test_db_connection, username)
+        ensure_user_schema_exists(test_db_connection, username)
 
         # Mock OpenAI
         mock_client: MagicMock = MagicMock()
@@ -334,9 +322,8 @@ class TestVectorSimilarity:
         - Search scales to 10K+ vectors
         - Performance meets SLA requirements
         """
-        schema_manager: SchemaManager = SchemaManager(test_db_connection)
         username: str = "testuser"
-        schema_manager.ensure_user_schema_exists(test_db_connection, username)
+        ensure_user_schema_exists(test_db_connection, username)
 
         # Insert large number of embeddings
         with test_db_connection.cursor() as cur:
@@ -356,8 +343,6 @@ class TestVectorSimilarity:
             test_db_connection.commit()
 
             # Measure query performance
-            import time
-
             query_embedding: list[float] = [0.5] * 1536
 
             start_time: float = time.time()
