@@ -1,13 +1,24 @@
 /**
  * Dataset Upload Form Component
- * CSV file upload with drag-and-drop and progress tracking per FR-012
+ * CSV file upload with drag-and-drop and progress tracking per FR-012.
+ *
+ * Animation phases:
+ *   hidden      – no animation shown
+ *   uploading   – BeakerProgress (HTTP upload, 0–99%)
+ *   processing  – FunnelProgress (upload hit 100%, awaiting server response)
+ *   complete    – CogProgress (response received, shown for 3.5 s)
+ *   fading      – CogProgress fading out over 1.5 s
  */
 
-import React, { useState, ChangeEvent, DragEvent, useRef } from 'react';
+import React, { useState, ChangeEvent, DragEvent, useRef, useEffect } from 'react';
 import * as datasetsService from '../../services/datasets';
 import type { Dataset, UploadProgress } from '../../types';
 import { BeakerProgress } from './BeakerProgress';
+import { FunnelProgress } from './FunnelProgress';
+import { CogProgress } from './CogProgress';
 import './UploadForm.css';
+
+type AnimPhase = 'hidden' | 'uploading' | 'processing' | 'complete' | 'fading';
 
 interface UploadFormProps {
   onUploadComplete: (dataset: Dataset) => void;
@@ -20,7 +31,21 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConf
   const [progress, setProgress] = useState<number>(0);
   const [error, setError] = useState<string>('');
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [animPhase, setAnimPhase] = useState<AnimPhase>('hidden');
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const phaseTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  /** Cancel any pending phase-transition timers */
+  const clearPhaseTimers = (): void => {
+    phaseTimersRef.current.forEach((id: ReturnType<typeof setTimeout>) => clearTimeout(id));
+    phaseTimersRef.current = [];
+  };
+
+  // Clean up timers on unmount
+  useEffect(() => {
+    return (): void => { clearPhaseTimers(); };
+  }, []);
 
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>): void => {
     const file: File | null = e.target.files?.[0] || null;
@@ -59,27 +84,49 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConf
       return;
     }
 
+    clearPhaseTimers();
     setUploading(true);
     setError('');
     setProgress(0);
+    setAnimPhase('uploading');
 
     try {
       const dataset: Dataset = await datasetsService.upload(
         selectedFile,
         (uploadProgress: UploadProgress): void => {
-          setProgress(uploadProgress.percentage);
+          const pct: number = uploadProgress.percentage;
+          setProgress(pct);
+          // Switch to funnel when HTTP upload finishes; server is now processing
+          if (pct >= 100) {
+            setAnimPhase('processing');
+          }
         }
       );
 
+      // Server responded — upload + processing complete
       setSelectedFile(null);
       setProgress(0);
-      onUploadComplete(dataset);
+      setAnimPhase('complete');
 
-      // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+
+      // Show cog for 3.5 s, then start 1.5 s fade-out, then hide
+      const t1: ReturnType<typeof setTimeout> = setTimeout((): void => {
+        setAnimPhase('fading');
+        const t2: ReturnType<typeof setTimeout> = setTimeout((): void => {
+          setAnimPhase('hidden');
+          onUploadComplete(dataset);
+        }, 1500);
+        phaseTimersRef.current.push(t2);
+      }, 3500);
+      phaseTimersRef.current.push(t1);
+
     } catch (err: unknown) {
+      clearPhaseTimers();
+      setAnimPhase('hidden');
+
       // Check for conflict error (409)
       if (typeof err === 'object' && err !== null && 'status' in err && err.status === 409) {
         if (onConflict && selectedFile) {
@@ -96,15 +143,20 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConf
   };
 
   const handleCancel = (): void => {
+    clearPhaseTimers();
     setSelectedFile(null);
     setProgress(0);
     setError('');
     setUploading(false);
+    setAnimPhase('hidden');
 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
+
+  const showAnimation: boolean = animPhase !== 'hidden';
+  const isFading: boolean = animPhase === 'fading';
 
   return (
     <div className="upload-form">
@@ -140,10 +192,26 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConf
         </div>
       )}
 
-      {uploading && <BeakerProgress progress={progress} />}
+      {showAnimation && (
+        <div className={`upload-animation ${isFading ? 'fading-out' : ''}`}>
+          {(animPhase === 'uploading') && (
+            <BeakerProgress progress={progress} />
+          )}
+          {(animPhase === 'processing') && (
+            <FunnelProgress label="Processing..." />
+          )}
+          {(animPhase === 'complete' || animPhase === 'fading') && (
+            <CogProgress label="Complete!" />
+          )}
+        </div>
+      )}
 
       <div className="button-group">
-        <button onClick={() => void handleUpload()} disabled={!selectedFile || uploading} className="upload-button">
+        <button
+          onClick={() => void handleUpload()}
+          disabled={!selectedFile || uploading}
+          className="upload-button"
+        >
           {uploading ? 'Uploading...' : 'Upload'}
         </button>
         {selectedFile && !uploading && (

@@ -110,7 +110,7 @@ export const QueryHistory: React.FC<QueryHistoryProps> = ({ onQuerySelect, refre
     );
   }
 
-  const totalPages: number = Math.ceil(history.total_count / history.page_size);
+  const totalPages: number = Math.ceil(history.total / history.page_size);
 
   return (
     <div className="query-history">

@@ -91,3 +91,13 @@
 .cancel-button:hover {
   background-color: #e0e0e0;
 }
+
+/* Animation phase wrapper — handles fade-out transition */
+.upload-animation {
+  opacity: 1;
+  transition: opacity 1.5s ease;
+}
+
+.upload-animation.fading-out {
+  opacity: 0;
+}

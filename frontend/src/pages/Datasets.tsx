@@ -14,11 +14,11 @@ export const Datasets: React.FC = () => {
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
   const [conflictFile, setConflictFile] = useState<{ filename: string; file: File } | null>(null);
 
-  const handleUploadComplete = (dataset: Dataset): void => {
+  const handleUploadComplete = (_dataset: Dataset): void => {
     setRefreshTrigger((prev: number): number => prev + 1); // Trigger list refresh
   };
 
-  const handleConflict = (filename: string): void => {
+  const handleConflict = (_filename: string): void => {
     // Store the file for conflict dialog
     // Note: We need to reconstruct the file from state if using ConflictDialog
     // Conflict handling would go here

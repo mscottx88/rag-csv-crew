@@ -1,0 +1,53 @@
+.cog-progress-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.75rem 0 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.cog-svg {
+  width: 160px;
+  height: auto;
+  overflow: visible;
+  /* Pink neon glow */
+  filter:
+    drop-shadow(0 0 5px #ff10f0)
+    drop-shadow(0 0 14px #ff10f088)
+    drop-shadow(0 0 28px #ff10f044);
+}
+
+/* Large gear: clockwise, one full rotation every 4s */
+@keyframes spin-cw {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Small gear: counter-clockwise.
+   Speed ratio = large_teeth / small_teeth = 10/6 ≈ 1.667×
+   So small completes a full turn in 4s / 1.667 ≈ 2.4s */
+@keyframes spin-ccw {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-360deg); }
+}
+
+.cog-large {
+  transform-origin: 0px 0px; /* gear is already translated, so origin is local 0,0 */
+  animation: spin-cw 4s linear infinite;
+}
+
+.cog-small {
+  transform-origin: 0px 0px;
+  animation: spin-ccw 2.4s linear infinite;
+}
+
+.cog-progress-label {
+  margin-top: 0.55rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #ff10f0;
+  letter-spacing: 0.07em;
+  text-shadow:
+    0 0 6px #ff10f0,
+    0 0 16px #ff10f066;
+}

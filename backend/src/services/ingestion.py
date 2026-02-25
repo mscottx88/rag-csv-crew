@@ -138,13 +138,15 @@ def detect_csv_schema(csv_file: StringIO, sample_size: int = 1000) -> dict[str, 
         # Empty file or no header
         return {"columns": []}
 
-    # Initialize column metadata
+    # Initialize column metadata.
+    # Default nullable=True: schema is inferred from a sample only, so nulls
+    # beyond the sample window would cause NOT NULL violations at ingest time.
     column_stats: dict[str, dict[str, Any]] = {}
     for col_name in fieldnames:
         column_stats[col_name] = {
             "name": col_name,
             "type": "TEXT",  # Default to TEXT
-            "nullable": False,
+            "nullable": True,
             "types_seen": set(),
             "null_count": 0,
             "total_count": 0,
@@ -163,8 +165,7 @@ def detect_csv_schema(csv_file: StringIO, sample_size: int = 1000) -> dict[str, 
             column_stats[col_name]["total_count"] += 1
 
             if not value:
-                # Empty value → nullable
-                column_stats[col_name]["nullable"] = True
+                # Empty value — column is already nullable by default
                 column_stats[col_name]["null_count"] += 1
                 continue
 

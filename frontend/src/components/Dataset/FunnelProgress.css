@@ -1,4 +1,4 @@
-.beaker-progress-container {
+.funnel-progress-container {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -6,18 +6,18 @@
   margin-top: 0.5rem;
 }
 
-.beaker-svg {
+.funnel-svg {
   width: 160px;
   height: auto;
   overflow: visible;
-  /* Pink neon glow around the whole beaker glass */
+  /* Pink neon glow around the whole funnel */
   filter:
     drop-shadow(0 0 5px #ff10f0)
     drop-shadow(0 0 14px #ff10f088)
     drop-shadow(0 0 28px #ff10f044);
 }
 
-.beaker-progress-label {
+.funnel-progress-label {
   margin-top: 0.55rem;
   font-size: 1.2rem;
   font-weight: 700;
