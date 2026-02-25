@@ -5,7 +5,8 @@
  * Animation phases:
  *   hidden      – no animation shown
  *   uploading   – BeakerProgress (HTTP upload, 0–99%)
- *   processing  – FunnelProgress (upload hit 100%, awaiting server response)
+ *   processing  – FunnelProgress (upload hit 100%, first ~3 s of server work)
+ *   embedding   – VectorizeProgress (3 s+ of server work; embedding phase)
  *   complete    – CogProgress (response received, shown for 3.5 s)
  *   fading      – CogProgress fading out over 1.5 s
  */
@@ -15,10 +16,11 @@ import * as datasetsService from '../../services/datasets';
 import type { Dataset, UploadProgress } from '../../types';
 import { BeakerProgress } from './BeakerProgress';
 import { FunnelProgress } from './FunnelProgress';
+import { VectorizeProgress } from './VectorizeProgress';
 import { CogProgress } from './CogProgress';
 import './UploadForm.css';
 
-type AnimPhase = 'hidden' | 'uploading' | 'processing' | 'complete' | 'fading';
+type AnimPhase = 'hidden' | 'uploading' | 'processing' | 'embedding' | 'complete' | 'fading';
 
 interface UploadFormProps {
   onUploadComplete: (dataset: Dataset) => void;
@@ -35,6 +37,8 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConf
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const phaseTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // Guards against setting up the processing→embedding timer more than once
+  const processingStartedRef = useRef<boolean>(false);
 
   /** Cancel any pending phase-transition timers */
   const clearPhaseTimers = (): void => {
@@ -85,6 +89,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConf
     }
 
     clearPhaseTimers();
+    processingStartedRef.current = false;
     setUploading(true);
     setError('');
     setProgress(0);
@@ -96,14 +101,27 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConf
         (uploadProgress: UploadProgress): void => {
           const pct: number = uploadProgress.percentage;
           setProgress(pct);
-          // Switch to funnel when HTTP upload finishes; server is now processing
-          if (pct >= 100) {
+
+          // When HTTP upload finishes, switch to funnel (ingestion) phase.
+          // After 3 s of waiting, switch to vectorize (embedding) phase.
+          // Guard prevents multiple timers if the callback fires > once at 100%.
+          if (pct >= 100 && !processingStartedRef.current) {
+            processingStartedRef.current = true;
             setAnimPhase('processing');
+
+            const t0: ReturnType<typeof setTimeout> = setTimeout((): void => {
+              // Only advance if we haven't already moved to 'complete'
+              setAnimPhase((prev: AnimPhase): AnimPhase =>
+                prev === 'processing' ? 'embedding' : prev
+              );
+            }, 3000);
+            phaseTimersRef.current.push(t0);
           }
         }
       );
 
-      // Server responded — upload + processing complete
+      // Server responded — all phases done
+      clearPhaseTimers();
       setSelectedFile(null);
       setProgress(0);
       setAnimPhase('complete');
@@ -112,7 +130,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConf
         fileInputRef.current.value = '';
       }
 
-      // Show cog for 3.5 s, then start 1.5 s fade-out, then hide
+      // Show cog for 3.5 s, then 1.5 s fade-out, then notify parent
       const t1: ReturnType<typeof setTimeout> = setTimeout((): void => {
         setAnimPhase('fading');
         const t2: ReturnType<typeof setTimeout> = setTimeout((): void => {
@@ -144,6 +162,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConf
 
   const handleCancel = (): void => {
     clearPhaseTimers();
+    processingStartedRef.current = false;
     setSelectedFile(null);
     setProgress(0);
     setError('');
@@ -194,11 +213,14 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConf
 
       {showAnimation && (
         <div className={`upload-animation ${isFading ? 'fading-out' : ''}`}>
-          {(animPhase === 'uploading') && (
+          {animPhase === 'uploading' && (
             <BeakerProgress progress={progress} />
           )}
-          {(animPhase === 'processing') && (
-            <FunnelProgress label="Processing..." />
+          {animPhase === 'processing' && (
+            <FunnelProgress label="Ingesting..." />
+          )}
+          {animPhase === 'embedding' && (
+            <VectorizeProgress label="Embedding..." />
           )}
           {(animPhase === 'complete' || animPhase === 'fading') && (
             <CogProgress label="Complete!" />

@@ -92,8 +92,9 @@
   background-color: #e0e0e0;
 }
 
-/* Animation phase wrapper — handles fade-out transition */
+/* Animation phase wrapper — responsive, handles fade-out transition */
 .upload-animation {
+  width: 100%;
   opacity: 1;
   transition: opacity 1.5s ease;
 }
