@@ -21,8 +21,11 @@ import pytest
 class TestTextToSQLService:
     """Unit tests for text-to-SQL service (T051)."""
 
+    @patch("backend.src.services.text_to_sql.TextToSQLService.get_schema_context")
     @patch("backend.src.services.text_to_sql.Crew")
-    def test_generate_sql_from_natural_language(self, mock_crew: MagicMock) -> None:
+    def test_generate_sql_from_natural_language(
+        self, mock_crew: MagicMock, mock_get_schema: MagicMock
+    ) -> None:
         """Test text-to-SQL conversion generates valid SQL query.
 
         Validates:
@@ -32,6 +35,7 @@ class TestTextToSQLService:
 
         Args:
             mock_crew: Mocked CrewAI Crew class
+            mock_get_schema: Mocked get_schema_context method
 
         Success Criteria (T051):
         - Service converts natural language to SQL
@@ -39,6 +43,11 @@ class TestTextToSQLService:
         - Agent receives correct input
         """
         from backend.src.services.text_to_sql import TextToSQLService
+
+        mock_get_schema.return_value = {
+            "tables": ["sales_data"],
+            "columns": {"sales_data": ["region", "amount"]},
+        }
 
         # Mock CrewAI response
         mock_crew_instance: MagicMock = MagicMock()
@@ -52,7 +61,7 @@ class TestTextToSQLService:
         dataset_ids: list[UUID] = [uuid4()]
 
         result: dict[str, Any] = service.generate_sql(
-            query_text=user_query, dataset_ids=dataset_ids, _username="testuser"
+            query_text=user_query, dataset_ids=dataset_ids, username="testuser"
         )
 
         # Verify SQL was generated
@@ -69,8 +78,11 @@ class TestTextToSQLService:
         # Verify CrewAI was called
         mock_crew_instance.kickoff.assert_called_once()
 
+    @patch("backend.src.services.text_to_sql.TextToSQLService.get_schema_context")
     @patch("backend.src.services.text_to_sql.Crew")
-    def test_generate_sql_handles_multiple_datasets(self, mock_crew: MagicMock) -> None:
+    def test_generate_sql_handles_multiple_datasets(
+        self, mock_crew: MagicMock, mock_get_schema: MagicMock
+    ) -> None:
         """Test SQL generation for queries spanning multiple datasets.
 
         Validates:
@@ -80,12 +92,21 @@ class TestTextToSQLService:
 
         Args:
             mock_crew: Mocked CrewAI Crew class
+            mock_get_schema: Mocked get_schema_context method
 
         Success Criteria (T051):
         - Multi-dataset queries generate JOIN SQL
         - Agent receives all dataset IDs
         """
         from backend.src.services.text_to_sql import TextToSQLService
+
+        mock_get_schema.return_value = {
+            "tables": ["customers_data", "orders_data"],
+            "columns": {
+                "customers_data": ["id", "name"],
+                "orders_data": ["id", "customer_id", "amount"],
+            },
+        }
 
         mock_crew_instance: MagicMock = MagicMock()
         mock_result: MagicMock = MagicMock()
@@ -104,7 +125,7 @@ class TestTextToSQLService:
         result: dict[str, Any] = service.generate_sql(
             query_text="Which customers have the highest order totals?",
             dataset_ids=dataset_ids,
-            _username="testuser",
+            username="testuser",
         )
 
         assert "sql" in result
@@ -138,7 +159,7 @@ class TestTextToSQLService:
 
         with pytest.raises(Exception) as exc_info:
             service.generate_sql(
-                query_text="Show me the data", dataset_ids=[uuid4()], _username="testuser"
+                query_text="Show me the data", dataset_ids=[uuid4()], username="testuser"
             )
 
         # Verify error is raised
@@ -172,7 +193,7 @@ class TestTextToSQLService:
             }
 
             result: dict[str, Any] = service.generate_sql(
-                query_text=malicious_query, dataset_ids=[uuid4()], _username="testuser"
+                query_text=malicious_query, dataset_ids=[uuid4()], username="testuser"
             )
 
             # Verify parameterized query pattern

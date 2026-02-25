@@ -11,6 +11,7 @@ Constitutional Requirements:
 """
 
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
@@ -19,6 +20,7 @@ from backend.src.crew.tasks import create_keyword_search_task
 
 
 @pytest.mark.unit
+@patch.dict("os.environ", {"OPENAI_API_KEY": "sk-fake-key-for-testing"})
 class TestKeywordSearchAgent:
     """Unit tests for Keyword Search agent (T102)."""
 
