@@ -36,13 +36,13 @@ load_dotenv(dotenv_path=env_path)
 import os  # noqa: E402
 
 # JUSTIFICATION: load_dotenv() must run before these imports to ensure env vars are available
-from src.api.auth import router as auth_router  # noqa: E402
-from src.api.datasets import router as datasets_router  # noqa: E402
-from src.api.health import router as health_router  # noqa: E402
-from src.api.queries import router as queries_router  # noqa: E402
-from src.db.connection import close_global_pool, initialize_global_pool  # noqa: E402
-from src.models.config import AppConfig  # noqa: E402
-from src.utils.logging import (  # noqa: E402
+from backend.src.api.auth import router as auth_router  # noqa: E402
+from backend.src.api.datasets import router as datasets_router  # noqa: E402
+from backend.src.api.health import router as health_router  # noqa: E402
+from backend.src.api.queries import router as queries_router  # noqa: E402
+from backend.src.db.connection import close_global_pool, initialize_global_pool  # noqa: E402
+from backend.src.models.config import AppConfig  # noqa: E402
+from backend.src.utils.logging import (  # noqa: E402
     get_structured_logger,
     log_error,
     log_event,

@@ -174,7 +174,7 @@ class TestAuthContract:
 
         # Verify error response
         data: dict[str, Any] = response.json()
-        assert "detail" in data or "error" in data
+        assert "detail" in data or "error" in data or "error_code" in data or "errors" in data
 
     def test_get_current_user_with_valid_token(self, client: TestClient) -> None:
         """Test GET /auth/me with valid JWT returns user info.

@@ -68,6 +68,7 @@ COLUMN_MAPPINGS_EMBEDDING_INDEX_SQL: str = """
 CREATE INDEX IF NOT EXISTS idx_column_mappings_embedding
 ON {schema_name}.column_mappings
 USING hnsw (embedding vector_cosine_ops)
+WITH (m = 16, ef_construction = 64)
 """
 
 COLUMN_MAPPINGS_FULLTEXT_INDEX_SQL: str = """
@@ -111,9 +112,11 @@ CREATE TABLE IF NOT EXISTS {schema_name}.queries (
     completed_at TIMESTAMP WITH TIME ZONE,
     status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'cancelled', 'timeout')),
     generated_sql TEXT,
+    query_params JSONB,
     result_count INTEGER,
     execution_time_ms INTEGER,
     progress_message TEXT,
+    agent_logs TEXT,
 
     CONSTRAINT positive_execution_time CHECK (execution_time_ms IS NULL OR execution_time_ms >= 0),
     CONSTRAINT positive_result_count CHECK (result_count IS NULL OR result_count >= 0)

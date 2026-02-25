@@ -15,8 +15,8 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
-from src.db.connection import DatabaseConnectionPool, get_global_pool
-from src.utils.logging import log_event
+from backend.src.db.connection import DatabaseConnectionPool, get_global_pool
+from backend.src.utils.logging import log_event
 
 
 def get_pool_with_error_handling(

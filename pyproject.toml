@@ -93,7 +93,7 @@ addopts = [
     "--cov-fail-under=80",
 ]
 testpaths = ["tests"]
-pythonpath = ["backend"]
+pythonpath = ["."]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

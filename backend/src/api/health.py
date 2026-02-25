@@ -17,7 +17,7 @@ from typing import Any
 from fastapi import APIRouter, Response, status
 from psycopg import OperationalError
 
-from src.db.connection import DatabaseConnectionPool, get_global_pool
+from backend.src.db.connection import DatabaseConnectionPool, get_global_pool
 
 # Create router
 router: APIRouter = APIRouter()

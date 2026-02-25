@@ -3,7 +3,7 @@
  * Natural language query input with example questions
  */
 
-import React, { useState, useEffect, FormEvent, ChangeEvent } from 'react';
+import React, { useState, useEffect, FormEvent, ChangeEvent, KeyboardEvent } from 'react';
 import * as queriesService from '../../services/queries';
 import * as datasetsService from '../../services/datasets';
 import type { Query, QueryExample, Dataset } from '../../types';
@@ -90,6 +90,16 @@ export const QueryInput: React.FC<QueryInputProps> = ({
     setError('');
   };
 
+  const handleQueryKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (e.key === 'Enter' && e.ctrlKey) {
+      e.preventDefault();
+      if (!submitting && !isProcessing && queryText.trim()) {
+        const form = e.currentTarget.closest('form');
+        form?.requestSubmit();
+      }
+    }
+  };
+
   const handleCancelClick = (): void => {
     if (onCancel) {
       onCancel();
@@ -129,6 +139,7 @@ export const QueryInput: React.FC<QueryInputProps> = ({
             id="query-text"
             value={queryText}
             onChange={handleQueryChange}
+            onKeyDown={handleQueryKeyDown}
             placeholder="e.g., Show me the top 10 customers by revenue"
             disabled={submitting || isProcessing}
             rows={4}

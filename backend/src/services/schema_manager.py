@@ -16,9 +16,10 @@ from datetime import UTC, datetime
 
 from psycopg import Connection, errors
 
-from src.db.schemas import (
+from backend.src.db.schemas import (
     COLUMN_MAPPINGS_DATASET_INDEX_SQL,
     COLUMN_MAPPINGS_EMBEDDING_INDEX_SQL,
+    COLUMN_MAPPINGS_FULLTEXT_INDEX_SQL,
     COLUMN_MAPPINGS_TABLE_SQL,
     CROSS_REFERENCES_SOURCE_INDEX_SQL,
     CROSS_REFERENCES_TABLE_SQL,
@@ -126,6 +127,10 @@ def ensure_user_schema_exists(conn: Connection[tuple[str, ...]], username: str) 
             schema_name=schema_name
         )
         cur.execute(col_map_embed_idx_sql)
+        col_map_fulltext_idx_sql: str = COLUMN_MAPPINGS_FULLTEXT_INDEX_SQL.format(
+            schema_name=schema_name
+        )
+        cur.execute(col_map_fulltext_idx_sql)
 
         # Create cross_references table
         cross_references_sql: str = CROSS_REFERENCES_TABLE_SQL.format(schema_name=schema_name)

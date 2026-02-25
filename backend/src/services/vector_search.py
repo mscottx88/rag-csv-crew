@@ -276,7 +276,7 @@ class VectorSearchService:
         results: list[dict[str, Any]] = []
         for row in rows:
             column_name: str = row[0]
-            dataset_id: str = row[1]
+            dataset_id: str = str(row[1])
             description: str | None = row[2]
             distance: float = row[3]
 

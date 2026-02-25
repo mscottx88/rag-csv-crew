@@ -6,6 +6,7 @@
 import React, { useState, ChangeEvent, DragEvent, useRef } from 'react';
 import * as datasetsService from '../../services/datasets';
 import type { Dataset, UploadProgress } from '../../types';
+import { BeakerProgress } from './BeakerProgress';
 import './UploadForm.css';
 
 interface UploadFormProps {
@@ -139,12 +140,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConf
         </div>
       )}
 
-      {uploading && (
-        <div className="progress-container">
-          <div className="progress-bar" style={{ width: `${progress}%` }} />
-          <span className="progress-text">{progress}%</span>
-        </div>
-      )}
+      {uploading && <BeakerProgress progress={progress} />}
 
       <div className="button-group">
         <button onClick={() => void handleUpload()} disabled={!selectedFile || uploading} className="upload-button">

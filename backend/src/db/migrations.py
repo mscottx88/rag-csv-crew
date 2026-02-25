@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 from psycopg import sql
 
-from src.db.schemas import (
+from backend.src.db.schemas import (
     COLUMN_MAPPINGS_DATASET_INDEX_SQL,
     COLUMN_MAPPINGS_EMBEDDING_INDEX_SQL,
     COLUMN_MAPPINGS_FULLTEXT_INDEX_SQL,

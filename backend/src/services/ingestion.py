@@ -26,9 +26,9 @@ from psycopg import Connection, sql
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
-from src.services.column_metadata import ColumnMetadataService
-from src.services.vector_search import VectorSearchService
-from src.utils.logging import get_structured_logger, log_event
+from backend.src.services.column_metadata import ColumnMetadataService
+from backend.src.services.vector_search import VectorSearchService
+from backend.src.utils.logging import get_structured_logger, log_event
 
 # Get logger for file operations (T202-POLISH)
 logger = get_structured_logger(__name__)
@@ -1187,7 +1187,7 @@ class IngestionService:
         Raises:
             RuntimeError: If cross-reference detection or storage fails
         """
-        from src.services.cross_reference import (  # pylint: disable=import-outside-toplevel
+        from backend.src.services.cross_reference import (  # pylint: disable=import-outside-toplevel
             CrossReferenceService,
         )
 

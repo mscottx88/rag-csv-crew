@@ -19,15 +19,15 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from src.api.dependencies import check_rate_limit
-from src.db.connection import get_global_pool
-from src.models.query import Query, QueryCreate, QueryHistory, QueryWithResponse
-from src.services.data_value_search import DataValueSearchService
-from src.services.hybrid_search import HybridSearchService
-from src.services.query_execution import QueryExecutionService
-from src.services.query_history import QueryHistoryService
-from src.services.response_generator import ResponseGenerator
-from src.services.text_to_sql import TextToSQLService
+from backend.src.api.dependencies import check_rate_limit
+from backend.src.db.connection import get_global_pool
+from backend.src.models.query import Query, QueryCreate, QueryHistory, QueryWithResponse
+from backend.src.services.data_value_search import DataValueSearchService
+from backend.src.services.hybrid_search import HybridSearchService
+from backend.src.services.query_execution import QueryExecutionService
+from backend.src.services.query_history import QueryHistoryService
+from backend.src.services.response_generator import ResponseGenerator
+from backend.src.services.text_to_sql import TextToSQLService
 
 # Configure logger
 logger: logging.Logger = logging.getLogger(__name__)
@@ -596,12 +596,12 @@ def get_example_queries(
     return {"examples": examples}
 
 
-@router.get("/history", response_model=QueryHistory)
+@router.get("", response_model=QueryHistory)
 def get_query_history(
     response: Response,
     page: int = 1,
     page_size: int = 50,
-    status_filter: str | None = None,
+    status: str | None = None,
     current_username: str = Depends(check_rate_limit),
 ) -> QueryHistory:
     """Get paginated query history for current user.
@@ -630,7 +630,7 @@ def get_query_history(
     history_service: QueryHistoryService = QueryHistoryService(pool)
 
     history: dict[str, Any] = history_service.get_query_history(
-        username=current_username, page=page, page_size=page_size, status=status_filter
+        username=current_username, page=page, page_size=page_size, status=status
     )
 
     return QueryHistory(**history)

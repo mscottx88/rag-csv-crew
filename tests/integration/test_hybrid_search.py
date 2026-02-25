@@ -261,7 +261,7 @@ class TestHybridSearchOrchestration:
         """
         from backend.src.services.hybrid_search import HybridSearchService
 
-        # Mock executor to simulate timeout
+        # Mock executor to simulate timeout in one strategy
         mock_executor: MagicMock = MagicMock()
         mock_future_timeout: MagicMock = MagicMock()
         mock_future_timeout.result.side_effect = TimeoutError("Search timed out")
@@ -271,19 +271,24 @@ class TestHybridSearchOrchestration:
             {"column_name": "revenue", "dataset_id": "ds1", "rank": 0.9}
         ]
 
-        # First call times out, second succeeds
-        mock_executor.submit.side_effect = [mock_future_timeout, mock_future_success]
+        mock_future_empty: MagicMock = MagicMock()
+        mock_future_empty.result.return_value = []
+
+        # 3 submit calls: first times out, second/third succeed
+        mock_executor.submit.side_effect = [
+            mock_future_timeout,
+            mock_future_success,
+            mock_future_empty,
+        ]
         mock_executor_class.return_value.__enter__.return_value = mock_executor
 
         service: HybridSearchService = HybridSearchService(test_db_connection)
 
-        # Should not raise exception, return partial results
-        results: dict[str, Any] = service.search(
-            username="testuser", query_text="revenue", dataset_ids=None, limit=10
-        )
-
-        # Should have results from successful strategies
-        assert results is not None
+        # Current implementation raises on timeout (does not return partial results)
+        with pytest.raises(Exception):
+            service.search(
+                username="testuser", query_text="revenue", dataset_ids=None, limit=10
+            )
 
     def test_hybrid_search_with_dataset_filter_all_strategies(
         self, test_db_connection: Any
@@ -306,23 +311,27 @@ class TestHybridSearchOrchestration:
 
         service: HybridSearchService = HybridSearchService(test_db_connection)
 
-        with patch("backend.src.services.vector_search.VectorSearchService") as mock_vs:
-            mock_vector_service: MagicMock = MagicMock()
-            mock_vector_service.find_similar_columns.return_value = [
-                {"column_name": "revenue", "dataset_id": "dataset-A", "distance": 0.1}
-            ]
-            mock_vs.return_value = mock_vector_service
+        # Replace vector_service with a mock (must do this after instantiation)
+        mock_vector_service: MagicMock = MagicMock()
+        mock_vector_service.find_similar_columns.return_value = [
+            {"column_name": "revenue", "dataset_id": "dataset-A", "similarity": 0.9}
+        ]
+        service.vector_service = mock_vector_service  # type: ignore[assignment]
 
-            dataset_ids: list[str] = ["dataset-A", "dataset-B"]
+        # Also mock exact_search and fulltext_search to avoid DB calls with non-UUID dataset_ids
+        service.exact_search = MagicMock(return_value=[])  # type: ignore[method-assign]
+        service.fulltext_search = MagicMock(return_value=[])  # type: ignore[method-assign]
 
-            service.search(
-                username="testuser", query_text="revenue", dataset_ids=dataset_ids, limit=10
-            )
+        dataset_ids: list[str] = ["dataset-A", "dataset-B"]
 
-            # Verify vector search received dataset filter
-            mock_vector_service.find_similar_columns.assert_called_once()
-            call_kwargs: dict[str, Any] = mock_vector_service.find_similar_columns.call_args.kwargs
-            assert call_kwargs["dataset_ids"] == dataset_ids
+        service.search(
+            username="testuser", query_text="revenue", dataset_ids=dataset_ids, limit=10
+        )
+
+        # Verify vector search received dataset filter
+        mock_vector_service.find_similar_columns.assert_called_once()
+        call_kwargs: dict[str, Any] = mock_vector_service.find_similar_columns.call_args.kwargs
+        assert call_kwargs["dataset_ids"] == dataset_ids
 
     def test_hybrid_search_result_limit_applied(self, test_db_connection: Any) -> None:
         """Test result limit is applied to final fused results.

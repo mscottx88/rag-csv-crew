@@ -17,7 +17,7 @@ from uuid import UUID
 
 from crewai.tools import tool
 
-from src.services.schema_inspector import SchemaInspectorService
+from backend.src.services.schema_inspector import SchemaInspectorService
 
 # Global state for schema inspector context
 # pylint: disable=invalid-name  # JUSTIFICATION: These are mutable global state variables, not constants

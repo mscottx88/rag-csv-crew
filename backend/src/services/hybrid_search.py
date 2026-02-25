@@ -21,7 +21,7 @@ from typing import Any
 
 from psycopg_pool import ConnectionPool
 
-from src.services.vector_search import VectorSearchService
+from backend.src.services.vector_search import VectorSearchService
 
 
 class HybridSearchService:
@@ -379,7 +379,8 @@ class HybridSearchService:
         for result in vector_results:
             column_name = result["column_name"]
             dataset_id = result["dataset_id"]
-            similarity: float = result["similarity"]
+            # Accept either "similarity" directly or convert from "distance" (cosine distance)
+            similarity: float = result.get("similarity", 1.0 - result.get("distance", 0.0))
 
             key = (column_name, dataset_id)
 

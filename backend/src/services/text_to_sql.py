@@ -26,24 +26,24 @@ from crewai import Crew
 from psycopg import sql
 from psycopg_pool import ConnectionPool
 
-from src.crew.agents import (
+from backend.src.crew.agents import (
     create_result_analyst_agent,
     create_schema_inspector_agent,
     create_sql_generator_agent,
 )
-from src.crew.tasks import (
+from backend.src.crew.tasks import (
     create_html_formatting_task,
     create_schema_inspection_task,
     create_sql_generation_task,
 )
-from src.crew.tools import (
+from backend.src.crew.tools import (
     get_sample_data_tool,
     inspect_schema_tool,
     list_datasets_tool,
     set_schema_inspector_context,
 )
-from src.services.schema_inspector import SchemaInspectorService
-from src.utils.logging import get_structured_logger, log_event
+from backend.src.services.schema_inspector import SchemaInspectorService
+from backend.src.utils.logging import get_structured_logger, log_event
 
 # Get logger for query processing (T203-POLISH)
 logger = get_structured_logger(__name__)

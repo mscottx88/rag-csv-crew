@@ -23,12 +23,12 @@ from fastapi.security import HTTPBearer
 from psycopg import sql
 from psycopg_pool import ConnectionPool
 
-from src.api.dependencies import check_rate_limit
-from src.api.utils import get_pool_with_error_handling
-from src.db.connection import DatabaseConnectionPool
-from src.models.dataset import ColumnSchema, Dataset, DatasetList
-from src.services.column_metadata import ColumnMetadataService
-from src.services.ingestion import (  # pylint: disable=import-outside-toplevel
+from backend.src.api.dependencies import check_rate_limit
+from backend.src.api.utils import get_pool_with_error_handling
+from backend.src.db.connection import DatabaseConnectionPool
+from backend.src.models.dataset import ColumnSchema, Dataset, DatasetList
+from backend.src.services.column_metadata import ColumnMetadataService
+from backend.src.services.ingestion import (  # pylint: disable=import-outside-toplevel
     check_filename_conflict,
     create_dataset_table,
     detect_csv_format,
@@ -38,8 +38,8 @@ from src.services.ingestion import (  # pylint: disable=import-outside-toplevel
     store_column_mappings,
     store_dataset_metadata,
 )
-from src.utils.csv_validator import CSVValidationError, CSVValidator
-from src.utils.logging import get_structured_logger, log_event
+from backend.src.utils.csv_validator import CSVValidationError, CSVValidator
+from backend.src.utils.logging import get_structured_logger, log_event
 
 # Initialize router and logger
 router: APIRouter = APIRouter(prefix="/datasets", tags=["Datasets"])
@@ -486,7 +486,7 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
             if underlying_pool_for_xref is None:
                 raise RuntimeError("Connection pool not initialized")
 
-            from src.services.ingestion import (  # pylint: disable=import-outside-toplevel
+            from backend.src.services.ingestion import (  # pylint: disable=import-outside-toplevel
                 IngestionService,
             )
 
