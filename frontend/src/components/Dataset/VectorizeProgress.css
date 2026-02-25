@@ -13,10 +13,10 @@
   max-width: 100%;
   display: block;
   overflow: visible;
-  /* Split glow: pink on the left bleeds through, cyan on the right */
+  /* Split glow: neon yellow on the left, cyan on the right */
   filter:
-    drop-shadow(0 0 8px #ff10f0)
-    drop-shadow(0 0 22px #ff10f066)
+    drop-shadow(0 0 8px #ffff00)
+    drop-shadow(0 0 22px #ffff0066)
     drop-shadow(0 0 40px #00eeff44);
 }
 
@@ -24,9 +24,9 @@
   margin-top: 0.55rem;
   font-size: 1.2rem;
   font-weight: 700;
-  color: #ff10f0;
+  color: #ffff00;
   letter-spacing: 0.07em;
   text-shadow:
-    0 0 6px #ff10f0,
-    0 0 16px #ff10f066;
+    0 0 6px #ffff00,
+    0 0 16px #ffff0066;
 }

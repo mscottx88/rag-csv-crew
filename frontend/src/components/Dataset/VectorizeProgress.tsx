@@ -6,7 +6,7 @@
  * high-dimensional vectors.
  *
  * Colour language:
- *   Neon pink  (#ff10f0) — raw words / text on the left
+ *   Neon pink  (#ffff00) — raw words / text on the left
  *   White      (#ffffff) — the transformation flash at the gateway
  *   Neon cyan  (#00eeff) — output vector numbers on the right
  */
@@ -146,7 +146,7 @@ export const VectorizeProgress: React.FC<VectorizeProgressProps> = ({
         <g filter="url(#vec-gate-glow)">
           <line
             x1={GATE_X} y1="4" x2={GATE_X} y2="111"
-            stroke="#ff10f0" strokeWidth="1.2" opacity="0.85"
+            stroke="#ffff00" strokeWidth="1.2" opacity="0.85"
           />
         </g>
 
@@ -156,7 +156,7 @@ export const VectorizeProgress: React.FC<VectorizeProgressProps> = ({
             <polygon
               key={y}
               points={chevronPoints(GATE_X, y, 2.8)}
-              fill="#ff10f0"
+              fill="#ffff00"
             />
           ))}
         </g>
@@ -187,7 +187,7 @@ export const VectorizeProgress: React.FC<VectorizeProgressProps> = ({
               opacity = t.opacity * Math.max(0.25, 1 - distPast * 0.012);
             } else {
               displayStr = t.word;
-              color = '#ff10f0';
+              color = '#ffff00';
             }
 
             return (
@@ -212,7 +212,7 @@ export const VectorizeProgress: React.FC<VectorizeProgressProps> = ({
         <text
           x="24" y="108"
           fontFamily="'Courier New', Courier, monospace"
-          fontSize="4.5" fill="#ff10f0" textAnchor="middle" opacity="0.3"
+          fontSize="4.5" fill="#ffff00" textAnchor="middle" opacity="0.3"
         >
           TEXT
         </text>

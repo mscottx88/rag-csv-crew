@@ -15,20 +15,20 @@
   max-width: 100%;
   display: block;
   overflow: visible;
-  /* Pink neon glow around the whole beaker glass */
+  /* Neon green glow */
   filter:
-    drop-shadow(0 0 8px #ff10f0)
-    drop-shadow(0 0 24px #ff10f088)
-    drop-shadow(0 0 52px #ff10f044);
+    drop-shadow(0 0 8px #39ff14)
+    drop-shadow(0 0 24px #39ff1488)
+    drop-shadow(0 0 52px #39ff1444);
 }
 
 .beaker-progress-label {
   margin-top: 0.55rem;
   font-size: 1.2rem;
   font-weight: 700;
-  color: #ff10f0;
+  color: #39ff14;
   letter-spacing: 0.07em;
   text-shadow:
-    0 0 6px #ff10f0,
-    0 0 16px #ff10f066;
+    0 0 6px #39ff14,
+    0 0 16px #39ff1466;
 }

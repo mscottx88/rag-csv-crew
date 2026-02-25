@@ -13,20 +13,20 @@
   max-width: 100%;
   display: block;
   overflow: visible;
-  /* Pink neon glow around the whole funnel */
+  /* Neon orange glow */
   filter:
-    drop-shadow(0 0 8px #ff10f0)
-    drop-shadow(0 0 24px #ff10f088)
-    drop-shadow(0 0 52px #ff10f044);
+    drop-shadow(0 0 8px #ff6600)
+    drop-shadow(0 0 24px #ff660088)
+    drop-shadow(0 0 52px #ff660044);
 }
 
 .funnel-progress-label {
   margin-top: 0.55rem;
   font-size: 1.2rem;
   font-weight: 700;
-  color: #ff10f0;
+  color: #ff6600;
   letter-spacing: 0.07em;
   text-shadow:
-    0 0 6px #ff10f0,
-    0 0 16px #ff10f066;
+    0 0 6px #ff6600,
+    0 0 16px #ff660066;
 }

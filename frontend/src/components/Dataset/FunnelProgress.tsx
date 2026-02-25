@@ -29,7 +29,7 @@ const FUNNEL_TOP_Y: number = 18;
 const FUNNEL_BOT_Y: number = 90;
 
 const PARTICLE_COLORS: readonly string[] = [
-  '#ff10f0', '#ff69b4', '#ff00ff', '#ff1493', '#ff80f0',
+  '#ff6600', '#ff4500', '#ff8c00', '#ffa500', '#ff7700',
 ];
 
 const MAX_PARTICLES: number = 28;
@@ -40,7 +40,7 @@ function makeParticle(): Particle {
     progress: Math.random() * 0.3, // stagger initial positions
     speed: 0.004 + Math.random() * 0.004,
     size: 1.8 + Math.random() * 2.4,
-    color: PARTICLE_COLORS[Math.floor(Math.random() * PARTICLE_COLORS.length)] ?? '#ff10f0',
+    color: PARTICLE_COLORS[Math.floor(Math.random() * PARTICLE_COLORS.length)] ?? '#ff6600',
     opacity: 0.7 + Math.random() * 0.3,
   };
 }
@@ -161,7 +161,7 @@ export const FunnelProgress: React.FC<FunnelProgressProps> = ({ label = 'Process
         <polygon
           points={funnelPoints}
           fill="none"
-          stroke="#ff10f0"
+          stroke="#ff6600"
           strokeWidth="2"
           strokeLinejoin="round"
         />
@@ -169,25 +169,25 @@ export const FunnelProgress: React.FC<FunnelProgressProps> = ({ label = 'Process
         <line
           x1={BOT_LEFT_X} y1={FUNNEL_BOT_Y}
           x2={BOT_LEFT_X} y2={spoutBotY}
-          stroke="#ff10f0" strokeWidth="2" strokeLinecap="round"
+          stroke="#ff6600" strokeWidth="2" strokeLinecap="round"
         />
         <line
           x1={BOT_RIGHT_X} y1={FUNNEL_BOT_Y}
           x2={BOT_RIGHT_X} y2={spoutBotY}
-          stroke="#ff10f0" strokeWidth="2" strokeLinecap="round"
+          stroke="#ff6600" strokeWidth="2" strokeLinecap="round"
         />
         {/* Spout bottom opening */}
         <line
           x1={BOT_LEFT_X} y1={spoutBotY}
           x2={BOT_RIGHT_X} y2={spoutBotY}
-          stroke="#ff10f0" strokeWidth="2" strokeLinecap="round"
+          stroke="#ff6600" strokeWidth="2" strokeLinecap="round"
         />
 
         {/* Funnel rim (top horizontal bar) */}
         <line
           x1={TOP_LEFT_X - 4} y1={FUNNEL_TOP_Y}
           x2={TOP_RIGHT_X + 4} y2={FUNNEL_TOP_Y}
-          stroke="#ff10f0" strokeWidth="2.2" strokeLinecap="round"
+          stroke="#ff6600" strokeWidth="2.2" strokeLinecap="round"
         />
 
         {/* Glass shine */}

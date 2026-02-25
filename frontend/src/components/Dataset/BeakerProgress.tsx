@@ -36,7 +36,7 @@ const MAX_X: number = 73;
 const MIN_Y: number = 23;
 const MAX_Y: number = 102;
 const TRAIL_LEN: number = 14;
-const COLORS: readonly string[] = ['#ff10f0', '#ff69b4', '#ff00ff', '#ff1493'];
+const COLORS: readonly string[] = ['#39ff14', '#00ff41', '#7fff00', '#adff2f'];
 
 function makePoints(type: number, size: number): string {
   switch (type) {
@@ -180,19 +180,19 @@ export const BeakerProgress: React.FC<BeakerProgressProps> = ({ progress }) => {
 
         {/* ── Glass outline — neon pink ── */}
         <rect x="14" y="13" width="72" height="7" rx="1.5"
-          fill="none" stroke="#ff10f0" strokeWidth="2.2" />
+          fill="none" stroke="#39ff14" strokeWidth="2.2" />
         <line x1="22" y1="20" x2="22" y2="106"
-          stroke="#ff10f0" strokeWidth="2.2" strokeLinecap="round" />
+          stroke="#39ff14" strokeWidth="2.2" strokeLinecap="round" />
         <line x1="78" y1="20" x2="78" y2="106"
-          stroke="#ff10f0" strokeWidth="2.2" strokeLinecap="round" />
+          stroke="#39ff14" strokeWidth="2.2" strokeLinecap="round" />
         <path d="M 22 106 Q 22 116 50 116 Q 78 116 78 106"
-          fill="none" stroke="#ff10f0" strokeWidth="2.2" strokeLinecap="round" />
+          fill="none" stroke="#39ff14" strokeWidth="2.2" strokeLinecap="round" />
 
         {/* Graduation marks */}
-        <line x1="69" y1="38" x2="75" y2="38" stroke="#ff10f0" strokeWidth="1.2" opacity="0.5" />
-        <line x1="69" y1="54" x2="75" y2="54" stroke="#ff10f0" strokeWidth="1.2" opacity="0.5" />
-        <line x1="69" y1="70" x2="75" y2="70" stroke="#ff10f0" strokeWidth="1.2" opacity="0.5" />
-        <line x1="69" y1="86" x2="75" y2="86" stroke="#ff10f0" strokeWidth="1.2" opacity="0.5" />
+        <line x1="69" y1="38" x2="75" y2="38" stroke="#39ff14" strokeWidth="1.2" opacity="0.5" />
+        <line x1="69" y1="54" x2="75" y2="54" stroke="#39ff14" strokeWidth="1.2" opacity="0.5" />
+        <line x1="69" y1="70" x2="75" y2="70" stroke="#39ff14" strokeWidth="1.2" opacity="0.5" />
+        <line x1="69" y1="86" x2="75" y2="86" stroke="#39ff14" strokeWidth="1.2" opacity="0.5" />
 
         {/* Glass shine */}
         <line x1="31" y1="23" x2="29" y2="99"

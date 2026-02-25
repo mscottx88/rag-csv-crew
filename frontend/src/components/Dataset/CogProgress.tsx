@@ -80,9 +80,9 @@ export const CogProgress: React.FC<CogProgressProps> = ({ label = 'Complete!' })
             className="cog-large"
             transform={`translate(${LARGE_CX}, ${LARGE_CY})`}
           >
-            <path d={largePath} fill="none" stroke="#ff10f0" strokeWidth="1.4" />
+            <path d={largePath} fill="none" stroke="#ffd700" strokeWidth="1.4" />
             {/* Hub circle */}
-            <circle r={LARGE_HOLE} fill="none" stroke="#ff10f0" strokeWidth="1.2" />
+            <circle r={LARGE_HOLE} fill="none" stroke="#ffd700" strokeWidth="1.2" />
             {/* Spokes */}
             {[0, 60, 120, 180, 240, 300].map((deg: number) => {
               const rad: number = (deg * Math.PI) / 180;
@@ -93,7 +93,7 @@ export const CogProgress: React.FC<CogProgressProps> = ({ label = 'Complete!' })
                   y1={(LARGE_HOLE * Math.sin(rad)).toFixed(2)}
                   x2={(LARGE_INNER * 0.85 * Math.cos(rad)).toFixed(2)}
                   y2={(LARGE_INNER * 0.85 * Math.sin(rad)).toFixed(2)}
-                  stroke="#ff10f0"
+                  stroke="#ffd700"
                   strokeWidth="1"
                   opacity="0.6"
                 />
@@ -106,8 +106,8 @@ export const CogProgress: React.FC<CogProgressProps> = ({ label = 'Complete!' })
             className="cog-small"
             transform={`translate(${SMALL_CX}, ${SMALL_CY})`}
           >
-            <path d={smallPath} fill="none" stroke="#ff69b4" strokeWidth="1.2" />
-            <circle r={SMALL_HOLE} fill="none" stroke="#ff69b4" strokeWidth="1" />
+            <path d={smallPath} fill="none" stroke="#ffaa00" strokeWidth="1.2" />
+            <circle r={SMALL_HOLE} fill="none" stroke="#ffaa00" strokeWidth="1" />
             {[0, 90, 180, 270].map((deg: number) => {
               const rad: number = (deg * Math.PI) / 180;
               return (
@@ -117,7 +117,7 @@ export const CogProgress: React.FC<CogProgressProps> = ({ label = 'Complete!' })
                   y1={(SMALL_HOLE * Math.sin(rad)).toFixed(2)}
                   x2={(SMALL_INNER * 0.85 * Math.cos(rad)).toFixed(2)}
                   y2={(SMALL_INNER * 0.85 * Math.sin(rad)).toFixed(2)}
-                  stroke="#ff69b4"
+                  stroke="#ffaa00"
                   strokeWidth="0.9"
                   opacity="0.6"
                 />
