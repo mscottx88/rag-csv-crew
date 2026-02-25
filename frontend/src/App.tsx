@@ -14,12 +14,14 @@ import { Query } from './pages/Query';
 import { Datasets } from './pages/Datasets';
 import { History } from './pages/History';
 import { NotFound } from './pages/NotFound';
+import { CursorSnake } from './components/CursorSnake/CursorSnake';
 import './App.css';
 
 const App: React.FC = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <CursorSnake />
         <Routes>
           {/* Public Route: Login */}
           <Route path="/login" element={<Login />} />

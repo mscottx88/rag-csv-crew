@@ -7,16 +7,18 @@
 
 .query-page h1 {
   margin: 0 0 0.5rem 0;
-  color: #1a202c;
-  font-size: 2rem;
+  color: var(--cyan);
+  font-size: clamp(1.5rem, 3vw, 2rem);
   font-weight: 700;
-  letter-spacing: -0.025em;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 10px var(--cyan-dim);
 }
 
 .page-description {
   margin: 0 0 2rem 0;
-  color: #718096;
-  font-size: 1rem;
+  color: var(--txt-muted);
+  font-size: 0.9rem;
   line-height: 1.6;
 }
 
@@ -33,7 +35,7 @@
   left: 50%;
   transform: translateX(-50%);
   width: 100px;
-  height: 4px;
-  background: linear-gradient(90deg, transparent, #667eea, transparent);
-  border-radius: 2px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  border-radius: 1px;
 }

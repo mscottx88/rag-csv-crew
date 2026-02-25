@@ -4,23 +4,28 @@
 
 .datasets-page h1 {
   margin: 0 0 0.5rem 0;
-  color: #333;
-  font-size: 2rem;
+  color: var(--orange);
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 10px var(--orange-dim);
 }
 
 .page-description {
   margin: 0 0 2rem 0;
-  color: #666;
-  font-size: 1rem;
+  color: var(--txt-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
 }
 
 .datasets-layout {
   display: grid;
   grid-template-columns: 1fr 2fr;
   gap: 2rem;
+  align-items: start;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .datasets-layout {
     grid-template-columns: 1fr;
   }

@@ -1,5 +1,5 @@
 /**
- * Global CSS Styles
+ * Global CSS Styles — Dark Neon Wireframe Theme
  */
 
 :root {
@@ -8,14 +8,51 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light;
-  color: #333;
-  background-color: #f5f5f5;
+  color-scheme: dark;
+  color: rgba(255, 255, 255, 0.88);
+  background-color: #000;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* ── Backgrounds ── */
+  --bg:           #000000;
+  --bg-card:      #080808;
+  --bg-panel:     #0d0d0d;
+  --bg-dim:       #111111;
+  --border:       rgba(255, 255, 255, 0.08);
+
+  /* ── Neon palette ── */
+  --pink:         #ff10f0;
+  --pink-dim:     rgba(255, 16, 240, 0.15);
+  --pink-glow:    rgba(255, 16, 240, 0.35);
+
+  --green:        #39ff14;
+  --green-dim:    rgba(57, 255, 20, 0.12);
+  --green-glow:   rgba(57, 255, 20, 0.35);
+
+  --orange:       #ff6600;
+  --orange-dim:   rgba(255, 102, 0, 0.12);
+  --orange-glow:  rgba(255, 102, 0, 0.35);
+
+  --cyan:         #00eeff;
+  --cyan-dim:     rgba(0, 238, 255, 0.12);
+  --cyan-glow:    rgba(0, 238, 255, 0.35);
+
+  --gold:         #ffd700;
+  --gold-dim:     rgba(255, 215, 0, 0.12);
+  --gold-glow:    rgba(255, 215, 0, 0.35);
+
+  /* ── Semantic ── */
+  --err:          #ff3333;
+  --err-dim:      rgba(255, 51, 51, 0.15);
+
+  /* ── Text ── */
+  --txt:          rgba(255, 255, 255, 0.88);
+  --txt-muted:    rgba(255, 255, 255, 0.45);
+  --txt-dim:      rgba(255, 255, 255, 0.25);
 }
 
 * {
@@ -28,6 +65,8 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background: var(--bg);
+  color: var(--txt);
 }
 
 #root {
@@ -36,4 +75,23 @@ body {
 
 button {
   font-family: inherit;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }

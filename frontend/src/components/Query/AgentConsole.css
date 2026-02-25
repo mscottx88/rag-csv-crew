@@ -1,14 +1,14 @@
 /**
- * Agent Console Styles
- * Console-like interface for displaying agent activity logs
+ * Agent Console Styles — Dark Neon Gold Theme
  */
 
 .agent-console {
   margin-top: 1.5rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border: 1px solid var(--gold);
+  border-radius: 4px;
   overflow: hidden;
-  background: #f8fafc;
+  background: var(--bg);
+  box-shadow: 0 0 12px var(--gold-dim);
 }
 
 .console-header {
@@ -16,15 +16,16 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: var(--bg-dim);
+  border-bottom: 1px solid var(--gold);
+  color: var(--gold);
   cursor: pointer;
   user-select: none;
   transition: background 0.2s;
 }
 
 .console-header:hover {
-  background: linear-gradient(135deg, #5568d3 0%, #653a8f 100%);
+  background: var(--gold-dim);
 }
 
 .header-left {
@@ -34,18 +35,22 @@
 }
 
 .console-icon {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
 }
 
 .console-title {
-  font-weight: 600;
-  font-size: 0.95rem;
+  font-weight: 700;
+  font-size: 0.8rem;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-shadow: 0 0 6px var(--gold-dim);
 }
 
 .expand-button {
   background: transparent;
   border: none;
-  color: white;
+  color: var(--gold);
   font-size: 0.875rem;
   cursor: pointer;
   padding: 0.25rem 0.5rem;
@@ -57,14 +62,14 @@
 }
 
 .console-body {
-  background: #1e293b;
-  color: #e2e8f0;
+  background: var(--bg);
+  color: var(--txt-muted);
   max-height: 500px;
   overflow-y: auto;
 }
 
 .console-section {
-  border-bottom: 1px solid #334155;
+  border-bottom: 1px solid var(--border);
 }
 
 .console-section:last-child {
@@ -72,14 +77,15 @@
 }
 
 .section-title {
-  padding: 0.75rem 1rem;
-  background: #2d3748;
-  color: #a0aec0;
-  font-weight: 600;
-  font-size: 0.875rem;
+  padding: 0.625rem 1rem;
+  background: var(--bg-dim);
+  color: var(--gold);
+  font-weight: 700;
+  font-size: 0.7rem;
+  font-family: 'Courier New', Courier, monospace;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid #4a5568;
+  letter-spacing: 0.1em;
+  border-bottom: 1px solid var(--border);
 }
 
 .section-content {
@@ -90,46 +96,36 @@
   line-height: 1.6;
   white-space: pre-wrap;
   word-wrap: break-word;
-  color: #cbd5e0;
-  background: #1e293b;
+  color: var(--txt-muted);
+  background: var(--bg);
 }
 
-/* Syntax highlighting for common patterns */
-.section-content {
-  /* Highlight timestamps */
-  /* This is basic - can be enhanced with JS parsing if needed */
-}
-
-/* Scrollbar styling for console body */
+/* Scrollbar — gold */
 .console-body::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 .console-body::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: var(--bg);
 }
 
 .console-body::-webkit-scrollbar-thumb {
-  background: #475569;
-  border-radius: 4px;
+  background: rgba(255, 215, 0, 0.3);
+  border-radius: 3px;
 }
 
 .console-body::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
+  background: rgba(255, 215, 0, 0.5);
 }
 
-/* Mobile responsiveness */
+/* Mobile */
 @media (max-width: 768px) {
   .console-header {
     padding: 0.625rem 0.875rem;
   }
 
   .console-title {
-    font-size: 0.875rem;
-  }
-
-  .console-icon {
-    font-size: 1.125rem;
+    font-size: 0.75rem;
   }
 
   .section-content {

@@ -1,37 +1,39 @@
 .app-header {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  color: white;
-  padding: 1rem 2rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: var(--bg);
+  color: var(--txt);
+  padding: 0 2rem;
+  height: 64px;
+  display: flex;
+  align-items: center;
   position: relative;
+  border-bottom: 1px solid var(--pink);
+  box-shadow: 0 0 20px var(--pink-dim), 0 0 40px rgba(255, 16, 240, 0.06);
   overflow: hidden;
 }
 
+/* Animated neon top border sweep */
 .app-header::before {
   content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #00d4ff 0%, #0066cc 50%, #00d4ff 100%);
-  background-size: 200% 100%;
-  animation: shimmer 3s linear infinite;
+  height: 2px;
+  background: linear-gradient(90deg, #ff10f0 0%, #00eeff 33%, #39ff14 66%, #ff10f0 100%);
+  background-size: 300% 100%;
+  animation: header-sweep 4s linear infinite;
 }
 
-@keyframes shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
+@keyframes header-sweep {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -100% 0; }
 }
 
 .header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  width: 100%;
   max-width: 1400px;
   margin: 0 auto;
 }
@@ -43,32 +45,29 @@
 
 .app-title {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: clamp(1.1rem, 2.5vw, 1.5rem);
   font-weight: 700;
-  color: white;
-  letter-spacing: -0.025em;
+  color: var(--txt);
+  letter-spacing: 0.04em;
   display: flex;
   align-items: baseline;
+  font-family: 'Courier New', Courier, monospace;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
 }
 
 .brand-underscore {
-  color: #00d4ff;
+  color: var(--pink);
   font-weight: 700;
-  font-size: 1.5rem;
+  font-size: inherit;
   margin-left: 0.1em;
-  animation: pulse 2s ease-in-out infinite;
+  animation: cursor-blink 1.2s step-end infinite;
   display: inline-block;
+  text-shadow: 0 0 8px var(--pink), 0 0 20px var(--pink-dim);
 }
 
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  50% {
-    opacity: 0.7;
-    transform: translateY(-2px);
-  }
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
 }
 
 .header-right {
@@ -79,22 +78,27 @@
 
 .username {
   font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--txt-muted);
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.05em;
 }
 
 .logout-button {
-  padding: 0.5rem 1rem;
-  background-color: rgba(255, 255, 255, 0.2);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 4px;
-  font-size: 0.875rem;
-  font-weight: 500;
+  padding: 0.4rem 1rem;
+  background: transparent;
+  color: var(--pink);
+  border: 1px solid var(--pink);
+  border-radius: 2px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .logout-button:hover {
-  background-color: rgba(255, 255, 255, 0.3);
-  border-color: rgba(255, 255, 255, 0.5);
+  background: var(--pink-dim);
+  box-shadow: 0 0 12px var(--pink-dim);
 }

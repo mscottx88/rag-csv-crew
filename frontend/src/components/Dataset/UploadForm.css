@@ -1,29 +1,35 @@
 .upload-form {
-  background: white;
+  background: var(--bg-card);
   padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--green);
+  border-radius: 4px;
+  box-shadow: 0 0 16px var(--green-dim);
 }
 
 .upload-form h2 {
   margin: 0 0 1.5rem 0;
-  font-size: 1.25rem;
-  color: #333;
+  font-size: 1.1rem;
+  color: var(--green);
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 0 8px var(--green-dim);
 }
 
 .drop-zone {
-  border: 2px dashed #ddd;
-  border-radius: 8px;
+  border: 2px dashed rgba(57, 255, 20, 0.35);
+  border-radius: 4px;
   padding: 2rem;
   text-align: center;
-  background-color: #fafafa;
+  background: transparent;
   transition: all 0.2s;
   cursor: pointer;
 }
 
 .drop-zone.dragging {
-  border-color: #667eea;
-  background-color: #f0f4ff;
+  border-color: var(--green);
+  background: var(--green-dim);
+  box-shadow: 0 0 20px var(--green-dim) inset;
 }
 
 .file-input {
@@ -32,24 +38,25 @@
 
 .file-label {
   display: block;
-  color: #666;
+  color: var(--txt-muted);
   cursor: pointer;
 }
 
 .file-label span {
   font-size: 0.875rem;
+  font-family: 'Courier New', Courier, monospace;
 }
 
 .error-message {
   margin-top: 1rem;
   padding: 0.75rem;
-  background-color: #fee;
-  border: 1px solid #fcc;
-  border-radius: 4px;
-  color: #c33;
+  background: var(--err-dim);
+  border: 1px solid var(--err);
+  border-radius: 2px;
+  color: var(--err);
   font-size: 0.875rem;
+  font-family: 'Courier New', Courier, monospace;
 }
-
 
 .button-group {
   display: flex;
@@ -60,39 +67,45 @@
 .upload-button,
 .cancel-button {
   padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  font-weight: 500;
+  border-radius: 2px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
 
 .upload-button {
-  background-color: #667eea;
-  color: white;
+  background: transparent;
+  color: var(--green);
+  border: 1px solid var(--green);
   flex: 1;
 }
 
 .upload-button:hover:not(:disabled) {
-  background-color: #5568d3;
+  background: var(--green-dim);
+  box-shadow: 0 0 14px var(--green-dim);
 }
 
 .upload-button:disabled {
-  background-color: #ccc;
+  opacity: 0.3;
   cursor: not-allowed;
 }
 
 .cancel-button {
-  background-color: #f0f0f0;
-  color: #333;
+  background: transparent;
+  color: var(--txt-muted);
+  border: 1px solid var(--border);
 }
 
 .cancel-button:hover {
-  background-color: #e0e0e0;
+  border-color: var(--txt-muted);
+  color: var(--txt);
 }
 
-/* Animation phase wrapper — responsive, handles fade-out transition */
+/* Animation phase wrapper */
 .upload-animation {
   width: 100%;
   opacity: 1;

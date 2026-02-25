@@ -3,60 +3,110 @@
 }
 
 .welcome-section {
-  background: white;
+  background: var(--bg-card);
   padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--pink);
+  border-radius: 4px;
+  box-shadow: 0 0 20px var(--pink-dim);
   margin-bottom: 2rem;
 }
 
 .welcome-section h1 {
   margin: 0 0 0.5rem 0;
-  color: #333;
-  font-size: 2rem;
+  color: var(--pink);
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 10px var(--pink-dim);
 }
 
 .welcome-section p {
   margin: 0;
-  color: #666;
-  font-size: 1.125rem;
+  color: var(--txt-muted);
+  font-size: 1rem;
 }
 
 .quick-actions {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 1.5rem;
 }
 
 .action-card {
-  background: white;
+  background: var(--bg-card);
   padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.25s;
   text-align: center;
+  color: var(--txt);
 }
 
-.action-card:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-  transform: translateY(-2px);
+/* Query card → cyan */
+.action-card:nth-child(1) {
+  border: 1px solid var(--cyan);
+  box-shadow: 0 0 10px var(--cyan-dim);
+}
+
+.action-card:nth-child(1):hover {
+  box-shadow: 0 0 24px var(--cyan-glow), 0 4px 20px var(--cyan-dim);
+  transform: translateY(-3px);
+}
+
+.action-card:nth-child(1) h3 {
+  color: var(--cyan);
+  text-shadow: 0 0 8px var(--cyan-dim);
+}
+
+/* Datasets card → orange */
+.action-card:nth-child(2) {
+  border: 1px solid var(--orange);
+  box-shadow: 0 0 10px var(--orange-dim);
+}
+
+.action-card:nth-child(2):hover {
+  box-shadow: 0 0 24px var(--orange-glow), 0 4px 20px var(--orange-dim);
+  transform: translateY(-3px);
+}
+
+.action-card:nth-child(2) h3 {
+  color: var(--orange);
+  text-shadow: 0 0 8px var(--orange-dim);
+}
+
+/* History card → gold */
+.action-card:nth-child(3) {
+  border: 1px solid var(--gold);
+  box-shadow: 0 0 10px var(--gold-dim);
+}
+
+.action-card:nth-child(3):hover {
+  box-shadow: 0 0 24px var(--gold-glow), 0 4px 20px var(--gold-dim);
+  transform: translateY(-3px);
+}
+
+.action-card:nth-child(3) h3 {
+  color: var(--gold);
+  text-shadow: 0 0 8px var(--gold-dim);
 }
 
 .action-icon {
-  font-size: 3rem;
+  font-size: 2.5rem;
   display: block;
   margin-bottom: 1rem;
 }
 
 .action-card h3 {
   margin: 0 0 0.5rem 0;
-  color: #333;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .action-card p {
   margin: 0;
-  color: #666;
+  color: var(--txt-muted);
   font-size: 0.875rem;
+  line-height: 1.5;
 }
