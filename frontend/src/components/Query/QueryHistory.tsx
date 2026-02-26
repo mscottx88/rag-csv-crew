@@ -1,26 +1,27 @@
 /**
  * Query History Component
- * Paginated list of past queries with status filtering
+ * Paginated list of past queries with inline expand/collapse results
  */
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as queriesService from '../../services/queries';
+import { ResultDisplay } from './ResultDisplay';
 import type { Query, QueryHistory as QueryHistoryType, QueryStatus } from '../../types';
 import './QueryHistory.css';
 
 interface QueryHistoryProps {
-  onQuerySelect?: (query: Query) => void;
   refresh?: number;
 }
 
-export const QueryHistory: React.FC<QueryHistoryProps> = ({ onQuerySelect, refresh = 0 }) => {
+export const QueryHistory: React.FC<QueryHistoryProps> = ({ refresh = 0 }) => {
   const navigate = useNavigate();
   const [history, setHistory] = useState<QueryHistoryType | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<QueryStatus | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadHistory = async (): Promise<void> => {
@@ -46,16 +47,11 @@ export const QueryHistory: React.FC<QueryHistoryProps> = ({ onQuerySelect, refre
   }, [currentPage, statusFilter, refresh]);
 
   const handleQueryClick = (query: Query): void => {
-    if (onQuerySelect) {
-      onQuerySelect(query);
-    }
+    setExpandedId((prev: string | null) => (prev === query.id ? null : query.id));
   };
 
   const handleRerun = (query: Query, event: React.MouseEvent): void => {
-    // Stop propagation to prevent triggering handleQueryClick
     event.stopPropagation();
-
-    // Navigate to Query page with pre-filled query text and dataset IDs
     navigate('/query', {
       state: {
         queryText: query.query_text,
@@ -66,7 +62,7 @@ export const QueryHistory: React.FC<QueryHistoryProps> = ({ onQuerySelect, refre
 
   const handleStatusFilterChange = (status: QueryStatus | undefined): void => {
     setStatusFilter(status);
-    setCurrentPage(1); // Reset to first page
+    setCurrentPage(1);
   };
 
   const handlePageChange = (page: number): void => {
@@ -138,44 +134,59 @@ export const QueryHistory: React.FC<QueryHistoryProps> = ({ onQuerySelect, refre
       </div>
 
       <div className="history-list">
-        {history.queries.map((query: Query) => (
-          <div
-            key={query.id}
-            className="history-item"
-            onClick={(): void => handleQueryClick(query)}
-            role="button"
-            tabIndex={0}
-            onKeyPress={(e): void => {
-              if (e.key === 'Enter') {
-                handleQueryClick(query);
-              }
-            }}
-          >
-            <div className="history-item-header">
-              <span className="history-query">{query.query_text}</span>
-              <div className="history-item-actions">
-                {renderStatusBadge(query.status)}
-                <button
-                  className="rerun-button"
-                  onClick={(e): void => handleRerun(query, e)}
-                  title="Re-run this query"
-                  aria-label={`Re-run query: ${query.query_text}`}
-                >
-                  ▶ Re-run
-                </button>
+        {history.queries.map((query: Query) => {
+          const isExpanded: boolean = expandedId === query.id;
+
+          return (
+            <div
+              key={query.id}
+              className={`history-item ${isExpanded ? 'history-item-expanded' : ''}`}
+            >
+              <div
+                className="history-item-row"
+                onClick={(): void => handleQueryClick(query)}
+                role="button"
+                tabIndex={0}
+                onKeyPress={(e): void => {
+                  if (e.key === 'Enter') {
+                    handleQueryClick(query);
+                  }
+                }}
+              >
+                <div className="history-item-header">
+                  <span className="expand-indicator">{isExpanded ? '▾' : '▸'}</span>
+                  <span className="history-query">{query.query_text}</span>
+                  <div className="history-item-actions">
+                    {renderStatusBadge(query.status)}
+                    <button
+                      className="rerun-button"
+                      onClick={(e): void => handleRerun(query, e)}
+                      title="Re-run this query"
+                      aria-label={`Re-run query: ${query.query_text}`}
+                    >
+                      ▶ Re-run
+                    </button>
+                  </div>
+                </div>
+                <div className="history-item-meta">
+                  <span className="history-date">{formatDate(query.submitted_at)}</span>
+                  {query.result_count !== undefined && (
+                    <span className="history-rows">{query.result_count} rows</span>
+                  )}
+                  {query.execution_time_ms !== undefined && (
+                    <span className="history-time">{query.execution_time_ms}ms</span>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="history-item-meta">
-              <span className="history-date">{formatDate(query.submitted_at)}</span>
-              {query.result_count !== undefined && (
-                <span className="history-rows">{query.result_count} rows</span>
-              )}
-              {query.execution_time_ms !== undefined && (
-                <span className="history-time">{query.execution_time_ms}ms</span>
+
+              {isExpanded && (
+                <div className="history-item-detail">
+                  <ResultDisplay query={query} />
+                </div>
               )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {totalPages > 1 && (
