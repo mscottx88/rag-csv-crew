@@ -3,7 +3,7 @@
  * Application routing and layout structure
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider, ProtectedRoute } from './context/AuthContext';
 import { Header } from './components/Layout/Header';
@@ -21,6 +21,8 @@ import { LightningBorder } from './components/LightningBorder/LightningBorder';
 import './App.css';
 
 const App: React.FC = () => {
+  const [isDatasetsEmpty, setIsDatasetsEmpty] = useState<boolean>(false);
+
   return (
     <BrowserRouter>
       <AuthProvider>
@@ -38,14 +40,14 @@ const App: React.FC = () => {
                 <div className="app-layout">
                   <Header />
                   <div className="app-main">
-                    <Sidebar />
+                    <Sidebar isDatasetsEmpty={isDatasetsEmpty} />
                     <main className="app-content">
                       <Routes>
                         <Route path="/" element={<Dashboard />} />
                         <Route path="/query" element={<Query />} />
                         <Route path="/upload" element={<Upload />} />
                         <Route path="/datasets/:id" element={<DatasetInspector />} />
-                        <Route path="/datasets" element={<Datasets />} />
+                        <Route path="/datasets" element={<Datasets onEmptyChange={setIsDatasetsEmpty} />} />
                         <Route path="/history" element={<History />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>

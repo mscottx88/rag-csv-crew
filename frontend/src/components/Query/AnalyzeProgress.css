@@ -1,4 +1,6 @@
 .analyze-progress-container {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -8,7 +10,9 @@
 }
 
 .analyze-svg {
-  height: min(76vh, 540px);
+  flex: 1;
+  min-height: 150px;
+  max-height: 480px;
   width: auto;
   max-width: 100%;
   display: block;

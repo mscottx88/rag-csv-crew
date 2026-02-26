@@ -12,9 +12,10 @@ import './DatasetList.css';
 
 interface DatasetListProps {
   refresh?: number; // Increment to trigger refresh
+  onEmptyChange?: (isEmpty: boolean) => void;
 }
 
-export const DatasetList: React.FC<DatasetListProps> = ({ refresh = 0 }) => {
+export const DatasetList: React.FC<DatasetListProps> = ({ refresh = 0, onEmptyChange }) => {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
@@ -30,6 +31,7 @@ export const DatasetList: React.FC<DatasetListProps> = ({ refresh = 0 }) => {
       try {
         const data: DatasetListType = await datasetsService.list();
         setDatasets(data.datasets);
+        onEmptyChange?.(data.datasets.length === 0);
       } catch (err) {
         setError('Failed to load datasets');
         console.error(err);
@@ -60,7 +62,9 @@ export const DatasetList: React.FC<DatasetListProps> = ({ refresh = 0 }) => {
 
     try {
       await datasetsService.deleteDataset(id);
-      setDatasets((prev: Dataset[]): Dataset[] => prev.filter((d: Dataset): boolean => d.id !== id));
+      const remaining: Dataset[] = datasets.filter((d: Dataset): boolean => d.id !== id);
+      setDatasets(remaining);
+      onEmptyChange?.(remaining.length === 0);
       setDeleteConfirm(null);
       if (expandedId === id) {
         setExpandedId(null);

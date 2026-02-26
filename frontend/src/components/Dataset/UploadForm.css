@@ -4,6 +4,10 @@
   border: 1px solid var(--green);
   border-radius: 4px;
   box-shadow: 0 0 16px var(--green-dim);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .upload-form h2 {
@@ -63,6 +67,7 @@
   display: flex;
   gap: 0.5rem;
   margin-top: 1rem;
+  flex-shrink: 0;
 }
 
 .upload-button,
@@ -108,6 +113,11 @@
 
 /* Animation phase wrapper — opacity controlled via inline style; transition provides the cross-fade */
 .upload-animation {
+  flex: 1;
+  min-height: 0;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   transition: opacity 350ms ease;
 }

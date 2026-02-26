@@ -128,14 +128,15 @@ select:not(:disabled):hover {
   --hover-glow-color: var(--pink);
 }
 
-/* Cyan — query section buttons, inputs, checkboxes */
+/* Cyan — query section buttons, inputs, checkboxes, back button */
 .query-input button:not(:disabled):hover,
 .query-input textarea:hover,
 .query-input input:hover,
 .submit-button:not(:disabled):hover,
 .select-all-button:not(:disabled):hover,
 .dataset-checkbox:hover,
-.example-button:not(:disabled):hover {
+.example-button:not(:disabled):hover,
+.back-button:not(:disabled):hover {
   --hover-glow-color: var(--cyan);
 }
 

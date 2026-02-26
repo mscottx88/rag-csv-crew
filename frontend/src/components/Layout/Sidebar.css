@@ -192,6 +192,41 @@
   50%      { transform: scale(1.15); }
 }
 
+/* Upload hint: pulse green when datasets page is empty */
+.nav-link[data-route="upload"].pulse-hint {
+  animation: nav-upload-pulse-hint 2s ease-in-out infinite;
+}
+
+.nav-link[data-route="upload"].pulse-hint .nav-icon-green {
+  animation: nav-upload-icon-hint 2s ease-in-out infinite;
+}
+
+@keyframes nav-upload-pulse-hint {
+  0%, 100% {
+    color: var(--txt-muted);
+    border-left-color: transparent;
+    background: transparent;
+    text-shadow: none;
+  }
+  50% {
+    color: var(--green);
+    border-left-color: var(--green);
+    background: var(--green-dim);
+    text-shadow: 0 0 8px var(--green);
+  }
+}
+
+@keyframes nav-upload-icon-hint {
+  0%, 100% {
+    color: var(--txt-muted);
+    filter: drop-shadow(0 0 2px var(--green-dim));
+  }
+  50% {
+    color: var(--green);
+    filter: drop-shadow(0 0 5px var(--green)) drop-shadow(0 0 12px var(--green-glow));
+  }
+}
+
 /* History clock: pendulum swing */
 @keyframes nav-icon-pendulum {
   0%, 100% { transform: rotate(-5deg); }

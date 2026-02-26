@@ -1,5 +1,10 @@
 .upload-page {
   padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .upload-page h1 {

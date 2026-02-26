@@ -1,4 +1,6 @@
 .cog-progress-container {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -8,7 +10,8 @@
 }
 
 .cog-svg {
-  height: min(76vh, 540px);
+  flex: 1;
+  min-height: 150px;
   width: auto;
   max-width: 100%;
   display: block;

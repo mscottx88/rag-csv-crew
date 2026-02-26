@@ -4,10 +4,17 @@
  */
 
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import './Sidebar.css';
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  isDatasetsEmpty?: boolean;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ isDatasetsEmpty = false }) => {
+  const location = useLocation();
+  const showUploadPulse: boolean = isDatasetsEmpty && location.pathname === '/datasets';
+
   return (
     <aside className="sidebar">
       <nav className="sidebar-nav">
@@ -43,7 +50,9 @@ export const Sidebar: React.FC = () => {
         <NavLink
           to="/upload"
           data-route="upload"
-          className={({ isActive }): string => `nav-link ${isActive ? 'active' : ''}`}
+          className={({ isActive }): string =>
+            `nav-link ${isActive ? 'active' : ''} ${!isActive && showUploadPulse ? 'pulse-hint' : ''}`.trim()
+          }
         >
           <svg className="nav-icon-svg nav-icon-green" viewBox="0 0 48 48" fill="none">
             <rect x="8" y="20" width="32" height="24" rx="2" strokeWidth="2" />
