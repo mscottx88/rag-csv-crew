@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import * as datasetsService from '../../services/datasets';
 import type { Dataset, DatasetList as DatasetListType } from '../../types';
 import './DatasetList.css';
@@ -106,7 +107,11 @@ export const DatasetList: React.FC<DatasetListProps> = ({ refresh = 0 }) => {
         <tbody>
           {datasets.map((dataset: Dataset) => (
             <tr key={dataset.id}>
-              <td>{dataset.filename}</td>
+              <td>
+                <Link to={`/datasets/${dataset.id}`} className="dataset-link">
+                  {dataset.filename}
+                </Link>
+              </td>
               <td>{dataset.row_count.toLocaleString()}</td>
               <td>{dataset.column_count}</td>
               <td>{formatDate(dataset.uploaded_at)}</td>

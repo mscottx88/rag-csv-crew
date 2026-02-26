@@ -344,7 +344,7 @@ def create_dataset_table(  # pylint: disable=too-many-locals
         col_nullable: bool = col.get("nullable", True)
 
         # Sanitize column name
-        safe_col_name: str = _sanitize_column_name(col_name)
+        safe_col_name: str = sanitize_column_name(col_name)
 
         # Map inferred type to PostgreSQL type
         pg_type: str = _map_to_postgres_type(col_type)
@@ -568,7 +568,7 @@ def _is_sql_reserved_keyword(name: str) -> bool:
     return name.lower() in _SQL_RESERVED_KEYWORDS
 
 
-def _sanitize_column_name(col_name: str) -> str:
+def sanitize_column_name(col_name: str) -> str:
     """Sanitize column name for PostgreSQL with comprehensive security checks.
 
     Handles special characters, Unicode, SQL keywords, length limits, and empty inputs.
@@ -585,13 +585,13 @@ def _sanitize_column_name(col_name: str) -> str:
         ValueError: If column name is empty or results in empty sanitized name
 
     Examples:
-        >>> _sanitize_column_name("Product ID")
+        >>> sanitize_column_name("Product ID")
         'product_id'
-        >>> _sanitize_column_name("group")
+        >>> sanitize_column_name("group")
         'group_col'
-        >>> _sanitize_column_name("2024_value")
+        >>> sanitize_column_name("2024_value")
         '_2024_value'
-        >>> _sanitize_column_name("Prénom")  # Unicode
+        >>> sanitize_column_name("Prénom")  # Unicode
         'prenom'
 
     Note:
@@ -728,7 +728,7 @@ def ingest_csv_data(  # pylint: disable=too-many-locals
         raise ValueError("CSV file has no columns")
 
     # Sanitize column names to match table
-    sanitized_columns: list[str] = [_sanitize_column_name(col) for col in fieldnames]
+    sanitized_columns: list[str] = [sanitize_column_name(col) for col in fieldnames]
 
     # Build COPY statement with column list using Identifier for SQL injection protection
     column_identifiers: list[sql.Identifier] = [sql.Identifier(col) for col in sanitized_columns]
@@ -1000,7 +1000,7 @@ def store_column_mappings(
 
                     # Sanitize column name to match actual table column
                     # (tables use lowercase sanitized names)
-                    col_name_sanitized: str = _sanitize_column_name(col_name_original)
+                    col_name_sanitized: str = sanitize_column_name(col_name_original)
 
                     cur.execute(
                         insert_sql,

@@ -37,6 +37,7 @@ import os  # noqa: E402
 
 # JUSTIFICATION: load_dotenv() must run before these imports to ensure env vars are available
 from backend.src.api.auth import router as auth_router  # noqa: E402
+from backend.src.api.dataset_rows import router as dataset_rows_router  # noqa: E402
 from backend.src.api.datasets import router as datasets_router  # noqa: E402
 from backend.src.api.health import router as health_router  # noqa: E402
 from backend.src.api.queries import router as queries_router  # noqa: E402
@@ -267,6 +268,7 @@ Convert natural language questions into SQL queries using hybrid search
 
     # Register API routers
     fastapi_app.include_router(auth_router, prefix="", tags=["auth"])
+    fastapi_app.include_router(dataset_rows_router, prefix="", tags=["datasets"])
     fastapi_app.include_router(datasets_router, prefix="", tags=["datasets"])
     fastapi_app.include_router(queries_router, prefix="", tags=["queries"])
     fastapi_app.include_router(health_router, prefix="", tags=["health"])

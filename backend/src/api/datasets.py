@@ -35,6 +35,7 @@ from backend.src.services.ingestion import (  # pylint: disable=import-outside-t
     detect_csv_schema,
     generate_column_embeddings,
     ingest_csv_data,
+    sanitize_column_name,
     store_column_mappings,
     store_dataset_metadata,
 )
@@ -319,8 +320,9 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
             col_type_upper: str = col["type"].upper()
             normalized_type: str = type_mapping.get(col_type_upper, "text")  # Default to text
 
+            sanitized_name: str = sanitize_column_name(col["name"])
             normalized_col: dict[str, Any] = {
-                "name": col["name"],
+                "name": sanitized_name,
                 "inferred_type": normalized_type,
                 "nullable": col.get("nullable", False),
             }

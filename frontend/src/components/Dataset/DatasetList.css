@@ -56,6 +56,18 @@
   font-size: 0.875rem;
 }
 
+/* Inspect link */
+.dataset-link {
+  color: var(--orange);
+  text-decoration: none;
+  transition: color 0.15s, text-shadow 0.15s;
+}
+
+.dataset-link:hover {
+  color: var(--gold);
+  text-shadow: 0 0 8px var(--gold-dim);
+}
+
 .delete-button {
   padding: 0.4rem 0.875rem;
   background: transparent;

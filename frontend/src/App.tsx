@@ -12,6 +12,7 @@ import { Login } from './components/Auth/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Query } from './pages/Query';
 import { Datasets } from './pages/Datasets';
+import { DatasetInspector } from './pages/DatasetInspector';
 import { History } from './pages/History';
 import { NotFound } from './pages/NotFound';
 import { CursorSnake } from './components/CursorSnake/CursorSnake';
@@ -41,6 +42,7 @@ const App: React.FC = () => {
                       <Routes>
                         <Route path="/" element={<Dashboard />} />
                         <Route path="/query" element={<Query />} />
+                        <Route path="/datasets/:id" element={<DatasetInspector />} />
                         <Route path="/datasets" element={<Datasets />} />
                         <Route path="/history" element={<History />} />
                         <Route path="*" element={<NotFound />} />

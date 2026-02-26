@@ -1,0 +1,97 @@
+/**
+ * Dataset Inspector Page Styles — Neon Cyan Theme
+ */
+
+.inspector-page {
+  display: flex;
+  flex-direction: column;
+  padding: 2rem;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Header ── */
+.inspector-header {
+  margin-bottom: 1.5rem;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--orange);
+  text-decoration: none;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: color 0.15s;
+}
+
+.back-link:hover {
+  color: var(--gold);
+}
+
+.back-link-arrow {
+  font-size: 0.9rem;
+}
+
+.inspector-page h1 {
+  margin: 0.5rem 0 0.25rem 0;
+  color: var(--cyan);
+  font-size: clamp(1.3rem, 2.5vw, 1.8rem);
+  font-weight: 700;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 10px var(--cyan-dim);
+}
+
+.inspector-meta {
+  color: var(--txt-muted);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85rem;
+}
+
+.inspector-meta .meta-sep {
+  margin: 0 0.5rem;
+  color: var(--txt-dim);
+}
+
+/* ── Loading / error states ── */
+.inspector-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6rem 2rem;
+  color: var(--cyan);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 1rem;
+  animation: inspector-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes inspector-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.inspector-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+.inspector-error h2 {
+  color: var(--err);
+  font-family: 'Courier New', Courier, monospace;
+  margin: 0;
+}
+
+.inspector-error p {
+  color: var(--txt-muted);
+  margin: 0;
+}

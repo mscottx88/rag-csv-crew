@@ -37,7 +37,7 @@ interface AnsiSpan {
 function parseAnsi(input: string): AnsiSpan[] {
   const spans: AnsiSpan[] = [];
   // Match ESC[ ... m  sequences (both \x1b and \033 forms, plus literal bracket sequences)
-  const regex: RegExp = /\x1b\[([0-9;]*)m|\033\[([0-9;]*)m|\[([0-9]+)m/g;
+  const regex: RegExp = /\x1b\[([0-9;]*)m|\[([0-9]+)m/g;
   let lastIndex: number = 0;
   let currentColor: string | null = null;
   let currentBold: boolean = false;
@@ -53,7 +53,7 @@ function parseAnsi(input: string): AnsiSpan[] {
     }
 
     // Parse the SGR codes
-    const codes: string = match[1] ?? match[2] ?? match[3] ?? '0';
+    const codes: string = match[1] ?? match[2] ?? '0';
     const parts: string[] = codes.split(';');
     for (const part of parts) {
       const code: number = parseInt(part, 10) || 0;
@@ -86,9 +86,10 @@ function parseAnsi(input: string): AnsiSpan[] {
 /** Render ANSI-parsed spans as React elements. */
 function renderAnsi(input: string): React.ReactNode {
   const spans: AnsiSpan[] = parseAnsi(input);
-  if (spans.length === 1 && !spans[0].color && !spans[0].bold) {
+  const first: AnsiSpan | undefined = spans[0];
+  if (spans.length === 1 && first && !first.color && !first.bold) {
     // No ANSI codes — return plain text
-    return spans[0].text;
+    return first.text;
   }
 
   return spans.map((span: AnsiSpan, i: number) => {

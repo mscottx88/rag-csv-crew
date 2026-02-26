@@ -100,6 +100,21 @@ export interface QueryExample {
 }
 
 // ============================================================================
+// Dataset Inspector Types
+// ============================================================================
+
+export interface DatasetRowsResponse {
+  dataset_id: string;
+  table_name: string;
+  columns: string[];
+  rows: (string | number | boolean | null)[][];
+  total_row_count: number;
+  offset: number;
+  limit: number;
+  has_more: boolean;
+}
+
+// ============================================================================
 // API Response Types
 // ============================================================================
 
