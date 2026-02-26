@@ -26,8 +26,9 @@ body {
 
 .app-content {
   flex: 1;
+  min-width: 0;
   background-color: var(--bg);
   min-height: calc(100vh - 64px);
   overflow-y: auto;
-  overflow-x: visible;
+  overflow-x: hidden;
 }

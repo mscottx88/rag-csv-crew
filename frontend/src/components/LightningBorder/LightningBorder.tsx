@@ -32,6 +32,8 @@ const HOVER_SELECTORS: string = [
   '.example-button:not(:disabled)',
   '.drop-zone',
   '.action-card',
+  '.history-item',
+  '.console-header',
   'input:not(:disabled)',
   'textarea:not(:disabled)',
   'select:not(:disabled)',

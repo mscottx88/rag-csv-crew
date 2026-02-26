@@ -28,35 +28,58 @@ const STAGE_ORDER: QueryStage[] = ['search', 'analyze', 'sql', 'execute', 'proce
 /**
  * Map a backend progress_message to a pipeline stage.
  *
- * Checks are ordered to match the real backend pipeline so that when a message
- * is ambiguous (e.g. "Executing SQL query") the LATER stage wins — we test
- * later stages first and fall through to earlier ones.
+ * Uses ordered prefix/phrase matching against known backend messages to avoid
+ * ambiguous keyword collisions (e.g. "data value search" during analyze phase).
  *
  * Pipeline: search → analyze → sql → execute → process → html
  */
 function getQueryStage(message: string): QueryStage {
   const m: string = message.toLowerCase();
 
-  // 6. HTML — formatting final output (test first — most specific)
-  if (m.includes('html') || m.includes('formatting') || m.includes('result analyst')) return 'html';
+  // ── html: Result Analyst formatting ──
+  if (m.includes('result analyst') || m.includes('formatting result')) return 'html';
 
-  // 5. Process — collating returned rows
-  if (m.includes('processing') || m.includes('rows') || m.includes('completed')) return 'process';
+  // ── process: final row processing + completion ──
+  if (m.startsWith('query completed') || m.startsWith('completed successfully')) return 'process';
 
-  // 4. Execute — running the query against the database
-  if (m.includes('executing') || m.includes('database')) return 'execute';
+  // ── execute: running SQL against the database ──
+  if (m.startsWith('executing sql') || m.includes('validating syntax')) return 'execute';
 
-  // 3. SQL — generation, validation, Schema Inspector agent
-  if (m.includes('sql') || m.includes('translating') || m.includes('schema inspector')
-    || m.includes('syntax')) return 'sql';
+  // ── sql: generation, schema inspection, validation, parameter extraction ──
+  if (
+    m.includes('generating sql') || m.includes('sql generator')
+    || m.includes('schema inspector') || m.includes('loading database schema')
+    || m.includes('crewai') || m.includes('agent') || m.includes('translating')
+    || m.includes('cleaning sql') || m.includes('validating sql')
+    || m.includes('sql validation') || m.includes('parameterized')
+    || m.includes('extracting') || m.includes('filter keyword')
+    || m.includes('matched values') || m.includes('agent execution')
+    || m.includes('collaborating') || m.includes('optimizing')
+    || m.includes('mapping columns') || m.includes('where clauses')
+    || m.includes('finalizing') || m.includes('relationships between')
+  ) return 'sql';
 
-  // 2. Analyze — confidence scoring, query-type classification
-  if (m.includes('analyzing') || m.includes('confidence') || m.includes('query type')
-    || m.includes('clarification') || m.includes('merging')) return 'analyze';
+  // ── analyze: confidence scoring, data-value search, merging, clarification ──
+  if (
+    m.includes('confidence') || m.includes('analyzing')
+    || m.includes('query type') || m.includes('clarification')
+    || m.includes('merging') || m.includes('data value')
+    || m.includes('recalculating') || m.includes('improved to')
+    || m.includes('low confidence')
+  ) return 'analyze';
 
-  // 1. Search — hybrid/vector/data-value search for relevant columns
-  if (m.includes('search') || m.includes('scanning') || m.includes('keyword')
-    || m.includes('column') || m.includes('hybrid')) return 'search';
+  // ── search: hybrid/vector/full-text/exact search ──
+  if (
+    m.includes('hybrid search') || m.includes('search thread')
+    || m.includes('vector') || m.includes('full-text')
+    || m.includes('exact match') || m.includes('fusing')
+    || m.includes('deduplicating') || m.includes('fusion')
+    || m.includes('parallel search') || m.includes('starting hybrid')
+    || m.includes('columns found') || m.includes('matches')
+  ) return 'search';
+
+  // ── initial messages map to search (first stage) ──
+  if (m.includes('starting query') || m === '') return 'search';
 
   return 'search';
 }
@@ -171,32 +194,30 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, datasets, o
       const message: string = query.progress_message || '';
       const detectedStage: QueryStage = getQueryStage(message);
       const detectedIndex: number = STAGE_ORDER.indexOf(detectedStage);
+      const label: string = getStageLabel(detectedStage);
 
-      // Enforce monotonic forward progression — never regress, and advance
-      // by at most one step at a time so every phase gets shown.
+      // High-water mark for the stage pips only (never regresses).
       if (detectedIndex > highWaterRef.current) {
-        highWaterRef.current = Math.min(detectedIndex, highWaterRef.current + 1);
+        highWaterRef.current = detectedIndex;
       }
-
-      const stage: QueryStage = STAGE_ORDER[highWaterRef.current];
-      const label: string = getStageLabel(stage);
 
       return (
         <div className="result-processing">
           <div className="query-animation-wrap">
-            {renderAnimation(stage, label)}
+            {/* Animation always matches the current progress message */}
+            {renderAnimation(detectedStage, label)}
 
             {message && (
               <p className="query-progress-message">{message}</p>
             )}
 
-            {/* Stage indicator bar */}
+            {/* Stage indicator pips — use high-water mark so they only advance */}
             <div className="query-stages">
-              {(['search', 'analyze', 'sql', 'execute', 'process', 'html'] as QueryStage[]).map(
-                (s: QueryStage) => (
+              {STAGE_ORDER.map(
+                (s: QueryStage, i: number) => (
                   <div
                     key={s}
-                    className={`query-stage-pip ${stage === s ? 'active' : ''}`}
+                    className={`query-stage-pip ${detectedStage === s ? 'active' : ''} ${i <= highWaterRef.current ? 'reached' : ''}`}
                     title={getStageLabel(s)}
                   />
                 )

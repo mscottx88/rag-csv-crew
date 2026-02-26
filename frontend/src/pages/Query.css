@@ -2,7 +2,8 @@
   padding: 2rem;
   max-width: 1400px;
   margin: 0 auto;
-  overflow: visible;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .query-page h1 {

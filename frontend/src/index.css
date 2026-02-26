@@ -110,6 +110,8 @@ a:hover,
 .example-button:not(:disabled):hover,
 .drop-zone:hover,
 .action-card:hover,
+.history-item:hover,
+.console-header:hover,
 input:not(:disabled):hover,
 textarea:not(:disabled):hover,
 select:not(:disabled):hover {
@@ -151,8 +153,10 @@ select:not(:disabled):hover {
   --hover-glow-color: var(--green);
 }
 
-/* Gold — history nav */
-.nav-link[data-route="history"]:hover {
+/* Gold — history nav, history items, agent console */
+.nav-link[data-route="history"]:hover,
+.history-item:hover,
+.console-header:hover {
   --hover-glow-color: var(--gold);
 }
 
