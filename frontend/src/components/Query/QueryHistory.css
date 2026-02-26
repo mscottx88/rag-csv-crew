@@ -44,63 +44,6 @@
   letter-spacing: 0.08em;
 }
 
-/* ── Neon wireframe select ── */
-.neon-select-wrapper {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-}
-
-.neon-select {
-  padding: 0.4rem 2rem 0.4rem 0.75rem;
-  background: var(--bg-panel);
-  border: 1px solid var(--gold);
-  border-radius: 2px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--gold);
-  font-family: 'Courier New', Courier, monospace;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: all 0.2s;
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  box-shadow: 0 0 6px var(--gold-dim);
-}
-
-.neon-select:hover {
-  background: var(--gold-dim);
-  box-shadow: 0 0 12px var(--gold-dim);
-}
-
-.neon-select:focus {
-  outline: none;
-  border-color: var(--gold);
-  box-shadow: 0 0 16px var(--gold-dim), 0 0 4px var(--gold);
-}
-
-.neon-select option {
-  background: var(--bg-card);
-  color: var(--txt);
-  font-family: 'Courier New', Courier, monospace;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.neon-select-arrow {
-  position: absolute;
-  right: 0.5rem;
-  pointer-events: none;
-  color: var(--gold);
-  filter: drop-shadow(0 0 3px var(--gold)) drop-shadow(0 0 6px var(--gold-dim));
-  transition: filter 0.2s ease;
-}
-
-.neon-select-wrapper:hover .neon-select-arrow {
-  filter: drop-shadow(0 0 5px var(--gold)) drop-shadow(0 0 10px var(--gold));
-}
 
 .history-loading,
 .history-empty,
@@ -124,6 +67,7 @@
   gap: 0.5rem;
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
 }
 
@@ -159,11 +103,16 @@
 
 .history-item-expanded {
   border-color: var(--gold);
+  border-top: none; /* top border lives on the sticky row instead */
   box-shadow: 0 0 12px var(--gold-dim);
+  display: flex;
+  flex-direction: column;
+  max-height: 60vh;
 }
 
 /* ── Clickable row (always visible) ── */
 .history-item-row {
+  flex-shrink: 0;
   padding: 1rem;
   cursor: pointer;
   transition: background 0.2s;
@@ -380,11 +329,41 @@
   padding-left: 2.25rem;
 }
 
-/* ── Expanded detail area ── */
+/* ── Sticky header row inside expanded item ── */
+.history-item-expanded .history-item-row {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg-panel);
+  border-top: 1px solid var(--gold); /* owns the top gold border */
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Expanded detail area — scrolls independently ── */
 .history-item-detail {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   border-top: 1px solid var(--border);
   padding: 1rem;
   background: var(--bg-dim);
+}
+
+.history-item-detail::-webkit-scrollbar {
+  width: 6px;
+}
+
+.history-item-detail::-webkit-scrollbar-track {
+  background: var(--bg-dim);
+}
+
+.history-item-detail::-webkit-scrollbar-thumb {
+  background: rgba(255, 215, 0, 0.2);
+  border-radius: 3px;
+}
+
+.history-item-detail::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 215, 0, 0.4);
 }
 
 .history-item-detail .result-display {

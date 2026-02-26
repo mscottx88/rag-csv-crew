@@ -10,6 +10,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getRows } from '../../services/dataset-rows';
 import type { DatasetRowsResponse } from '../../types';
+import { NeonSelect } from '../NeonSelect/NeonSelect';
 import './DataTable.css';
 
 interface DataTableProps {
@@ -340,17 +341,17 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
       <div className="table-controls">
         <label>
           Rows per batch:
-          <select
-            value={batchSize}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>): void => {
-              setBatchSize(Number(e.target.value));
-            }}
-          >
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-            <option value={200}>200</option>
-          </select>
+          <NeonSelect
+            value={String(batchSize)}
+            onChange={(val: string): void => { setBatchSize(Number(val)); }}
+            options={[
+              { value: '25', label: '25' },
+              { value: '50', label: '50' },
+              { value: '100', label: '100' },
+              { value: '200', label: '200' },
+            ]}
+            color="orange"
+          />
         </label>
         <span className="row-count-display">
           Showing {allRows.length.toLocaleString()} of {totalRowCount.toLocaleString()} rows

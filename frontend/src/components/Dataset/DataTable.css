@@ -28,21 +28,6 @@
   gap: 0.5rem;
 }
 
-.table-controls select {
-  background: var(--bg-dim);
-  color: var(--orange);
-  border: 1px solid var(--orange);
-  border-radius: 2px;
-  padding: 0.3rem 0.5rem;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: box-shadow 0.2s;
-}
-
-.table-controls select:hover {
-  box-shadow: 0 0 8px var(--orange-dim);
-}
 
 .row-count-display {
   margin-left: auto;

@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import * as queriesService from '../../services/queries';
 import { ResultDisplay } from './ResultDisplay';
 import { useQueryReplay } from './useQueryReplay';
+import { NeonSelect } from '../NeonSelect/NeonSelect';
 import type { Query, QueryHistory as QueryHistoryType, QueryStatus } from '../../types';
 import './QueryHistory.css';
 
@@ -190,28 +191,22 @@ export const QueryHistory: React.FC<QueryHistoryProps> = ({ refresh = 0 }) => {
         <h2>Query History</h2>
         <div className="filter-group">
           <label htmlFor="status-filter">Status</label>
-          <div className="neon-select-wrapper">
-            <select
-              id="status-filter"
-              className="neon-select"
-              value={statusFilter || ''}
-              onChange={(e): void =>
-                handleStatusFilterChange(
-                  e.target.value ? (e.target.value as QueryStatus) : undefined
-                )
-              }
-            >
-              <option value="">All</option>
-              <option value="pending">Pending</option>
-              <option value="processing">Processing</option>
-              <option value="completed">Completed</option>
-              <option value="failed">Failed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-            <svg className="neon-select-arrow" width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M2 3.5 L5 7 L8 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" strokeLinecap="round" />
-            </svg>
-          </div>
+          <NeonSelect
+            id="status-filter"
+            value={statusFilter ?? ''}
+            onChange={(val: string): void =>
+              handleStatusFilterChange(val ? (val as QueryStatus) : undefined)
+            }
+            options={[
+              { value: '', label: 'All' },
+              { value: 'pending', label: 'Pending' },
+              { value: 'processing', label: 'Processing' },
+              { value: 'completed', label: 'Completed' },
+              { value: 'failed', label: 'Failed' },
+              { value: 'cancelled', label: 'Cancelled' },
+            ]}
+            color="gold"
+          />
         </div>
       </div>
 
