@@ -15,6 +15,7 @@
 /* ── Header ── */
 .inspector-header {
   margin-bottom: 1.5rem;
+  flex-shrink: 0;
 }
 
 .back-link {

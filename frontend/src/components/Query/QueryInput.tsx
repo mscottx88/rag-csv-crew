@@ -163,7 +163,7 @@ export const QueryInput: React.FC<QueryInputProps> = ({
               >
                 {selectedDatasetIds.length === datasets.length ? 'Deselect All' : 'Select All'}
               </button>
-              <div className="dataset-list">
+              <div className="dataset-picker-grid">
                 {datasets.map((dataset: Dataset) => (
                   <label key={dataset.id} className="dataset-checkbox">
                     <input

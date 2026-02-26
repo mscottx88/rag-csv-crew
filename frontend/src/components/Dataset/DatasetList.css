@@ -13,7 +13,6 @@
   box-shadow: 0 0 16px var(--orange-dim);
   min-height: 0;
   flex: 1;
-  overflow: hidden;
 }
 
 .dataset-list-header {
@@ -86,6 +85,10 @@
 .dataset-item-expanded {
   border-color: var(--orange);
   box-shadow: 0 0 12px var(--orange-dim);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 /* ── Clickable row (always visible) ── */
@@ -93,6 +96,7 @@
   padding: 1rem;
   cursor: pointer;
   transition: background 0.2s;
+  flex-shrink: 0;
 }
 
 .dataset-item-row:hover {
@@ -205,9 +209,10 @@
   border-top: 1px solid var(--border);
   padding: 1rem;
   background: var(--bg-dim);
-  max-height: 400px;
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -217,7 +222,8 @@
 }
 
 .dataset-item-detail .table-scroll-container {
-  max-height: 280px;
+  overflow-x: scroll;
+  overflow-y: auto;
 }
 
 /* ── Empty / loading / error states ── */
@@ -341,11 +347,4 @@
     font-size: 0.8rem;
   }
 
-  .dataset-item-detail {
-    max-height: 300px;
-  }
-
-  .dataset-item-detail .table-scroll-container {
-    max-height: 200px;
-  }
 }
