@@ -46,13 +46,11 @@ def _serialize_cell(value: Any) -> Any:
     """
     if value is None:
         return None
-    if isinstance(value, (datetime, date)):
+    if isinstance(value, datetime | date):
         return value.isoformat()
     if isinstance(value, Decimal):
         # Preserve integer-looking decimals as int
-        if value == value.to_integral_value():
-            return int(value)
-        return float(value)
+        return int(value) if value == value.to_integral_value() else float(value)
     if isinstance(value, UUID):
         return str(value)
     if isinstance(value, memoryview):
