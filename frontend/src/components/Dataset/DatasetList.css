@@ -27,7 +27,8 @@
 
 .dataset-list-header h2 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.1rem;
+  font-weight: 700;
   color: var(--orange);
   font-family: 'Courier New', Courier, monospace;
   letter-spacing: 0.08em;

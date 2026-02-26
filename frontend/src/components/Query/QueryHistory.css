@@ -21,7 +21,8 @@
 
 .history-header h2 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.1rem;
+  font-weight: 700;
   color: var(--gold);
   font-family: 'Courier New', Courier, monospace;
   letter-spacing: 0.08em;
@@ -376,7 +377,7 @@
   font-size: 0.72rem;
   color: var(--txt-dim);
   font-family: 'Courier New', Courier, monospace;
-  padding-left: 1.5rem;
+  padding-left: 2.25rem;
 }
 
 /* ── Expanded detail area ── */

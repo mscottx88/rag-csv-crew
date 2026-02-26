@@ -23,7 +23,7 @@
 .welcome-section p {
   margin: 0;
   color: var(--txt-muted);
-  font-size: 1rem;
+  font-size: 0.9rem;
 }
 
 .quick-actions {

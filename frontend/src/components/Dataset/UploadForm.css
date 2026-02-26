@@ -1,6 +1,6 @@
 .upload-form {
   background: var(--bg-card);
-  padding: 1.5rem;
+  padding: 2rem;
   border: 1px solid var(--green);
   border-radius: 4px;
   box-shadow: 0 0 16px var(--green-dim);
@@ -9,6 +9,7 @@
 .upload-form h2 {
   margin: 0 0 1.5rem 0;
   font-size: 1.1rem;
+  font-weight: 700;
   color: var(--green);
   font-family: 'Courier New', Courier, monospace;
   letter-spacing: 0.08em;
@@ -68,10 +69,10 @@
 .cancel-button {
   padding: 0.75rem 1.5rem;
   border-radius: 2px;
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: 0.8rem;
+  font-weight: 700;
   font-family: 'Courier New', Courier, monospace;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   cursor: pointer;
   transition: all 0.2s;
