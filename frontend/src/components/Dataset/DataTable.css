@@ -87,6 +87,7 @@
 }
 
 .data-table th {
+  position: relative;
   padding: 0.6rem 1rem;
   background: var(--bg-dim);
   color: var(--orange);
@@ -166,6 +167,21 @@
   box-shadow: inset 2px 0 0 var(--orange);
 }
 
+/* ── Column resize handle ── */
+.col-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+}
+
+.col-resize-handle:hover {
+  background: rgba(255, 102, 0, 0.35);
+}
+
 .drag-handle {
   flex-shrink: 0;
   color: var(--txt-dim);
@@ -213,7 +229,18 @@
   font-style: italic;
 }
 
-/* ── Row number column ── */
+/* ── Row number column — frozen left ── */
+.data-table .row-num,
+.data-table th.row-num-header {
+  position: sticky;
+  left: 0;
+  background: var(--bg-dim);
+  /* Shadow on right edge marks the freeze boundary */
+  box-shadow: 3px 0 6px rgba(0, 0, 0, 0.45);
+  /* Keep it above scrolling data cells */
+  z-index: 1;
+}
+
 .data-table .row-num {
   color: var(--txt-dim);
   font-size: 0.7rem;
@@ -224,12 +251,28 @@
   user-select: none;
 }
 
+/* Hover / even-row tinting on the frozen cell must be explicit because
+   <tr> background doesn't show through a sticky cell's own background. */
+.data-table tbody tr:hover .row-num {
+  background: var(--orange-dim);
+}
+
+.data-table tbody tr:nth-child(even) .row-num {
+  background: color-mix(in srgb, var(--bg-dim) 95%, var(--orange) 5%);
+}
+
+.data-table tbody tr:nth-child(even):hover .row-num {
+  background: var(--orange-dim);
+}
+
 .data-table th.row-num-header {
   text-align: right;
   padding-right: 0.75rem;
   cursor: default;
   color: var(--txt-dim);
   min-width: 3rem;
+  /* Corner cell sits above both the sticky header row and sticky column */
+  z-index: 2;
 }
 
 /* ── Loading sentinel ── */

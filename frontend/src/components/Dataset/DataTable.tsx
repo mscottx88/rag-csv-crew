@@ -165,6 +165,9 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
   const [colWidths, setColWidths] = useState<number[]>([]);
   const tableRef = useRef<HTMLTableElement>(null);
 
+  // Manual column resize state
+  const resizingRef = useRef<{ colIdx: number; startX: number; startWidth: number } | null>(null);
+
   // Drag-and-drop state
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
@@ -303,6 +306,39 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
     void loadNextBatch();
   };
 
+  // ── Manual column resizing ────────────────────────────────────────────────
+
+  const handleResizeMouseDown = (e: React.MouseEvent, colIdx: number): void => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizingRef.current = {
+      colIdx,
+      startX: e.clientX,
+      startWidth: colWidths[colIdx] ?? 0,
+    };
+  };
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent): void => {
+      const resizing = resizingRef.current;
+      if (!resizing) return;
+      const delta: number = e.clientX - resizing.startX;
+      const newWidth: number = Math.max(40, resizing.startWidth + delta);
+      setColWidths((prev: number[]) => {
+        const next: number[] = [...prev];
+        next[resizing.colIdx] = newWidth;
+        return next;
+      });
+    };
+    const onMouseUp = (): void => { resizingRef.current = null; };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    return (): void => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }, []);
+
   // ── Column drag-and-drop ──────────────────────────────────────────────────
 
   const handleDragStart = (e: React.DragEvent, index: number): void => {
@@ -330,6 +366,16 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
       const next: number[] = [...prev];
       const removed: number = next.splice(sourceIndex, 1)[0] as number;
       next.splice(targetIndex, 0, removed);
+      return next;
+    });
+    // Keep colWidths in sync with the new visual order so fixed-layout col
+    // elements stay aligned with the headers after a drag.  colWidths[0] is
+    // the row-number column; data columns start at index 1.
+    setColWidths((prev: number[]) => {
+      if (prev.length === 0) return prev;
+      const next: number[] = [...prev];
+      const removed: number = next.splice(sourceIndex + 1, 1)[0] as number;
+      next.splice(targetIndex + 1, 0, removed);
       return next;
     });
     setDragIndex(null);
@@ -383,6 +429,9 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
         <table
           ref={tableRef}
           className={`data-table${colWidths.length > 0 ? ' fixed-layout' : ''}`}
+          style={colWidths.length > 0
+            ? { width: colWidths.reduce((s: number, w: number) => s + w, 0) }
+            : undefined}
         >
           {colWidths.length > 0 && (
             <colgroup>
@@ -393,7 +442,16 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
           )}
           <thead>
             <tr>
-              <th className="row-num-header">#</th>
+              <th className="row-num-header">
+                #
+                {colWidths.length > 0 && (
+                  <div
+                    className="col-resize-handle"
+                    onMouseDown={(e: React.MouseEvent): void => handleResizeMouseDown(e, 0)}
+                    onClick={(e: React.MouseEvent): void => { e.stopPropagation(); }}
+                  />
+                )}
+              </th>
               {columnOrder.map((colIdx: number, visIdx: number) => {
                 const colName: string = columns[colIdx] ?? '';
                 const colType: string = columnTypes[colName] ?? 'text';
@@ -419,6 +477,13 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
                       <span className="col-name">{colName}</span>
                       <SortIcon active={isActive} direction={sortDirection} />
                     </span>
+                    {colWidths.length > 0 && (
+                      <div
+                        className="col-resize-handle"
+                        onMouseDown={(e: React.MouseEvent): void => handleResizeMouseDown(e, visIdx + 1)}
+                        onClick={(e: React.MouseEvent): void => { e.stopPropagation(); }}
+                      />
+                    )}
                   </th>
                 );
               })}
