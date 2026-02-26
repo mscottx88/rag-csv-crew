@@ -7,7 +7,7 @@
  * Sort is applied server-side; state resets to offset 0 on each change.
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { getRows } from '../../services/dataset-rows';
 import type { DatasetRowsResponse } from '../../types';
 import { NeonSelect } from '../NeonSelect/NeonSelect';
@@ -105,20 +105,20 @@ function TypeIcon({ type }: { type: string }): React.ReactElement {
 
 function SortIcon(
   { active, direction }: { active: boolean; direction: 'asc' | 'desc' },
-): React.ReactElement | null {
-  if (!active) return null;
-  if (direction === 'asc') {
-    return (
-      <svg className="sort-icon sort-icon--asc" viewBox="0 0 8 8" fill="none"
-           stroke="currentColor" aria-label="sorted ascending" aria-hidden="true">
-        <polyline points="1,6 4,2 7,6" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-      </svg>
-    );
-  }
+): React.ReactElement {
+  // Always rendered so its width is permanently reserved in the header layout.
+  // visibility:hidden (not display:none) keeps the space without showing the icon.
+  const points: string = direction === 'asc' ? '1,6 4,2 7,6' : '1,2 4,6 7,2';
   return (
-    <svg className="sort-icon sort-icon--desc" viewBox="0 0 8 8" fill="none"
-         stroke="currentColor" aria-label="sorted descending" aria-hidden="true">
-      <polyline points="1,2 4,6 7,2" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+    <svg
+      className={`sort-icon sort-icon--${direction}`}
+      viewBox="0 0 8 8"
+      fill="none"
+      stroke="currentColor"
+      aria-hidden="true"
+      style={{ visibility: active ? 'visible' : 'hidden' }}
+    >
+      <polyline points={points} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );
 }
@@ -160,6 +160,10 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
   const loadingRef = useRef<boolean>(false);
   // Generation counter — incremented on sort/dataset change to discard in-flight stale responses
   const generationRef = useRef<number>(0);
+
+  // Locked column widths — measured after first batch, held fixed during re-sorts
+  const [colWidths, setColWidths] = useState<number[]>([]);
+  const tableRef = useRef<HTMLTableElement>(null);
 
   // Drag-and-drop state
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -227,12 +231,27 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
     sortDirectionRef.current = 'asc';
     setSortColumn(null);
     setSortDirection('asc');
+    setColWidths([]);
     setAllRows([]);
     setHasMore(true);
     setLoading(true);
     void loadNextBatch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [datasetId]);
+
+  // Lock column widths after the first batch renders so re-sorts don't
+  // cause columns to expand / collapse as different-length values arrive.
+  // Fires synchronously after DOM paint so there's no flash of auto widths.
+  useLayoutEffect(() => {
+    if (colWidths.length > 0 || allRows.length === 0 || !tableRef.current) return;
+    const ths = Array.from(
+      tableRef.current.querySelectorAll<HTMLTableCellElement>('thead th'),
+    );
+    const widths: number[] = ths.map((th) => th.getBoundingClientRect().width);
+    if (widths.length > 0 && widths.every((w) => w > 0)) {
+      setColWidths(widths);
+    }
+  }, [allRows.length, colWidths.length]);
 
   // Infinite scroll via IntersectionObserver
   useEffect(() => {
@@ -272,14 +291,15 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
       setSortDirection('asc');
     }
 
-    // Invalidate in-flight request, reset pagination, reload from scratch
+    // Invalidate in-flight request, reset pagination, reload from scratch.
+    // Do NOT set loading=true here — that unmounts the table and loses the
+    // horizontal scroll position. Keep the stale rows visible until the first
+    // sorted batch arrives and atomically replaces them via setAllRows().
     generationRef.current += 1;
     currentOffsetRef.current = 0;
     hasMoreRef.current = true;
     loadingRef.current = false;
-    setAllRows([]);
     setHasMore(true);
-    setLoading(true);
     void loadNextBatch();
   };
 
@@ -360,7 +380,17 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
 
       {/* Scrollable table area — both axes scroll inside this container */}
       <div className="table-scroll-container">
-        <table className="data-table">
+        <table
+          ref={tableRef}
+          className={`data-table${colWidths.length > 0 ? ' fixed-layout' : ''}`}
+        >
+          {colWidths.length > 0 && (
+            <colgroup>
+              {colWidths.map((w: number, i: number) => (
+                <col key={i} style={{ width: w }} />
+              ))}
+            </colgroup>
+          )}
           <thead>
             <tr>
               <th className="row-num-header">#</th>

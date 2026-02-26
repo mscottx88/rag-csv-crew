@@ -74,6 +74,12 @@
   border-collapse: collapse;
 }
 
+/* Once column widths are locked via <colgroup>, switch to fixed layout so
+   re-sorts with different value lengths don't resize any column. */
+.data-table.fixed-layout {
+  table-layout: fixed;
+}
+
 .data-table thead {
   position: sticky;
   top: 0;

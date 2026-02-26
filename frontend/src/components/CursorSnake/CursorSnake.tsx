@@ -135,7 +135,18 @@ export const CursorSnake: React.FC = () => {
       }
     };
 
+    const onLeave = (): void => {
+      mouseSeenRef.current = false;
+      mousePosRef.current = { x: OFF_SCREEN, y: OFF_SCREEN };
+      for (const node of nodesRef.current) {
+        node.x = OFF_SCREEN;
+        node.y = OFF_SCREEN;
+      }
+      prevHeadRef.current = { x: OFF_SCREEN, y: OFF_SCREEN };
+    };
+
     window.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseleave', onLeave);
 
     const draw = (): void => {
       const ctx: CanvasRenderingContext2D | null = canvas.getContext('2d');
@@ -246,6 +257,7 @@ export const CursorSnake: React.FC = () => {
       cancelAnimationFrame(rafRef.current);
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('resize', resize);
+      document.removeEventListener('mouseleave', onLeave);
     };
   }, []);
 

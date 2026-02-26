@@ -5,10 +5,23 @@
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
+  /* Slow ambient pulse: the board gently brightens and dims */
+  animation: pcb-ambient 12s ease-in-out infinite;
+}
+
+@keyframes pcb-ambient {
+  0%, 100% { opacity: 0.85; }
+  50%       { opacity: 1.0;  }
 }
 
 .circuit-board-svg {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+/* Blurred glow copy of the tile — stacked behind the sharp layer */
+.circuit-board-glow-layer {
+  filter: blur(2px);
+  opacity: 0.45;
 }
