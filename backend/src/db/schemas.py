@@ -108,6 +108,7 @@ QUERIES_TABLE_SQL: str = """
 CREATE TABLE IF NOT EXISTS {schema_name}.queries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     query_text TEXT NOT NULL,
+    dataset_ids JSONB,
     submitted_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     completed_at TIMESTAMP WITH TIME ZONE,
     status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'cancelled', 'timeout')),
@@ -116,6 +117,7 @@ CREATE TABLE IF NOT EXISTS {schema_name}.queries (
     result_count INTEGER,
     execution_time_ms INTEGER,
     progress_message TEXT,
+    progress_timeline JSONB,
     agent_logs TEXT,
 
     CONSTRAINT positive_execution_time CHECK (execution_time_ms IS NULL OR execution_time_ms >= 0),

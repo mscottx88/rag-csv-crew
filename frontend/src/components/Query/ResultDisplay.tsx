@@ -3,8 +3,9 @@
  * Displays query results with HTML rendering and metadata
  */
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import type { Query, Dataset } from '../../types';
+import * as datasetsService from '../../services/datasets';
 import { AgentConsole } from './AgentConsole';
 import { SearchProgress } from './SearchProgress';
 import { AnalyzeProgress } from './AnalyzeProgress';
@@ -16,7 +17,6 @@ import './ResultDisplay.css';
 
 interface ResultDisplayProps {
   query: Query;
-  datasets?: Dataset[];
   onCancel?: () => void;
 }
 
@@ -95,9 +95,21 @@ function getStageLabel(stage: QueryStage): string {
   }
 }
 
-export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, datasets, onCancel }) => {
+export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, onCancel }) => {
   /** High-water mark: once we reach stage N we never regress below it. */
   const highWaterRef = useRef<number>(0);
+  const [datasets, setDatasets] = useState<Dataset[]>([]);
+
+  // Fetch datasets for name resolution
+  useEffect(() => {
+    if (query.dataset_ids && query.dataset_ids.length > 0) {
+      void datasetsService.list().then((data) => {
+        setDatasets(data.datasets);
+      }).catch(() => {
+        // Silently fail — will show truncated IDs as fallback
+      });
+    }
+  }, [query.dataset_ids]);
 
   // Reset the high-water mark when the query changes or finishes.
   useEffect(() => {
@@ -113,7 +125,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, datasets, o
       case 'processing':
         return <div className="status-badge status-processing">Processing...</div>;
       case 'completed':
-        return <div className="status-badge status-completed">Completed</div>;
+        return <div className="status-badge status-completed"><svg className="status-check-icon" width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1.5 5.5 L4 8 L8.5 2" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" /></svg>Completed</div>;
       case 'failed':
         return <div className="status-badge status-failed">Failed</div>;
       case 'cancelled':
@@ -135,14 +147,21 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, datasets, o
 
     const datasetNames: string[] = query.dataset_ids
       .map((id: string) => {
-        const dataset: Dataset | undefined = datasets?.find((d: Dataset) => d.id === id);
-        return dataset?.filename || id;
+        const dataset: Dataset | undefined = datasets.find((d: Dataset) => d.id === id);
+        return dataset?.filename || id.slice(0, 8);
       });
+
+    const count: number = datasetNames.length;
 
     return (
       <div className="query-datasets">
         <span className="datasets-label">Datasets:</span>
-        <span className="datasets-value">{datasetNames.join(', ')}</span>
+        <span className="datasets-value">
+          {count === 1 ? datasetNames[0] : `${count} selected`}
+        </span>
+        {count > 1 && (
+          <span className="datasets-list">{datasetNames.join(', ')}</span>
+        )}
       </div>
     );
   };

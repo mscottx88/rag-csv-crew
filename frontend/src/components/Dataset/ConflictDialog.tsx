@@ -153,7 +153,7 @@ export const ConflictDialog: React.FC<ConflictDialogProps> = ({
         </div>
 
         <div className="dialog-actions">
-          <button onClick={handleCancel} disabled={processing} className="cancel-button">
+          <button onClick={handleCancel} disabled={processing} className="dialog-cancel-button">
             Cancel
           </button>
         </div>

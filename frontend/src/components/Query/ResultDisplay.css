@@ -4,7 +4,6 @@
   border-radius: 4px;
   border: 1px solid var(--border);
   margin-top: 1.5rem;
-  overflow: hidden;
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
@@ -35,8 +34,17 @@
   font-weight: 700;
   font-family: 'Courier New', Courier, monospace;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   border: 1px solid;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+
+.status-check-icon {
+  display: block;
+  filter: drop-shadow(0 0 3px var(--green)) drop-shadow(0 0 6px rgba(57, 255, 20, 0.4));
 }
 
 .status-pending {
@@ -83,6 +91,40 @@
   color: var(--cyan);
 }
 
+/* ── Dataset indicator ── */
+.query-datasets {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg-panel);
+  border-radius: 2px;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.datasets-label {
+  font-size: 0.75rem;
+  color: var(--txt-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+
+.datasets-value {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--cyan);
+}
+
+.datasets-list {
+  font-size: 0.8rem;
+  color: var(--txt-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .metadata {
   display: flex;
   flex-wrap: wrap;
@@ -116,7 +158,6 @@
 
 .result-content {
   min-height: 200px;
-  overflow: hidden;
   min-width: 0;
 }
 

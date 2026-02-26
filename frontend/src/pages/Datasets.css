@@ -1,32 +1,55 @@
 .datasets-page {
   padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  gap: 1.5rem;
 }
 
 .datasets-page h1 {
-  margin: 0 0 0.5rem 0;
+  margin: 0;
   color: var(--orange);
   font-size: clamp(1.5rem, 3vw, 2rem);
   font-family: 'Courier New', Courier, monospace;
   letter-spacing: 0.04em;
   text-shadow: 0 0 10px var(--orange-dim);
+  flex-shrink: 0;
 }
 
-.page-description {
-  margin: 0 0 2rem 0;
+.datasets-page > .page-description {
+  margin: 0;
   color: var(--txt-muted);
   font-size: 0.9rem;
   line-height: 1.6;
+  flex-shrink: 0;
 }
 
-.datasets-layout {
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 2rem;
-  align-items: start;
+/* Upload form stays compact at the top */
+.datasets-page > .upload-form {
+  flex-shrink: 0;
 }
 
-@media (max-width: 900px) {
-  .datasets-layout {
-    grid-template-columns: 1fr;
-  }
+/* Dataset list fills all remaining space */
+.datasets-page > .dataset-list {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+/* Also handle loading/empty/error states filling space */
+.datasets-page > .dataset-list-loading,
+.datasets-page > .dataset-list-empty,
+.datasets-page > .dataset-list-error {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+/* When uploading, upload form expands to fill the page */
+.datasets-uploading > .upload-form {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }

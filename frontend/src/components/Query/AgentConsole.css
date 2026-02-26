@@ -49,18 +49,28 @@
   text-shadow: 0 0 6px var(--gold-dim);
 }
 
-.expand-button {
-  background: transparent;
-  border: none;
+.console-expand-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
   color: var(--gold);
-  font-size: 0.875rem;
-  cursor: pointer;
-  padding: 0.25rem 0.5rem;
-  transition: transform 0.2s;
+  filter: drop-shadow(0 0 4px var(--gold)) drop-shadow(0 0 8px var(--gold-dim));
+  transition: transform 0.2s ease, filter 0.2s ease;
 }
 
-.expand-button:hover {
-  transform: scale(1.1);
+.console-expand-indicator svg {
+  display: block;
+}
+
+.console-expand-indicator.expanded {
+  transform: rotate(90deg);
+  filter: drop-shadow(0 0 6px var(--gold)) drop-shadow(0 0 12px var(--gold));
+}
+
+.console-header:hover .console-expand-indicator {
+  filter: drop-shadow(0 0 6px var(--gold)) drop-shadow(0 0 14px var(--gold));
 }
 
 .console-body {

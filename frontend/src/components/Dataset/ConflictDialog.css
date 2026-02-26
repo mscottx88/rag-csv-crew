@@ -109,11 +109,11 @@
   justify-content: flex-end;
 }
 
-.cancel-button {
+.dialog-cancel-button {
   padding: 0.6rem 1.25rem;
   background: transparent;
-  color: var(--txt-muted);
-  border: 1px solid var(--border);
+  color: var(--green);
+  border: 1px solid var(--green);
   border-radius: 2px;
   font-size: 0.875rem;
   font-family: 'Courier New', Courier, monospace;
@@ -123,12 +123,12 @@
   transition: all 0.2s;
 }
 
-.cancel-button:hover:not(:disabled) {
-  border-color: var(--txt-muted);
-  color: var(--txt);
+.dialog-cancel-button:hover:not(:disabled) {
+  background: var(--green-dim);
+  box-shadow: 0 0 12px var(--green-dim);
 }
 
-.cancel-button:disabled {
+.dialog-cancel-button:disabled {
   opacity: 0.3;
   cursor: not-allowed;
 }

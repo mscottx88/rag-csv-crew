@@ -79,6 +79,7 @@ class Query(BaseModel):
 
     id: UUID
     query_text: str
+    dataset_ids: list[str] | None = None
     submitted_at: datetime
     completed_at: datetime | None = None
     status: QueryStatus
@@ -87,6 +88,7 @@ class Query(BaseModel):
     result_count: int | None = Field(None, ge=0)
     execution_time_ms: int | None = Field(None, ge=0)
     progress_message: str | None = None
+    progress_timeline: list[dict[str, Any]] | None = None
     agent_logs: str | None = None
 
     model_config = ConfigDict(from_attributes=True)

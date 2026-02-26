@@ -124,8 +124,7 @@ select:not(:disabled):hover {
 
 /* Pink — logout, login, default buttons */
 .logout-button:not(:disabled):hover,
-.login-button:not(:disabled):hover,
-.confirm-button:not(:disabled):hover {
+.login-button:not(:disabled):hover {
   --hover-glow-color: var(--pink);
 }
 
@@ -140,11 +139,9 @@ select:not(:disabled):hover {
   --hover-glow-color: var(--cyan);
 }
 
-/* Orange — dataset list, delete, dataset links */
-.dataset-list button:not(:disabled):hover,
-.delete-button:not(:disabled):hover,
-.dataset-list tbody tr:hover,
-.dataset-link:hover {
+/* Orange — dataset list, items, twisty */
+.dataset-item:hover,
+.dataset-expand-indicator:hover {
   --hover-glow-color: var(--orange);
 }
 
@@ -155,14 +152,17 @@ select:not(:disabled):hover {
   --hover-glow-color: var(--orange);
 }
 
-/* Green — upload */
+/* Green — upload, dialog cancel, replay (safe actions) */
 .upload-button:not(:disabled):hover,
-.drop-zone:hover {
+.drop-zone:hover,
+.dialog-cancel-button:not(:disabled):hover,
+.replay-button:not(:disabled):hover {
   --hover-glow-color: var(--green);
 }
 
-/* Gold — history nav, history items, agent console */
+/* Gold — history nav, history items, twisty, agent console */
 .nav-link[data-route="history"]:hover,
+.expand-indicator:hover,
 .history-item:hover,
 .console-header:hover {
   --hover-glow-color: var(--gold);
@@ -178,7 +178,10 @@ select:not(:disabled):hover {
 .action-card:nth-child(2):hover { --hover-glow-color: var(--orange); }
 .action-card:nth-child(3):hover { --hover-glow-color: var(--gold); }
 
-/* Error — cancel/error buttons */
-.cancel-button:not(:disabled):hover {
+/* Error — cancel, delete, destructive buttons */
+.cancel-button:not(:disabled):hover,
+.cancel-query-btn:not(:disabled):hover,
+.confirm-button:not(:disabled):hover,
+.delete-button:not(:disabled):hover {
   --hover-glow-color: var(--err);
 }

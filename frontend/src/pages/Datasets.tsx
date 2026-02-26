@@ -1,6 +1,8 @@
 /**
  * Datasets Page
- * Dataset upload and management interface
+ * Dataset upload and management interface.
+ * Upload area on top (full width), dataset list below (full width).
+ * When uploading, the upload area expands to fill the entire space.
  */
 
 import React, { useState } from 'react';
@@ -13,15 +15,15 @@ import './Datasets.css';
 export const Datasets: React.FC = () => {
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
   const [conflictFile, setConflictFile] = useState<{ filename: string; file: File } | null>(null);
+  const [isUploading, setIsUploading] = useState<boolean>(false);
 
   const handleUploadComplete = (_dataset: Dataset): void => {
-    setRefreshTrigger((prev: number): number => prev + 1); // Trigger list refresh
+    setIsUploading(false);
+    setRefreshTrigger((prev: number): number => prev + 1);
   };
 
   const handleConflict = (_filename: string): void => {
-    // Store the file for conflict dialog
-    // Note: We need to reconstruct the file from state if using ConflictDialog
-    // Conflict handling would go here
+    setIsUploading(false);
   };
 
   const handleConflictResolve = (_dataset: Dataset): void => {
@@ -33,23 +35,27 @@ export const Datasets: React.FC = () => {
     setConflictFile(null);
   };
 
+  const handleUploadStart = (): void => {
+    setIsUploading(true);
+  };
+
   return (
-    <div className="datasets-page">
+    <div className={`datasets-page ${isUploading ? 'datasets-uploading' : ''}`}>
       <h1>Datasets</h1>
       <p className="page-description">
         Upload CSV files to make them queryable. Once uploaded, you can ask natural language
         questions about your data.
       </p>
 
-      <div className="datasets-layout">
-        <div className="upload-section">
-          <UploadForm onUploadComplete={handleUploadComplete} onConflict={handleConflict} />
-        </div>
+      <UploadForm
+        onUploadComplete={handleUploadComplete}
+        onConflict={handleConflict}
+        onUploadStart={handleUploadStart}
+      />
 
-        <div className="list-section">
-          <DatasetList refresh={refreshTrigger} />
-        </div>
-      </div>
+      {!isUploading && (
+        <DatasetList refresh={refreshTrigger} />
+      )}
 
       {conflictFile && (
         <ConflictDialog

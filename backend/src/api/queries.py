@@ -28,6 +28,7 @@ from backend.src.services.query_execution import QueryExecutionService
 from backend.src.services.query_history import QueryHistoryService
 from backend.src.services.response_generator import ResponseGenerator
 from backend.src.services.text_to_sql import TextToSQLService
+from backend.src.utils.progress_tracker import ProgressTracker
 
 # Configure logger
 logger: logging.Logger = logging.getLogger(__name__)
@@ -48,6 +49,7 @@ def _handle_clarification_response(
     *,
     history_service: QueryHistoryService,
     response_generator: ResponseGenerator,
+    tracker: ProgressTracker,
     username: str,
 ) -> Query:
     """Handle low-confidence query by generating and storing clarification response.
@@ -60,22 +62,19 @@ def _handle_clarification_response(
         start_time: Query processing start timestamp
         history_service: Query history service instance
         response_generator: Response generator instance
+        tracker: Progress timeline tracker
         username: Current username
 
     Returns:
         Query object with clarification response stored
     """
-    history_service.update_progress_message(
-        query_id, username, "Preparing clarification with top column matches..."
-    )
+    tracker.update("Preparing clarification with top column matches...")
 
     clarification_response: dict[str, Any] = response_generator.generate_clarification_request(
         query_text=query_text, search_results=search_results
     )
 
-    history_service.update_progress_message(
-        query_id, username, "Formatting clarification response as HTML..."
-    )
+    tracker.update("Formatting clarification response as HTML...")
 
     execution_time_ms: int = int((time.time() - start_time) * 1000)
 
@@ -87,6 +86,7 @@ def _handle_clarification_response(
         result_count=0,
         execution_time_ms=execution_time_ms,
         progress_message="Clarification request generated",
+        progress_timeline=tracker.get_timeline_json(),
     )
 
     history_service.store_response(
@@ -115,6 +115,7 @@ def _execute_sql_query(
     *,
     history_service: QueryHistoryService,
     response_generator: ResponseGenerator,
+    tracker: ProgressTracker,
     username: str,
 ) -> None:
     """Execute high-confidence SQL query and store response.
@@ -128,6 +129,7 @@ def _execute_sql_query(
         pool: Database connection pool
         history_service: Query history service instance
         response_generator: Response generator instance
+        tracker: Progress timeline tracker
         username: Current username
     """
     sql_service: TextToSQLService = TextToSQLService(pool)
@@ -135,7 +137,7 @@ def _execute_sql_query(
     # Create progress callback for SQL generation
     def sql_generation_progress(message: str) -> None:
         """Progress callback for SQL generation service."""
-        history_service.update_progress_message(query_id, username, message)
+        tracker.update(message)
 
     sql_result: dict[str, Any] = sql_service.generate_sql(
         query_text=query_text,
@@ -146,13 +148,9 @@ def _execute_sql_query(
         progress_callback=sql_generation_progress,
     )
 
-    history_service.update_progress_message(
-        query_id, username, "SQL query generated successfully, validating syntax..."
-    )
+    tracker.update("SQL query generated successfully, validating syntax...")
 
-    history_service.update_progress_message(
-        query_id, username, "Executing SQL query against database..."
-    )
+    tracker.update("Executing SQL query against database...")
     execution_service: QueryExecutionService = QueryExecutionService(pool)
     query_results: dict[str, Any] = execution_service.execute_query(
         query_sql=sql_result["sql"],
@@ -161,13 +159,9 @@ def _execute_sql_query(
         timeout_seconds=300,  # 5 minutes timeout per user request
     )
 
-    history_service.update_progress_message(
-        query_id, username, f"Query completed, processing {query_results['row_count']} rows..."
-    )
+    tracker.update(f"Query completed, processing {query_results['row_count']} rows...")
 
-    history_service.update_progress_message(
-        query_id, username, "Result Analyst Agent formatting results as HTML..."
-    )
+    tracker.update("Result Analyst Agent formatting results as HTML...")
     response_data: dict[str, Any] = response_generator.generate_html_response(
         query_text=query_text, query_results=query_results, _query_id=query_id
     )
@@ -184,6 +178,7 @@ def _execute_sql_query(
         execution_time_ms=execution_time_ms,
         progress_message="Completed successfully",  # Keep final message visible
         agent_logs=sql_result.get("agent_logs"),
+        progress_timeline=tracker.get_timeline_json(),
     )
 
     history_service.store_response(
@@ -219,17 +214,25 @@ def _process_query_background(  # pylint: disable=too-many-locals
     """
     pool: Any = get_global_pool()
     history_service: QueryHistoryService = QueryHistoryService(pool)
+    tracker: ProgressTracker | None = None
 
     try:
         start_time: float = time.time()
+        tracker = ProgressTracker(
+            history_service=history_service,
+            query_id=query_id,
+            username=username,
+            start_time=start_time,
+        )
 
         # Update to processing status
         history_service.update_query_status(
             query_id, username, "processing", progress_message="Starting query processing..."
         )
+        tracker.update("Starting query processing...")
 
         # Check if this is a metadata query (asking for available datasets/tables/columns)
-        history_service.update_progress_message(query_id, username, "Analyzing query type...")
+        tracker.update("Analyzing query type...")
         sql_service: TextToSQLService = TextToSQLService(pool)
         if sql_service.is_metadata_query(query_text):
             # Retrieve and format metadata
@@ -238,6 +241,8 @@ def _process_query_background(  # pylint: disable=too-many-locals
             plain_text: str = f"Found {metadata['total_datasets']} dataset(s)"
 
             execution_time_ms: int = int((time.time() - start_time) * 1000)
+
+            tracker.update("Metadata retrieved")
 
             # Store metadata response
             history_service.update_query_status(
@@ -248,6 +253,7 @@ def _process_query_background(  # pylint: disable=too-many-locals
                 result_count=metadata["total_datasets"],
                 execution_time_ms=execution_time_ms,
                 progress_message="Metadata retrieved",
+                progress_timeline=tracker.get_timeline_json(),
             )
 
             history_service.store_response(
@@ -274,9 +280,7 @@ def _process_query_background(  # pylint: disable=too-many-locals
                         f"tables: {', '.join(tables_list[:3])} and {len(tables_list) - 3} more"
                     )
 
-        history_service.update_progress_message(
-            query_id, username, f"Starting hybrid search across {table_context}..."
-        )
+        tracker.update(f"Starting hybrid search across {table_context}...")
         hybrid_service: HybridSearchService = HybridSearchService(pool)
         # Convert UUID list to string list for hybrid search
         dataset_ids_str: list[str] | None = (
@@ -286,7 +290,7 @@ def _process_query_background(  # pylint: disable=too-many-locals
         # Create progress callback for hybrid search
         def hybrid_search_progress(message: str) -> None:
             """Progress callback for hybrid search service."""
-            history_service.update_progress_message(query_id, username, message)
+            tracker.update(message)
 
         search_results: dict[str, Any] = hybrid_service.search(
             username=username,
@@ -296,16 +300,12 @@ def _process_query_background(  # pylint: disable=too-many-locals
             progress_callback=hybrid_search_progress,
         )
 
-        history_service.update_progress_message(
-            query_id,
-            username,
-            f"Hybrid search complete, found {len(search_results.get('fused_results', []))} matches",
+        tracker.update(
+            f"Hybrid search complete, found {len(search_results.get('fused_results', []))} matches"
         )
 
         # Calculate initial confidence score
-        history_service.update_progress_message(
-            query_id, username, "Analyzing search results and calculating confidence score..."
-        )
+        tracker.update("Analyzing search results and calculating confidence score...")
         response_generator: ResponseGenerator = ResponseGenerator()
         confidence_score: float = response_generator.calculate_confidence_score(search_results)
 
@@ -319,22 +319,18 @@ def _process_query_background(  # pylint: disable=too-many-locals
         fused_results: list[dict[str, Any]] = search_results.get("fused_results", [])
         if confidence_score < 0.4:
             logger.info(f"Low confidence ({confidence_score:.2f}). Attempting data value search...")
-            history_service.update_progress_message(
-                query_id,
-                username,
-                f"Low confidence ({confidence_score:.1%}) - searching actual data values...",
+            tracker.update(
+                f"Low confidence ({confidence_score:.1%}) - searching actual data values..."
             )
 
-            history_service.update_progress_message(
-                query_id, username, "Extracting keywords from query for data value search..."
-            )
+            tracker.update("Extracting keywords from query for data value search...")
 
             # Search for query terms in actual data values
             data_value_service: DataValueSearchService = DataValueSearchService(pool)
 
             # Use table_context from earlier (recompute if needed for clarity)
             scan_context: str = f"Scanning {table_context} for matching data values..."
-            history_service.update_progress_message(query_id, username, scan_context)
+            tracker.update(scan_context)
 
             value_matches: list[dict[str, Any]] = data_value_service.search_data_values(
                 username=username,
@@ -346,17 +342,13 @@ def _process_query_background(  # pylint: disable=too-many-locals
 
             logger.info(f"Data value search returned {len(value_matches)} matches")
 
-            history_service.update_progress_message(
-                query_id,
-                username,
-                f"Data value search complete, found {len(value_matches)} matches",
+            tracker.update(
+                f"Data value search complete, found {len(value_matches)} matches"
             )
 
             # If data value matches found, boost confidence and merge results
             if len(value_matches) > 0:
-                history_service.update_progress_message(
-                    query_id, username, "Merging data value matches with column search results..."
-                )
+                tracker.update("Merging data value matches with column search results...")
 
                 logger.info("Merging data value matches into fused results")
                 for value_match in value_matches:
@@ -394,17 +386,13 @@ def _process_query_background(  # pylint: disable=too-many-locals
                 search_results["fused_results"] = fused_results
                 search_results["data_value_results"] = value_matches
 
-                history_service.update_progress_message(
-                    query_id, username, "Recalculating confidence with data value matches..."
-                )
+                tracker.update("Recalculating confidence with data value matches...")
 
                 # Recalculate confidence with data value matches
                 confidence_score = response_generator.calculate_confidence_score(search_results)
 
-                history_service.update_progress_message(
-                    query_id,
-                    username,
-                    f"Confidence improved to {confidence_score:.1%}, proceeding with SQL generation",
+                tracker.update(
+                    f"Confidence improved to {confidence_score:.1%}, proceeding with SQL generation"
                 )
 
                 logger.info(
@@ -418,10 +406,8 @@ def _process_query_background(  # pylint: disable=too-many-locals
             response_generator.is_low_confidence(confidence_score, threshold=0.6)
             and not has_data_value_matches
         ):
-            history_service.update_progress_message(
-                query_id,
-                username,
-                f"Confidence too low ({confidence_score:.1%}), generating clarification request...",
+            tracker.update(
+                f"Confidence too low ({confidence_score:.1%}), generating clarification request..."
             )
 
             _handle_clarification_response(
@@ -432,14 +418,13 @@ def _process_query_background(  # pylint: disable=too-many-locals
                 start_time=start_time,
                 history_service=history_service,
                 response_generator=response_generator,
+                tracker=tracker,
                 username=username,
             )
             return
 
         # High confidence: proceed with SQL generation and execution
-        history_service.update_progress_message(
-            query_id, username, "Generating SQL query with Schema Inspector Agent..."
-        )
+        tracker.update("Generating SQL query with Schema Inspector Agent...")
         _execute_sql_query(
             query_id=query_id,
             query_text=query_text,
@@ -449,13 +434,23 @@ def _process_query_background(  # pylint: disable=too-many-locals
             pool=pool,
             history_service=history_service,
             response_generator=response_generator,
+            tracker=tracker,
             username=username,
         )
 
     except Exception as e:
         # Update query as failed
         logger.error(f"Query processing failed for {query_id}: {e!s}", exc_info=True)
-        history_service.update_query_status(query_id, username, "failed")
+        timeline_json: str | None = None
+        if tracker is not None:
+            tracker.update(f"Query failed: {e!s}")
+            timeline_json = tracker.get_timeline_json()
+        history_service.update_query_status(
+            query_id,
+            username,
+            "failed",
+            progress_timeline=timeline_json,
+        )
 
 
 @router.post("", response_model=Query, status_code=status.HTTP_201_CREATED)
@@ -500,9 +495,17 @@ def submit_query(
     pool: Any = get_global_pool()
     history_service: QueryHistoryService = QueryHistoryService(pool)
 
-    # Store query as pending
+    # Store query as pending (persist dataset_ids for later retrieval)
+    dataset_id_strs: list[str] | None = (
+        [str(uid) for uid in query_create.dataset_ids]
+        if query_create.dataset_ids
+        else None
+    )
     query_id: UUID = history_service.store_query(
-        query_text=query_create.query_text, username=current_username, status="pending"
+        query_text=query_create.query_text,
+        username=current_username,
+        status="pending",
+        dataset_ids=dataset_id_strs,
     )
 
     # Start background thread to process query

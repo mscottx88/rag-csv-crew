@@ -65,6 +65,11 @@ export interface QueryResponse {
   data_snapshot?: unknown;
 }
 
+export interface TimelineEntry {
+  elapsed_ms: number;
+  message: string;
+}
+
 export interface Query {
   id: string;
   query_text: string;
@@ -78,6 +83,7 @@ export interface Query {
   generated_sql?: string | null;
   response?: QueryResponse;
   progress_message?: string | null;
+  progress_timeline?: TimelineEntry[] | null;
   agent_logs?: string | null;
 }
 

@@ -168,6 +168,20 @@ def ensure_user_schema_exists(conn: Connection[tuple[str, ...]], username: str) 
         )
         cur.execute(responses_generated_idx_sql)
 
+        # Migration: add progress_timeline column to existing queries tables
+        timeline_migration_sql: str = (
+            f"ALTER TABLE {schema_name}.queries "
+            "ADD COLUMN IF NOT EXISTS progress_timeline JSONB"
+        )
+        cur.execute(timeline_migration_sql)
+
+        # Migration: add dataset_ids column to existing queries tables
+        dataset_ids_migration_sql: str = (
+            f"ALTER TABLE {schema_name}.queries "
+            "ADD COLUMN IF NOT EXISTS dataset_ids JSONB"
+        )
+        cur.execute(dataset_ids_migration_sql)
+
     # Commit transaction
     conn.commit()
 

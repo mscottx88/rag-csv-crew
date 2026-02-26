@@ -157,9 +157,11 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ agentLogs }) => {
           <span className="console-icon">🤖</span>
           <span className="console-title">Agent Activity</span>
         </div>
-        <button className="expand-button" aria-label={isExpanded ? 'Collapse' : 'Expand'}>
-          {isExpanded ? '▼' : '▶'}
-        </button>
+        <span className={`console-expand-indicator ${isExpanded ? 'expanded' : ''}`}>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 1.5 L9.5 6 L3 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+          </svg>
+        </span>
       </div>
 
       {isExpanded && (

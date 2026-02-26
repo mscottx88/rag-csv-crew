@@ -37,9 +37,10 @@ const PROCESSING_HOLD_MS: number = 3000;
 interface UploadFormProps {
   onUploadComplete: (dataset: Dataset) => void;
   onConflict?: (filename: string) => void;
+  onUploadStart?: () => void;
 }
 
-export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConflict }) => {
+export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConflict, onUploadStart }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
@@ -142,6 +143,9 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConf
     setUploading(true);
     setError('');
     setProgress(0);
+    if (onUploadStart) {
+      onUploadStart();
+    }
 
     // Show uploading phase immediately: render at opacity 0, then fade in after 1 tick.
     setDisplayPhase('uploading');

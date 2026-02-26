@@ -1,14 +1,34 @@
+/**
+ * DatasetList Styles — Neon Orange Wireframe Theme
+ * Matches QueryHistory expand/collapse pattern with orange neon accents.
+ */
+
 .dataset-list {
+  display: flex;
+  flex-direction: column;
   background: var(--bg-card);
   padding: 1.5rem;
   border: 1px solid var(--orange);
   border-radius: 4px;
   box-shadow: 0 0 16px var(--orange-dim);
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
 }
 
-.dataset-list h2 {
-  margin: 0 0 1.5rem 0;
-  font-size: 1.1rem;
+.dataset-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.dataset-list-header h2 {
+  margin: 0;
+  font-size: 1rem;
   color: var(--orange);
   font-family: 'Courier New', Courier, monospace;
   letter-spacing: 0.08em;
@@ -16,70 +36,149 @@
   text-shadow: 0 0 8px var(--orange-dim);
 }
 
-.dataset-list table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.dataset-list thead tr {
-  background: var(--bg-dim);
-  border-bottom: 1px solid var(--orange);
-}
-
-.dataset-list th,
-.dataset-list td {
-  padding: 0.75rem 1rem;
-  text-align: left;
-}
-
-.dataset-list th {
-  font-weight: 600;
-  color: var(--orange);
+.dataset-count {
   font-size: 0.75rem;
+  color: var(--txt-muted);
   font-family: 'Courier New', Courier, monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
 }
 
-.dataset-list tbody tr {
-  border-bottom: 1px solid var(--border);
-  transition: background 0.15s;
+/* ── Scrollable items container ── */
+.dataset-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
-.dataset-list tbody tr:hover {
+/* Scrollbar — orange */
+.dataset-items::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dataset-items::-webkit-scrollbar-track {
+  background: var(--bg-dim);
+}
+
+.dataset-items::-webkit-scrollbar-thumb {
+  background: rgba(255, 102, 0, 0.25);
+  border-radius: 4px;
+}
+
+.dataset-items::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 102, 0, 0.45);
+}
+
+/* ── Dataset item ── */
+.dataset-item {
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--bg-panel);
+  transition: border-color 0.2s;
+}
+
+.dataset-item:hover {
+  border-color: var(--orange);
+}
+
+.dataset-item-expanded {
+  border-color: var(--orange);
+  box-shadow: 0 0 12px var(--orange-dim);
+}
+
+/* ── Clickable row (always visible) ── */
+.dataset-item-row {
+  padding: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.dataset-item-row:hover {
   background: var(--orange-dim);
 }
 
-.dataset-list td {
-  color: var(--txt-muted);
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 0.875rem;
+.dataset-item-row:focus {
+  outline: none;
+  background: var(--orange-dim);
 }
 
-/* Inspect link */
-.dataset-link {
+.dataset-item-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+/* ── Neon wireframe twisty ── */
+.dataset-expand-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-right: 0.75rem;
+  flex-shrink: 0;
   color: var(--orange);
-  text-decoration: none;
-  transition: color 0.15s, text-shadow 0.15s;
+  filter: drop-shadow(0 0 4px var(--orange)) drop-shadow(0 0 8px var(--orange-dim));
+  transition: transform 0.2s ease, filter 0.2s ease;
 }
 
-.dataset-link:hover {
-  color: var(--gold);
-  text-shadow: 0 0 8px var(--gold-dim);
+.dataset-expand-indicator svg {
+  display: block;
+}
+
+.dataset-expand-indicator.expanded {
+  transform: rotate(90deg);
+  filter: drop-shadow(0 0 6px var(--orange)) drop-shadow(0 0 12px var(--orange));
+}
+
+.dataset-item-row:hover .dataset-expand-indicator {
+  filter: drop-shadow(0 0 6px var(--orange)) drop-shadow(0 0 14px var(--orange));
+}
+
+.dataset-filename {
+  font-weight: 500;
+  color: var(--txt);
+  flex: 1;
+  margin-right: 1rem;
+  font-size: 0.9rem;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.dataset-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.dataset-meta-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 2px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  font-family: 'Courier New', Courier, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: var(--orange-dim);
+  color: var(--orange);
+  border: 1px solid rgba(255, 102, 0, 0.3);
 }
 
 .delete-button {
-  padding: 0.4rem 0.875rem;
+  padding: 0.3rem 0.7rem;
   background: transparent;
   color: var(--err);
   border: 1px solid var(--err);
   border-radius: 2px;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 700;
   font-family: 'Courier New', Courier, monospace;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .delete-button:hover:not(:disabled) {
@@ -92,6 +191,36 @@
   cursor: not-allowed;
 }
 
+.dataset-item-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.72rem;
+  color: var(--txt-dim);
+  font-family: 'Courier New', Courier, monospace;
+  padding-left: 2.25rem;
+}
+
+/* ── Expanded detail area ── */
+.dataset-item-detail {
+  border-top: 1px solid var(--border);
+  padding: 1rem;
+  background: var(--bg-dim);
+  max-height: 400px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dataset-item-detail .data-table-root {
+  flex: 1;
+  min-height: 0;
+}
+
+.dataset-item-detail .table-scroll-container {
+  max-height: 280px;
+}
+
+/* ── Empty / loading / error states ── */
 .dataset-list-loading,
 .dataset-list-empty,
 .dataset-list-error {
@@ -112,7 +241,7 @@
   border-radius: 2px;
 }
 
-/* Confirm dialog */
+/* ── Confirm dialog ── */
 .confirm-dialog-overlay {
   position: fixed;
   top: 0;
@@ -174,15 +303,15 @@
   transition: all 0.2s;
 }
 
-.cancel-button {
+.dialog-cancel-button {
   background: transparent;
-  color: var(--txt-muted);
-  border: 1px solid var(--border);
+  color: var(--green);
+  border: 1px solid var(--green);
 }
 
-.cancel-button:hover {
-  border-color: var(--txt-muted);
-  color: var(--txt);
+.dialog-cancel-button:hover {
+  background: var(--green-dim);
+  box-shadow: 0 0 12px var(--green-dim);
 }
 
 .confirm-button {
@@ -194,4 +323,29 @@
 .confirm-button:hover {
   background: var(--err-dim);
   box-shadow: 0 0 12px var(--err-dim);
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .dataset-item-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .dataset-item-actions {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .dataset-filename {
+    font-size: 0.8rem;
+  }
+
+  .dataset-item-detail {
+    max-height: 300px;
+  }
+
+  .dataset-item-detail .table-scroll-container {
+    max-height: 200px;
+  }
 }

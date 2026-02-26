@@ -1,11 +1,12 @@
 /**
  * Dataset List Component
- * Table view of datasets with delete functionality
+ * Expandable row list of datasets with neon wireframe twisties,
+ * inline DataTable preview, and delete functionality.
  */
 
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import * as datasetsService from '../../services/datasets';
+import { DataTable } from './DataTable';
 import type { Dataset, DatasetList as DatasetListType } from '../../types';
 import './DatasetList.css';
 
@@ -19,6 +20,7 @@ export const DatasetList: React.FC<DatasetListProps> = ({ refresh = 0 }) => {
   const [error, setError] = useState<string>('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadDatasets = async (): Promise<void> => {
@@ -39,7 +41,12 @@ export const DatasetList: React.FC<DatasetListProps> = ({ refresh = 0 }) => {
     void loadDatasets();
   }, [refresh]);
 
-  const handleDeleteClick = (id: string): void => {
+  const handleToggle = (id: string): void => {
+    setExpandedId((prev: string | null) => (prev === id ? null : id));
+  };
+
+  const handleDeleteClick = (id: string, event: React.MouseEvent): void => {
+    event.stopPropagation();
     setDeleteConfirm(id);
   };
 
@@ -55,6 +62,9 @@ export const DatasetList: React.FC<DatasetListProps> = ({ refresh = 0 }) => {
       await datasetsService.deleteDataset(id);
       setDatasets((prev: Dataset[]): Dataset[] => prev.filter((d: Dataset): boolean => d.id !== id));
       setDeleteConfirm(null);
+      if (expandedId === id) {
+        setExpandedId(null);
+      }
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);
@@ -94,41 +104,66 @@ export const DatasetList: React.FC<DatasetListProps> = ({ refresh = 0 }) => {
 
   return (
     <div className="dataset-list">
-      <table>
-        <thead>
-          <tr>
-            <th>Filename</th>
-            <th>Rows</th>
-            <th>Columns</th>
-            <th>Uploaded</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {datasets.map((dataset: Dataset) => (
-            <tr key={dataset.id}>
-              <td>
-                <Link to={`/datasets/${dataset.id}`} className="dataset-link">
-                  {dataset.filename}
-                </Link>
-              </td>
-              <td>{dataset.row_count.toLocaleString()}</td>
-              <td>{dataset.column_count}</td>
-              <td>{formatDate(dataset.uploaded_at)}</td>
-              <td>
-                <button
-                  onClick={(): void => handleDeleteClick(dataset.id)}
-                  disabled={deleting === dataset.id}
-                  className="delete-button"
-                  aria-label={`Delete ${dataset.filename}`}
-                >
-                  {deleting === dataset.id ? 'Deleting...' : 'Delete'}
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="dataset-list-header">
+        <h2>Datasets</h2>
+        <span className="dataset-count">{datasets.length} dataset{datasets.length !== 1 ? 's' : ''}</span>
+      </div>
+
+      <div className="dataset-items">
+        {datasets.map((dataset: Dataset) => {
+          const isExpanded: boolean = expandedId === dataset.id;
+
+          return (
+            <div
+              key={dataset.id}
+              className={`dataset-item ${isExpanded ? 'dataset-item-expanded' : ''}`}
+            >
+              <div
+                className="dataset-item-row"
+                onClick={(): void => handleToggle(dataset.id)}
+                role="button"
+                tabIndex={0}
+                onKeyPress={(e): void => {
+                  if (e.key === 'Enter') {
+                    handleToggle(dataset.id);
+                  }
+                }}
+              >
+                <div className="dataset-item-header">
+                  <span className={`dataset-expand-indicator ${isExpanded ? 'expanded' : ''}`}>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M3 1.5 L9.5 6 L3 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+                    </svg>
+                  </span>
+                  <span className="dataset-filename">{dataset.filename}</span>
+                  <div className="dataset-item-actions">
+                    <span className="dataset-meta-badge">{dataset.row_count.toLocaleString()} rows</span>
+                    <span className="dataset-meta-badge">{dataset.column_count} cols</span>
+                    <button
+                      onClick={(e): void => handleDeleteClick(dataset.id, e)}
+                      disabled={deleting === dataset.id}
+                      className="delete-button"
+                      aria-label={`Delete ${dataset.filename}`}
+                    >
+                      {deleting === dataset.id ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
+                </div>
+                <div className="dataset-item-meta">
+                  <span className="dataset-date">{formatDate(dataset.uploaded_at)}</span>
+                  <span className="dataset-id">{dataset.id.slice(0, 8)}</span>
+                </div>
+              </div>
+
+              {isExpanded && (
+                <div className="dataset-item-detail">
+                  <DataTable datasetId={dataset.id} totalRowCount={dataset.row_count} />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
 
       {deleteConfirm && (
         <div className="confirm-dialog-overlay">
@@ -143,7 +178,7 @@ export const DatasetList: React.FC<DatasetListProps> = ({ refresh = 0 }) => {
             </p>
             <p className="confirm-warning">This action cannot be undone.</p>
             <div className="dialog-buttons">
-              <button onClick={handleDeleteCancel} className="cancel-button">
+              <button onClick={handleDeleteCancel} className="dialog-cancel-button">
                 Cancel
               </button>
               <button
