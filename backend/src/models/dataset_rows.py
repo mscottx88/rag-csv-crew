@@ -25,6 +25,7 @@ class DatasetRowsResponse(BaseModel):
         dataset_id: UUID of the dataset
         table_name: PostgreSQL table name
         columns: Ordered list of user-facing column names
+        column_types: Mapping of column name to inferred PostgreSQL type
         rows: 2D array of cell values (row-major order)
         total_row_count: Total rows in the dataset
         offset: Starting row index for this page
@@ -35,6 +36,7 @@ class DatasetRowsResponse(BaseModel):
     dataset_id: str
     table_name: str
     columns: list[str]
+    column_types: dict[str, str]
     rows: list[list[Any]]
     total_row_count: int = Field(..., ge=0)
     offset: int = Field(..., ge=0)

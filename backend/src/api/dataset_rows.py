@@ -14,7 +14,7 @@ Constitutional Requirements:
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -68,25 +68,31 @@ def get_dataset_rows(
     dataset_id: str,
     offset: int = 0,
     limit: int = 50,
+    sort_column: str | None = None,
+    sort_direction: Literal["asc", "desc"] = "asc",
     username: str = Depends(check_rate_limit),
 ) -> DatasetRowsResponse:
     """Retrieve paginated rows from a dataset table.
 
     Fetches actual data rows for display in the Dataset Inspector.
     Only user-facing columns are returned (metadata columns excluded).
+    Rows can be sorted by any user-facing column via sort_column and
+    sort_direction; by default rows are ordered by insertion order (_row_id).
 
     Args:
         response: FastAPI response object
         dataset_id: UUID of the dataset to inspect
         offset: Row offset for pagination (default 0)
         limit: Maximum rows to return (1-500, default 50)
+        sort_column: Column name to sort by (default: insertion order)
+        sort_direction: Sort direction — "asc" or "desc" (default "asc")
         username: Current authenticated user (injected)
 
     Returns:
-        DatasetRowsResponse with columns, rows, and pagination metadata
+        DatasetRowsResponse with columns, column_types, rows, and pagination metadata
 
     Raises:
-        HTTPException 400: Invalid offset or limit
+        HTTPException 400: Invalid offset, limit, or unknown sort_column
         HTTPException 404: Dataset not found
         HTTPException 500: Server error during retrieval
     """
@@ -95,7 +101,13 @@ def get_dataset_rows(
         level="info",
         event="dataset_rows_request",
         user=username,
-        extra={"dataset_id": dataset_id, "offset": offset, "limit": limit},
+        extra={
+            "dataset_id": dataset_id,
+            "offset": offset,
+            "limit": limit,
+            "sort_column": sort_column,
+            "sort_direction": sort_direction,
+        },
     )
 
     # Validate pagination params
@@ -136,22 +148,34 @@ def get_dataset_rows(
             row_count: int = meta_row[1]
             schema_json_db: dict[str, Any] = meta_row[2]
 
-            # Extract user-facing column names from schema_json
+            # Extract user-facing column names and their inferred types from schema_json.
             # Sanitize names to match actual PostgreSQL columns (handles legacy data
-            # where schema_json may contain original mixed-case CSV header names)
+            # where schema_json may contain original mixed-case CSV header names).
             columns_raw: list[dict[str, Any]] = schema_json_db.get("columns", [])
             column_names: list[str] = [sanitize_column_name(col["name"]) for col in columns_raw]
+            column_types: dict[str, str] = {
+                sanitize_column_name(col["name"]): str(col.get("inferred_type", "text"))
+                for col in columns_raw
+            }
 
             if not column_names:
                 return DatasetRowsResponse(
                     dataset_id=dataset_id,
                     table_name=table_name,
                     columns=[],
+                    column_types={},
                     rows=[],
                     total_row_count=row_count,
                     offset=offset,
                     limit=limit,
                     has_more=False,
+                )
+
+            # Validate sort column when provided
+            if sort_column is not None and sort_column not in column_names:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Unknown sort column: {sort_column!r}",
                 )
 
             # Build SELECT with safe identifiers
@@ -161,12 +185,24 @@ def get_dataset_rows(
             table_ident: sql.Identifier = sql.Identifier(table_name)
             schema_ident: sql.Identifier = sql.Identifier(f"{username}_schema")
 
+            # Build ORDER BY clause — user column or insertion order fallback
+            if sort_column is not None:
+                order_clause: sql.Composed = sql.SQL("ORDER BY {col} {dir}").format(
+                    col=sql.Identifier(sort_column),
+                    dir=sql.SQL("ASC" if sort_direction == "asc" else "DESC"),
+                )
+            else:
+                order_clause = sql.SQL("ORDER BY {col}").format(
+                    col=sql.Identifier("_row_id"),
+                )
+
             query: sql.Composed = sql.SQL(
-                "SELECT {cols} FROM {schema}.{table} " "ORDER BY _row_id LIMIT %s OFFSET %s"
+                "SELECT {cols} FROM {schema}.{table} {order} LIMIT %s OFFSET %s"
             ).format(
                 cols=col_identifiers,
                 schema=schema_ident,
                 table=table_ident,
+                order=order_clause,
             )
 
             with conn.cursor() as cur:
@@ -195,6 +231,7 @@ def get_dataset_rows(
                 dataset_id=dataset_id,
                 table_name=table_name,
                 columns=column_names,
+                column_types=column_types,
                 rows=rows,
                 total_row_count=row_count,
                 offset=offset,

@@ -17,6 +17,8 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 1;
 }
 
 .app-main {
@@ -29,7 +31,6 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background-color: var(--bg);
   height: calc(100vh - 64px);
   overflow: hidden;
 }

@@ -18,6 +18,7 @@ import { History } from './pages/History';
 import { NotFound } from './pages/NotFound';
 import { CursorSnake } from './components/CursorSnake/CursorSnake';
 import { LightningBorder } from './components/LightningBorder/LightningBorder';
+import { CircuitBoard } from './components/CircuitBoard/CircuitBoard';
 import './App.css';
 
 const App: React.FC = () => {
@@ -26,6 +27,7 @@ const App: React.FC = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <CircuitBoard />
         <LightningBorder />
         <CursorSnake />
         <Routes>

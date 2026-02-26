@@ -17,11 +17,11 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  /* ── Backgrounds ── */
+  /* ── Backgrounds — slight transparency lets the circuit board show through ── */
   --bg:           #000000;
-  --bg-card:      #080808;
-  --bg-panel:     #0d0d0d;
-  --bg-dim:       #111111;
+  --bg-card:      rgba(7, 7, 7, 0.88);
+  --bg-panel:     rgba(12, 12, 12, 0.90);
+  --bg-dim:       rgba(15, 15, 15, 0.85);
   --border:       rgba(255, 255, 255, 0.08);
 
   /* ── Neon palette ── */
@@ -189,4 +189,73 @@ select:not(:disabled):hover {
 .confirm-button:not(:disabled):hover,
 .delete-button:not(:disabled):hover {
   --hover-glow-color: var(--err);
+}
+
+/*
+ * ── Solder-pin corner effects ──────────────────────────────────────────────
+ * Four radial-gradient dots placed at element corners via ::before,
+ * suggesting through-hole pads where the UI component meets the PCB traces.
+ * Colours match each section's neon theme.
+ */
+
+/* Shared solder-pin mixin pattern */
+.upload-form,
+.result-display,
+.table-scroll-container,
+.history-item,
+.action-card {
+  position: relative;
+}
+
+/* Green theme — upload form */
+.upload-form::before,
+/* Cyan theme — result display */
+.result-display::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(circle at 4px 4px,             rgba(57,255,20,0.45) 2.5px, transparent 2.5px),
+    radial-gradient(circle at calc(100% - 4px) 4px, rgba(57,255,20,0.45) 2.5px, transparent 2.5px),
+    radial-gradient(circle at 4px calc(100% - 4px), rgba(57,255,20,0.45) 2.5px, transparent 2.5px),
+    radial-gradient(circle at calc(100% - 4px) calc(100% - 4px), rgba(57,255,20,0.45) 2.5px, transparent 2.5px);
+}
+
+.result-display::before {
+  background:
+    radial-gradient(circle at 4px 4px,             rgba(0,238,255,0.4) 2.5px, transparent 2.5px),
+    radial-gradient(circle at calc(100% - 4px) 4px, rgba(0,238,255,0.4) 2.5px, transparent 2.5px),
+    radial-gradient(circle at 4px calc(100% - 4px), rgba(0,238,255,0.4) 2.5px, transparent 2.5px),
+    radial-gradient(circle at calc(100% - 4px) calc(100% - 4px), rgba(0,238,255,0.4) 2.5px, transparent 2.5px);
+}
+
+/* Orange theme — data table border */
+.table-scroll-container::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(circle at 4px 4px,             rgba(255,102,0,0.4) 2.5px, transparent 2.5px),
+    radial-gradient(circle at calc(100% - 4px) 4px, rgba(255,102,0,0.4) 2.5px, transparent 2.5px),
+    radial-gradient(circle at 4px calc(100% - 4px), rgba(255,102,0,0.4) 2.5px, transparent 2.5px),
+    radial-gradient(circle at calc(100% - 4px) calc(100% - 4px), rgba(255,102,0,0.4) 2.5px, transparent 2.5px);
+}
+
+/* Gold theme — history items, action cards */
+.history-item::before,
+.action-card::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(circle at 4px 4px,             rgba(255,215,0,0.35) 2.5px, transparent 2.5px),
+    radial-gradient(circle at calc(100% - 4px) 4px, rgba(255,215,0,0.35) 2.5px, transparent 2.5px),
+    radial-gradient(circle at 4px calc(100% - 4px), rgba(255,215,0,0.35) 2.5px, transparent 2.5px),
+    radial-gradient(circle at calc(100% - 4px) calc(100% - 4px), rgba(255,215,0,0.35) 2.5px, transparent 2.5px);
 }

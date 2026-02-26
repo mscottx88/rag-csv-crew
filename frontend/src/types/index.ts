@@ -113,6 +113,7 @@ export interface DatasetRowsResponse {
   dataset_id: string;
   table_name: string;
   columns: string[];
+  column_types: Record<string, string>;
   rows: (string | number | boolean | null)[][];
   total_row_count: number;
   offset: number;

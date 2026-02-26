@@ -12,17 +12,26 @@ import { AxiosResponse, AxiosError } from 'axios';
  * @param datasetId UUID of the dataset
  * @param offset Row offset (default 0)
  * @param limit Max rows to fetch (default 50)
- * @returns DatasetRowsResponse with columns, rows, and pagination info
+ * @param sortColumn Column name to sort by (omit for insertion order)
+ * @param sortDirection Sort direction: "asc" or "desc" (default "asc")
+ * @returns DatasetRowsResponse with columns, column_types, rows, and pagination info
  */
 export const getRows = async (
   datasetId: string,
   offset: number = 0,
   limit: number = 50,
+  sortColumn?: string,
+  sortDirection: 'asc' | 'desc' = 'asc',
 ): Promise<DatasetRowsResponse> => {
   try {
+    const params: Record<string, string | number> = { offset, limit };
+    if (sortColumn !== undefined) {
+      params['sort_column'] = sortColumn;
+      params['sort_direction'] = sortDirection;
+    }
     const response: AxiosResponse<DatasetRowsResponse> = await api.get<DatasetRowsResponse>(
       `/datasets/${datasetId}/rows`,
-      { params: { offset, limit } },
+      { params },
     );
     return response.data;
   } catch (error) {

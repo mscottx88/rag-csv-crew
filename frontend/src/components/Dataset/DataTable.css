@@ -106,10 +106,56 @@
   letter-spacing: 0.08em;
   white-space: nowrap;
   user-select: none;
-  cursor: grab;
+  cursor: pointer;
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--orange);
   transition: background 0.15s, opacity 0.15s;
+}
+
+/* Inner flex row: drag-handle | type-icon | name | sort-icon */
+.th-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  overflow: hidden;
+}
+
+.col-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Data-type icon */
+.col-type-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  height: 11px;
+  width: auto;
+  vertical-align: middle;
+  color: var(--orange);
+  opacity: 0.55;
+}
+
+/* Sort direction icon — shown only on active sort column */
+.sort-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  height: 9px;
+  width: auto;
+  vertical-align: middle;
+  color: var(--orange);
+}
+
+/* Active sort column highlight */
+.data-table th.sorted {
+  background: rgba(255, 102, 0, 0.06);
+  text-shadow: 0 0 8px rgba(255, 102, 0, 0.4);
+}
+
+.data-table th.sorted .col-type-icon {
+  opacity: 0.85;
 }
 
 .data-table th:last-child {
@@ -130,7 +176,7 @@
 }
 
 .drag-handle {
-  margin-right: 0.4rem;
+  flex-shrink: 0;
   color: var(--txt-dim);
   font-size: 0.85rem;
   cursor: grab;
