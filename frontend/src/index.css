@@ -59,6 +59,8 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  /* Hide system cursor — the CursorSnake canvas overlay acts as the cursor */
+  cursor: none !important;
 }
 
 body {
@@ -94,4 +96,77 @@ button {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+/*
+ * Lightning hover glow — subtle base glow via CSS.
+ * The animated bolt tracing is handled by the LightningBorder canvas component.
+ * --hover-glow-color is read by the canvas to colour the bolt per-element.
+ */
+button:not(:disabled):hover,
+a:hover,
+.nav-link:hover,
+.dataset-checkbox:hover,
+.example-button:not(:disabled):hover,
+.drop-zone:hover,
+.action-card:hover,
+input:not(:disabled):hover,
+textarea:not(:disabled):hover,
+select:not(:disabled):hover {
+  box-shadow:
+    0 0 6px color-mix(in srgb, var(--hover-glow-color, var(--pink)) 40%, transparent),
+    0 0 14px color-mix(in srgb, var(--hover-glow-color, var(--pink)) 20%, transparent);
+}
+
+/* ── Per-color overrides (match existing theme colors) ── */
+
+/* Pink — logout, login, default buttons */
+.logout-button:not(:disabled):hover,
+.login-button:not(:disabled):hover,
+.confirm-button:not(:disabled):hover {
+  --hover-glow-color: var(--pink);
+}
+
+/* Cyan — query section buttons, inputs, checkboxes */
+.query-input button:not(:disabled):hover,
+.query-input textarea:hover,
+.query-input input:hover,
+.submit-button:not(:disabled):hover,
+.select-all-button:not(:disabled):hover,
+.dataset-checkbox:hover,
+.example-button:not(:disabled):hover {
+  --hover-glow-color: var(--cyan);
+}
+
+/* Orange — dataset list, delete */
+.dataset-list button:not(:disabled):hover,
+.delete-button:not(:disabled):hover,
+.dataset-list tbody tr:hover {
+  --hover-glow-color: var(--orange);
+}
+
+/* Green — upload */
+.upload-button:not(:disabled):hover,
+.drop-zone:hover {
+  --hover-glow-color: var(--green);
+}
+
+/* Gold — history nav */
+.nav-link[data-route="history"]:hover {
+  --hover-glow-color: var(--gold);
+}
+
+/* Sidebar nav per-route */
+.nav-link[data-route=""]:hover        { --hover-glow-color: var(--pink); }
+.nav-link[data-route="query"]:hover   { --hover-glow-color: var(--cyan); }
+.nav-link[data-route="datasets"]:hover{ --hover-glow-color: var(--orange); }
+
+/* Dashboard action cards */
+.action-card:nth-child(1):hover { --hover-glow-color: var(--cyan); }
+.action-card:nth-child(2):hover { --hover-glow-color: var(--orange); }
+.action-card:nth-child(3):hover { --hover-glow-color: var(--gold); }
+
+/* Error — cancel/error buttons */
+.cancel-button:not(:disabled):hover {
+  --hover-glow-color: var(--err);
 }

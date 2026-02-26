@@ -15,12 +15,14 @@ import { Datasets } from './pages/Datasets';
 import { History } from './pages/History';
 import { NotFound } from './pages/NotFound';
 import { CursorSnake } from './components/CursorSnake/CursorSnake';
+import { LightningBorder } from './components/LightningBorder/LightningBorder';
 import './App.css';
 
 const App: React.FC = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <LightningBorder />
         <CursorSnake />
         <Routes>
           {/* Public Route: Login */}

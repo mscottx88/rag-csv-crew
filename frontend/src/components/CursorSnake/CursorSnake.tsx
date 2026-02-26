@@ -15,8 +15,8 @@ interface Point {
   y: number;
 }
 
-const CHAIN_LENGTH: number = 28;
-const HEAD_RADIUS: number = 7;
+const CHAIN_LENGTH: number = 14;
+const HEAD_RADIUS: number = 9;
 const TAIL_RADIUS: number = 1;
 const HEAD_LERP: number = 0.18;   // how fast node[0] chases the mouse
 const NODE_LERP: number = 0.30;   // how fast each node chases the one ahead
@@ -49,6 +49,54 @@ function hexagonPath(
     else ctx.lineTo(x, y);
   }
   ctx.closePath();
+}
+
+function drawCrosshair(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  r: number,
+  rotation: number,
+  color: string,
+): void {
+  const armLength: number = r * 1.6;
+  const gapRadius: number = r * 0.3;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rotation);
+
+  // Draw 4 crosshair arms with gap in center
+  ctx.beginPath();
+  for (let i: number = 0; i < 4; i++) {
+    const angle: number = (Math.PI / 2) * i;
+    const cos: number = Math.cos(angle);
+    const sin: number = Math.sin(angle);
+    ctx.moveTo(cos * gapRadius, sin * gapRadius);
+    ctx.lineTo(cos * armLength, sin * armLength);
+  }
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.shadowBlur = SHADOW_BLUR * 2;
+  ctx.shadowColor = color;
+  ctx.stroke();
+
+  // Inner glow layer for extra neon intensity
+  ctx.shadowBlur = SHADOW_BLUR * 3;
+  ctx.shadowColor = color;
+  ctx.globalAlpha = 0.5;
+  ctx.stroke();
+
+  // Small center dot
+  ctx.globalAlpha = 1;
+  ctx.beginPath();
+  ctx.arc(0, 0, 1.5, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.shadowBlur = SHADOW_BLUR * 2;
+  ctx.shadowColor = color;
+  ctx.fill();
+
+  ctx.restore();
 }
 
 export const CursorSnake: React.FC = () => {
@@ -154,8 +202,22 @@ export const CursorSnake: React.FC = () => {
         ctx.restore();
       }
 
-      // ── 5. Draw hexagons ──
-      for (let vi: number = 0; vi < count; vi++) {
+      // ── 5. Draw head crosshair ──
+      if (count > 0) {
+        const headNodeIdx: number = visible[0]!;
+        const headRotation: number = frameRef.current * 0.03;
+        drawCrosshair(
+          ctx,
+          nodes[headNodeIdx]!.x,
+          nodes[headNodeIdx]!.y,
+          HEAD_RADIUS,
+          headRotation,
+          headColor,
+        );
+      }
+
+      // ── 6. Draw tail hexagons (skip head) ──
+      for (let vi: number = 1; vi < count; vi++) {
         const i: number = visible[vi]!;
         const t: number = vi / Math.max(count - 1, 1);
         const alpha: number = 1 - t;

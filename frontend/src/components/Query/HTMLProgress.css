@@ -1,0 +1,32 @@
+.html-progress-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.75rem 0 0.25rem;
+  margin-top: 0.5rem;
+  width: 100%;
+}
+
+.html-svg {
+  height: min(76vh, 540px);
+  width: auto;
+  max-width: 100%;
+  display: block;
+  overflow: visible;
+  filter:
+    drop-shadow(0 0 6px #39ff14)
+    drop-shadow(0 0 20px #39ff1466)
+    drop-shadow(0 0 40px #39ff1433);
+}
+
+.html-progress-label {
+  margin-top: 0.55rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #39ff14;
+  letter-spacing: 0.07em;
+  font-family: 'Courier New', Courier, monospace;
+  text-shadow:
+    0 0 6px #39ff14,
+    0 0 16px #39ff1466;
+}

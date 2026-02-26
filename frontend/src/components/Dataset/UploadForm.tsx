@@ -244,6 +244,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConf
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onClick={(): void => { if (!uploading) fileInputRef.current?.click(); }}
       >
         <input
           ref={fileInputRef}
@@ -254,7 +255,7 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConf
           className="file-input"
           id="file-input"
         />
-        <label htmlFor="file-input" className="file-label">
+        <label className="file-label">
           {selectedFile ? (
             <span>{selectedFile.name}</span>
           ) : (

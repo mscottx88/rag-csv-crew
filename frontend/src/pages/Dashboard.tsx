@@ -21,19 +21,43 @@ export const Dashboard: React.FC = () => {
 
       <div className="quick-actions">
         <div className="action-card" onClick={(): void => navigate('/query')} role="button" tabIndex={0}>
-          <span className="action-icon">🔍</span>
+          <svg className="action-icon-svg action-icon-cyan" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="20" cy="20" r="12" strokeWidth="2" />
+            <line x1="29" y1="29" x2="40" y2="40" strokeWidth="2" strokeLinecap="round" />
+            <line x1="14" y1="20" x2="26" y2="20" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+            <line x1="17" y1="25" x2="23" y2="25" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+            <line x1="17" y1="15" x2="23" y2="15" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+          </svg>
           <h3>Submit a Query</h3>
           <p>Ask questions about your data in natural language</p>
         </div>
 
         <div className="action-card" onClick={(): void => navigate('/datasets')} role="button" tabIndex={0}>
-          <span className="action-icon">📊</span>
+          <svg className="action-icon-svg action-icon-orange" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="4" y="4" width="40" height="40" rx="2" strokeWidth="2" />
+            <line x1="4" y1="16" x2="44" y2="16" strokeWidth="1.5" />
+            <line x1="4" y1="28" x2="44" y2="28" strokeWidth="1.5" />
+            <line x1="18" y1="4" x2="18" y2="44" strokeWidth="1.5" />
+            <line x1="32" y1="4" x2="32" y2="44" strokeWidth="1.5" />
+            <circle cx="11" cy="10" r="2" strokeWidth="1.5" opacity="0.6" />
+            <circle cx="25" cy="22" r="2" strokeWidth="1.5" opacity="0.6" />
+            <circle cx="38" cy="34" r="2" strokeWidth="1.5" opacity="0.6" />
+          </svg>
           <h3>Manage Datasets</h3>
           <p>Upload and manage your CSV datasets</p>
         </div>
 
         <div className="action-card" onClick={(): void => navigate('/history')} role="button" tabIndex={0}>
-          <span className="action-icon">📜</span>
+          <svg className="action-icon-svg action-icon-gold" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="24" cy="24" r="18" strokeWidth="2" />
+            <circle cx="24" cy="24" r="2" strokeWidth="1.5" />
+            <line x1="24" y1="24" x2="24" y2="12" strokeWidth="2" strokeLinecap="round" />
+            <line x1="24" y1="24" x2="34" y2="28" strokeWidth="2" strokeLinecap="round" />
+            <line x1="24" y1="6" x2="24" y2="9" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+            <line x1="24" y1="39" x2="24" y2="42" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+            <line x1="6" y1="24" x2="9" y2="24" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+            <line x1="39" y1="24" x2="42" y2="24" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+          </svg>
           <h3>View History</h3>
           <p>Browse your past queries and results</p>
         </div>

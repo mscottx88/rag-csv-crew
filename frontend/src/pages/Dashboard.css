@@ -49,7 +49,6 @@
 }
 
 .action-card:nth-child(1):hover {
-  box-shadow: 0 0 24px var(--cyan-glow), 0 4px 20px var(--cyan-dim);
   transform: translateY(-3px);
 }
 
@@ -65,7 +64,6 @@
 }
 
 .action-card:nth-child(2):hover {
-  box-shadow: 0 0 24px var(--orange-glow), 0 4px 20px var(--orange-dim);
   transform: translateY(-3px);
 }
 
@@ -81,7 +79,6 @@
 }
 
 .action-card:nth-child(3):hover {
-  box-shadow: 0 0 24px var(--gold-glow), 0 4px 20px var(--gold-dim);
   transform: translateY(-3px);
 }
 
@@ -90,18 +87,102 @@
   text-shadow: 0 0 8px var(--gold-dim);
 }
 
-.action-icon {
-  font-size: 2.5rem;
+/* ── Wireframe SVG icons ── */
+.action-icon-svg {
+  width: 56px;
+  height: 56px;
   display: block;
-  margin-bottom: 1rem;
+  margin: 0 auto 1.25rem;
+  transition: filter 0.3s, transform 0.3s;
+  transform-origin: center center;
 }
 
+.action-icon-svg * {
+  stroke: currentColor;
+}
+
+/* ── Per-icon idle styles + hover animations ── */
+
+/* Cyan — magnifying glass: scanning sweep */
+.action-icon-cyan {
+  color: var(--cyan);
+  filter: drop-shadow(0 0 4px var(--cyan)) drop-shadow(0 0 10px var(--cyan-dim));
+}
+
+.action-card:nth-child(1):hover .action-icon-cyan {
+  filter: drop-shadow(0 0 6px var(--cyan)) drop-shadow(0 0 16px var(--cyan-glow));
+  animation: icon-scan 1.2s ease-in-out infinite;
+}
+
+@keyframes icon-scan {
+  0%, 100% { transform: translateX(0) scale(1.1); }
+  50%      { transform: translateX(4px) scale(1.1); }
+}
+
+/* Orange — data grid: pulsing scale */
+.action-icon-orange {
+  color: var(--orange);
+  filter: drop-shadow(0 0 4px var(--orange)) drop-shadow(0 0 10px var(--orange-dim));
+}
+
+.action-card:nth-child(2):hover .action-icon-orange {
+  filter: drop-shadow(0 0 6px var(--orange)) drop-shadow(0 0 16px var(--orange-glow));
+  animation: icon-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes icon-pulse {
+  0%, 100% { transform: scale(1.08); }
+  50%      { transform: scale(1.16); }
+}
+
+/* Gold — clock: pendulum swing */
+.action-icon-gold {
+  color: var(--gold);
+  filter: drop-shadow(0 0 4px var(--gold)) drop-shadow(0 0 10px var(--gold-dim));
+}
+
+.action-card:nth-child(3):hover .action-icon-gold {
+  filter: drop-shadow(0 0 6px var(--gold)) drop-shadow(0 0 16px var(--gold-glow));
+  animation: icon-pendulum 1.6s ease-in-out infinite;
+}
+
+@keyframes icon-pendulum {
+  0%, 100% { transform: rotate(-4deg) scale(1.1); }
+  50%      { transform: rotate(4deg) scale(1.1); }
+}
+
+/* ── Shared hover: glow pulse on card border ── */
+@keyframes border-glow-cyan {
+  0%, 100% { box-shadow: 0 0 24px var(--cyan-glow), 0 4px 20px var(--cyan-dim); }
+  50%      { box-shadow: 0 0 32px var(--cyan-glow), 0 4px 28px var(--cyan-dim), 0 0 48px var(--cyan-dim); }
+}
+
+@keyframes border-glow-orange {
+  0%, 100% { box-shadow: 0 0 24px var(--orange-glow), 0 4px 20px var(--orange-dim); }
+  50%      { box-shadow: 0 0 32px var(--orange-glow), 0 4px 28px var(--orange-dim), 0 0 48px var(--orange-dim); }
+}
+
+@keyframes border-glow-gold {
+  0%, 100% { box-shadow: 0 0 24px var(--gold-glow), 0 4px 20px var(--gold-dim); }
+  50%      { box-shadow: 0 0 32px var(--gold-glow), 0 4px 28px var(--gold-dim), 0 0 48px var(--gold-dim); }
+}
+
+.action-card:nth-child(1):hover { animation: border-glow-cyan 2s ease-in-out infinite; }
+.action-card:nth-child(2):hover { animation: border-glow-orange 2s ease-in-out infinite; }
+.action-card:nth-child(3):hover { animation: border-glow-gold 2s ease-in-out infinite; }
+
+/* ── Text animations on hover ── */
 .action-card h3 {
   margin: 0 0 0.5rem 0;
   font-size: 1.1rem;
   font-family: 'Courier New', Courier, monospace;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  transition: letter-spacing 0.3s, text-shadow 0.3s;
+}
+
+.action-card:hover h3 {
+  letter-spacing: 0.12em;
 }
 
 .action-card p {
@@ -109,4 +190,10 @@
   color: var(--txt-muted);
   font-size: 0.875rem;
   line-height: 1.5;
+  font-family: 'Courier New', Courier, monospace;
+  transition: color 0.3s;
+}
+
+.action-card:hover p {
+  color: var(--txt);
 }

@@ -86,9 +86,87 @@
   border-left-color: rgba(255, 215, 0, 0.3);
 }
 
-.nav-icon {
-  font-size: 1.1rem;
+/* ── Wireframe SVG nav icons ── */
+.nav-icon-svg {
+  width: 20px;
+  height: 20px;
   flex-shrink: 0;
+  transition: filter 0.2s, transform 0.2s;
+  transform-origin: center center;
+}
+
+.nav-icon-svg * {
+  stroke: currentColor;
+}
+
+/* Idle colors with subtle glow */
+.nav-icon-pink  { color: var(--txt-muted); filter: drop-shadow(0 0 2px var(--pink-dim)); }
+.nav-icon-cyan  { color: var(--txt-muted); filter: drop-shadow(0 0 2px var(--cyan-dim)); }
+.nav-icon-orange{ color: var(--txt-muted); filter: drop-shadow(0 0 2px var(--orange-dim)); }
+.nav-icon-gold  { color: var(--txt-muted); filter: drop-shadow(0 0 2px var(--gold-dim)); }
+
+/* Active state — full neon color + glow */
+.nav-link[data-route=""].active .nav-icon-pink {
+  color: var(--pink);
+  filter: drop-shadow(0 0 4px var(--pink)) drop-shadow(0 0 10px var(--pink-dim));
+}
+.nav-link[data-route="query"].active .nav-icon-cyan {
+  color: var(--cyan);
+  filter: drop-shadow(0 0 4px var(--cyan)) drop-shadow(0 0 10px var(--cyan-dim));
+}
+.nav-link[data-route="datasets"].active .nav-icon-orange {
+  color: var(--orange);
+  filter: drop-shadow(0 0 4px var(--orange)) drop-shadow(0 0 10px var(--orange-dim));
+}
+.nav-link[data-route="history"].active .nav-icon-gold {
+  color: var(--gold);
+  filter: drop-shadow(0 0 4px var(--gold)) drop-shadow(0 0 10px var(--gold-dim));
+}
+
+/* Hover — neon color + glow + unique animation per icon */
+.nav-link[data-route=""]:hover .nav-icon-pink {
+  color: var(--pink);
+  filter: drop-shadow(0 0 5px var(--pink)) drop-shadow(0 0 12px var(--pink-glow));
+  animation: nav-icon-spin 2s linear infinite;
+}
+.nav-link[data-route="query"]:hover .nav-icon-cyan {
+  color: var(--cyan);
+  filter: drop-shadow(0 0 5px var(--cyan)) drop-shadow(0 0 12px var(--cyan-glow));
+  animation: nav-icon-scan 1.2s ease-in-out infinite;
+}
+.nav-link[data-route="datasets"]:hover .nav-icon-orange {
+  color: var(--orange);
+  filter: drop-shadow(0 0 5px var(--orange)) drop-shadow(0 0 12px var(--orange-glow));
+  animation: nav-icon-pulse 1.4s ease-in-out infinite;
+}
+.nav-link[data-route="history"]:hover .nav-icon-gold {
+  color: var(--gold);
+  filter: drop-shadow(0 0 5px var(--gold)) drop-shadow(0 0 12px var(--gold-glow));
+  animation: nav-icon-pendulum 1.6s ease-in-out infinite;
+}
+
+/* Dashboard hexagon: slow rotation */
+@keyframes nav-icon-spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Query magnifying glass: scanning sweep */
+@keyframes nav-icon-scan {
+  0%, 100% { transform: translateX(0); }
+  50%      { transform: translateX(3px); }
+}
+
+/* Datasets grid: breathing pulse */
+@keyframes nav-icon-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.15); }
+}
+
+/* History clock: pendulum swing */
+@keyframes nav-icon-pendulum {
+  0%, 100% { transform: rotate(-5deg); }
+  50%      { transform: rotate(5deg); }
 }
 
 .nav-text {
@@ -112,5 +190,10 @@
   .nav-link {
     padding: 0.875rem;
     justify-content: center;
+  }
+
+  .nav-icon-svg {
+    width: 24px;
+    height: 24px;
   }
 }
