@@ -166,6 +166,10 @@ export const LightningBorder: React.FC = () => {
     const onEnter = (e: MouseEvent): void => {
       const el: Element | null = findQualifying(e.target as Element | null);
       if (!el) return;
+
+      // If already tracking this element, don't restart the animation
+      if (targetRef.current && targetRef.current.el === el) return;
+
       const rect: DOMRect = el.getBoundingClientRect();
       const w: number = rect.width + PADDING * 2;
       const h: number = rect.height + PADDING * 2;
@@ -187,6 +191,10 @@ export const LightningBorder: React.FC = () => {
     const onLeave = (e: MouseEvent): void => {
       const el: Element | null = findQualifying(e.target as Element | null);
       if (el && targetRef.current && targetRef.current.el === el) {
+        // If the mouse is moving to a child (or another element) still inside
+        // the same qualifying container, don't clear — the bolt stays.
+        const dest: Element | null = findQualifying(e.relatedTarget as Element | null);
+        if (dest === el) return;
         targetRef.current = null;
       }
     };

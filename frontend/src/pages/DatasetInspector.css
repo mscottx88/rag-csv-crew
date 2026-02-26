@@ -1,5 +1,5 @@
 /**
- * Dataset Inspector Page Styles — Neon Cyan Theme
+ * Dataset Inspector Page Styles — Neon Orange Theme
  */
 
 .inspector-page {
@@ -40,12 +40,12 @@
 
 .inspector-page h1 {
   margin: 0.5rem 0 0.25rem 0;
-  color: var(--cyan);
+  color: var(--orange);
   font-size: clamp(1.3rem, 2.5vw, 1.8rem);
   font-weight: 700;
   font-family: 'Courier New', Courier, monospace;
   letter-spacing: 0.04em;
-  text-shadow: 0 0 10px var(--cyan-dim);
+  text-shadow: 0 0 10px var(--orange-dim);
 }
 
 .inspector-meta {
@@ -65,7 +65,7 @@
   align-items: center;
   justify-content: center;
   padding: 6rem 2rem;
-  color: var(--cyan);
+  color: var(--orange);
   font-family: 'Courier New', Courier, monospace;
   font-size: 1rem;
   animation: inspector-pulse 1.5s ease-in-out infinite;

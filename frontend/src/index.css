@@ -148,11 +148,11 @@ select:not(:disabled):hover {
   --hover-glow-color: var(--orange);
 }
 
-/* Cyan — dataset inspector table, back link */
+/* Orange — dataset inspector table, back link */
 .inspector-page .back-link:hover,
 .table-controls select:hover,
 .data-table tbody tr:hover {
-  --hover-glow-color: var(--cyan);
+  --hover-glow-color: var(--orange);
 }
 
 /* Green — upload */

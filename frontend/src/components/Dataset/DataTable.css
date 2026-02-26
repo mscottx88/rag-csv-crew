@@ -1,5 +1,5 @@
 /**
- * DataTable Styles — Neon Cyan Theme
+ * DataTable Styles — Neon Orange Theme
  * Infinite-scroll data table for the Dataset Inspector
  */
 
@@ -31,8 +31,8 @@
 
 .table-controls select {
   background: var(--bg-dim);
-  color: var(--cyan);
-  border: 1px solid var(--cyan);
+  color: var(--orange);
+  border: 1px solid var(--orange);
   border-radius: 2px;
   padding: 0.3rem 0.5rem;
   font-family: 'Courier New', Courier, monospace;
@@ -42,7 +42,7 @@
 }
 
 .table-controls select:hover {
-  box-shadow: 0 0 8px var(--cyan-dim);
+  box-shadow: 0 0 8px var(--orange-dim);
 }
 
 .row-count-display {
@@ -54,13 +54,13 @@
 .table-scroll-container {
   flex: 1;
   overflow: auto;
-  border: 1px solid var(--border);
+  border: 1px solid var(--orange);
   border-radius: 4px;
-  box-shadow: 0 0 12px var(--cyan-dim);
+  box-shadow: 0 0 12px var(--orange-dim);
   min-height: 0;
 }
 
-/* Scrollbar — cyan (horizontal + vertical) */
+/* Scrollbar — orange (horizontal + vertical) */
 .table-scroll-container::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -71,12 +71,12 @@
 }
 
 .table-scroll-container::-webkit-scrollbar-thumb {
-  background: rgba(0, 238, 255, 0.3);
+  background: rgba(255, 102, 0, 0.3);
   border-radius: 4px;
 }
 
 .table-scroll-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 238, 255, 0.5);
+  background: rgba(255, 102, 0, 0.5);
 }
 
 .table-scroll-container::-webkit-scrollbar-corner {
@@ -99,7 +99,7 @@
 .data-table th {
   padding: 0.6rem 1rem;
   background: var(--bg-dim);
-  color: var(--cyan);
+  color: var(--orange);
   font-size: 0.72rem;
   font-weight: 700;
   font-family: 'Courier New', Courier, monospace;
@@ -109,7 +109,7 @@
   user-select: none;
   cursor: grab;
   border-right: 1px solid var(--border);
-  border-bottom: 1px solid var(--cyan);
+  border-bottom: 1px solid var(--orange);
   transition: background 0.15s, opacity 0.15s;
 }
 
@@ -118,7 +118,7 @@
 }
 
 .data-table th:hover {
-  background: var(--cyan-dim);
+  background: var(--orange-dim);
 }
 
 .data-table th.dragging {
@@ -126,8 +126,8 @@
 }
 
 .data-table th.drop-target {
-  background: var(--cyan-dim);
-  box-shadow: inset 2px 0 0 var(--cyan);
+  background: var(--orange-dim);
+  box-shadow: inset 2px 0 0 var(--orange);
 }
 
 .drag-handle {
@@ -160,15 +160,15 @@
 }
 
 .data-table tbody tr:hover {
-  background: var(--cyan-dim);
+  background: var(--orange-dim);
 }
 
 .data-table tbody tr:nth-child(even) {
-  background: rgba(0, 238, 255, 0.02);
+  background: rgba(255, 102, 0, 0.02);
 }
 
 .data-table tbody tr:nth-child(even):hover {
-  background: var(--cyan-dim);
+  background: var(--orange-dim);
 }
 
 /* Null values */
@@ -210,7 +210,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  color: var(--cyan);
+  color: var(--orange);
   animation: load-pulse 1.5s ease-in-out infinite;
 }
 
@@ -240,7 +240,7 @@
   align-items: center;
   justify-content: center;
   padding: 4rem;
-  color: var(--cyan);
+  color: var(--orange);
   font-family: 'Courier New', Courier, monospace;
   font-size: 0.9rem;
   animation: load-pulse 1.5s ease-in-out infinite;
