@@ -42,9 +42,7 @@ def _insert_test_dataset(cur: Any, dataset_id: str) -> None:
 class TestVectorIndex:
     """Integration tests for pgvector HNSW index (T100)."""
 
-    def test_hnsw_index_created_on_schema_init(
-        self, test_db_connection: ConnectionPool
-    ) -> None:
+    def test_hnsw_index_created_on_schema_init(self, test_db_connection: ConnectionPool) -> None:
         """Test HNSW index is created during schema initialization.
 
         Validates:
@@ -135,9 +133,7 @@ class TestVectorIndex:
             or "ef_construction='64'" in index_def
         )
 
-    def test_vector_similarity_query_uses_index(
-        self, test_db_connection: ConnectionPool
-    ) -> None:
+    def test_vector_similarity_query_uses_index(self, test_db_connection: ConnectionPool) -> None:
         """Test vector similarity queries utilize HNSW index.
 
         Validates:
@@ -197,9 +193,7 @@ class TestVectorIndex:
         plan_str: str = str(explain_result)
         assert len(plan_str) > 0
 
-    def test_index_maintenance_on_updates(
-        self, test_db_connection: ConnectionPool
-    ) -> None:
+    def test_index_maintenance_on_updates(self, test_db_connection: ConnectionPool) -> None:
         """Test HNSW index is maintained on INSERT/UPDATE/DELETE.
 
         Validates:
@@ -275,9 +269,7 @@ class TestVectorIndex:
                 count: int = cur.fetchone()[0]
                 assert count == 0
 
-    def test_index_creation_with_existing_data(
-        self, test_db_connection: ConnectionPool
-    ) -> None:
+    def test_index_creation_with_existing_data(self, test_db_connection: ConnectionPool) -> None:
         """Test HNSW index creation on table with existing embeddings.
 
         Validates:

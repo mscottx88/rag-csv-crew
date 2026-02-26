@@ -170,9 +170,18 @@ class TestVectorSimilarity:
                     VALUES (%s, %s, %s, %s), (%s, %s, %s, %s), (%s, %s, %s, %s)
                     """,
                     (
-                        dataset_id, "col_identical", "TEXT", identical_embedding,
-                        dataset_id, "col_similar", "TEXT", similar_embedding,
-                        dataset_id, "col_different", "TEXT", different_embedding,
+                        dataset_id,
+                        "col_identical",
+                        "TEXT",
+                        identical_embedding,
+                        dataset_id,
+                        "col_similar",
+                        "TEXT",
+                        similar_embedding,
+                        dataset_id,
+                        "col_different",
+                        "TEXT",
+                        different_embedding,
                     ),
                 )
                 conn.commit()
@@ -248,9 +257,18 @@ class TestVectorSimilarity:
                     VALUES (%s, %s, %s, %s), (%s, %s, %s, %s), (%s, %s, %s, %s)
                     """,
                     (
-                        dataset_a, "col_a", "TEXT", embedding,
-                        dataset_b, "col_b", "TEXT", embedding,
-                        dataset_c, "col_c", "TEXT", embedding,
+                        dataset_a,
+                        "col_a",
+                        "TEXT",
+                        embedding,
+                        dataset_b,
+                        "col_b",
+                        "TEXT",
+                        embedding,
+                        dataset_c,
+                        "col_c",
+                        "TEXT",
+                        embedding,
                     ),
                 )
                 conn.commit()

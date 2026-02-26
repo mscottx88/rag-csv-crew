@@ -342,9 +342,7 @@ def _process_query_background(  # pylint: disable=too-many-locals
 
             logger.info(f"Data value search returned {len(value_matches)} matches")
 
-            tracker.update(
-                f"Data value search complete, found {len(value_matches)} matches"
-            )
+            tracker.update(f"Data value search complete, found {len(value_matches)} matches")
 
             # If data value matches found, boost confidence and merge results
             if len(value_matches) > 0:
@@ -497,9 +495,7 @@ def submit_query(
 
     # Store query as pending (persist dataset_ids for later retrieval)
     dataset_id_strs: list[str] | None = (
-        [str(uid) for uid in query_create.dataset_ids]
-        if query_create.dataset_ids
-        else None
+        [str(uid) for uid in query_create.dataset_ids] if query_create.dataset_ids else None
     )
     query_id: UUID = history_service.store_query(
         query_text=query_create.query_text,

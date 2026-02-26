@@ -286,9 +286,7 @@ class TestHybridSearchOrchestration:
 
         # Current implementation raises on timeout (does not return partial results)
         with pytest.raises(Exception):
-            service.search(
-                username="testuser", query_text="revenue", dataset_ids=None, limit=10
-            )
+            service.search(username="testuser", query_text="revenue", dataset_ids=None, limit=10)
 
     def test_hybrid_search_with_dataset_filter_all_strategies(
         self, test_db_connection: Any
@@ -324,9 +322,7 @@ class TestHybridSearchOrchestration:
 
         dataset_ids: list[str] = ["dataset-A", "dataset-B"]
 
-        service.search(
-            username="testuser", query_text="revenue", dataset_ids=dataset_ids, limit=10
-        )
+        service.search(username="testuser", query_text="revenue", dataset_ids=dataset_ids, limit=10)
 
         # Verify vector search received dataset filter
         mock_vector_service.find_similar_columns.assert_called_once()

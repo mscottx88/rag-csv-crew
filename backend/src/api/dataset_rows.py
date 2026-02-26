@@ -140,9 +140,7 @@ def get_dataset_rows(
             # Sanitize names to match actual PostgreSQL columns (handles legacy data
             # where schema_json may contain original mixed-case CSV header names)
             columns_raw: list[dict[str, Any]] = schema_json_db.get("columns", [])
-            column_names: list[str] = [
-                sanitize_column_name(col["name"]) for col in columns_raw
-            ]
+            column_names: list[str] = [sanitize_column_name(col["name"]) for col in columns_raw]
 
             if not column_names:
                 return DatasetRowsResponse(
@@ -164,8 +162,7 @@ def get_dataset_rows(
             schema_ident: sql.Identifier = sql.Identifier(f"{username}_schema")
 
             query: sql.Composed = sql.SQL(
-                "SELECT {cols} FROM {schema}.{table} "
-                "ORDER BY _row_id LIMIT %s OFFSET %s"
+                "SELECT {cols} FROM {schema}.{table} " "ORDER BY _row_id LIMIT %s OFFSET %s"
             ).format(
                 cols=col_identifiers,
                 schema=schema_ident,
@@ -177,10 +174,7 @@ def get_dataset_rows(
                 raw_rows: list[tuple[Any, ...]] = cur.fetchall()
 
             # Serialize cell values for JSON
-            rows: list[list[Any]] = [
-                [_serialize_cell(cell) for cell in row]
-                for row in raw_rows
-            ]
+            rows: list[list[Any]] = [[_serialize_cell(cell) for cell in row] for row in raw_rows]
 
             has_more: bool = offset + limit < row_count
 

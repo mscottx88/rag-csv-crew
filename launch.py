@@ -74,15 +74,13 @@ def start_frontend(script_dir: Path) -> subprocess.Popen[bytes]:
         ["npm", "run", "dev"],
         cwd=str(frontend_cwd),
         # Inherit parent's stdout/stderr so output is displayed in console
-        shell=True,  # Required for npm on Windows
+        shell=sys.platform == "win32",  # Required for npm on Windows
     )
     print(f"[OK] Frontend started (PID: {frontend_process.pid})")
     return frontend_process
 
 
-def stop_process(
-    process: subprocess.Popen[bytes], name: str, use_ctrl_c: bool = False
-) -> None:
+def stop_process(process: subprocess.Popen[bytes], name: str, use_ctrl_c: bool = False) -> None:
     """Stop a process gracefully, with fallback to kill.
 
     Args:

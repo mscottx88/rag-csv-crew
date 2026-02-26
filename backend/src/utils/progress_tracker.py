@@ -61,9 +61,7 @@ class ProgressTracker:
         """
         elapsed_ms: int = int((time.time() - self.start_time) * 1000)
         self.timeline.append({"elapsed_ms": elapsed_ms, "message": message})
-        self.history_service.update_progress_message(
-            self.query_id, self.username, message
-        )
+        self.history_service.update_progress_message(self.query_id, self.username, message)
 
     def get_timeline_json(self) -> str:
         """Return the accumulated timeline as a JSON string for JSONB storage.
