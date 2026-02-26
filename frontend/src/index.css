@@ -160,23 +160,27 @@ select:not(:disabled):hover {
   --hover-glow-color: var(--green);
 }
 
-/* Gold — history nav, history items, twisty, agent console */
+/* Gold — history nav, history items, twisty, agent console, status badges */
 .nav-link[data-route="history"]:hover,
 .expand-indicator:hover,
 .history-item:hover,
-.console-header:hover {
+.console-header:hover,
+.status-badge:hover,
+.neon-select:hover {
   --hover-glow-color: var(--gold);
 }
 
 /* Sidebar nav per-route */
 .nav-link[data-route=""]:hover        { --hover-glow-color: var(--pink); }
 .nav-link[data-route="query"]:hover   { --hover-glow-color: var(--cyan); }
+.nav-link[data-route="upload"]:hover  { --hover-glow-color: var(--green); }
 .nav-link[data-route="datasets"]:hover{ --hover-glow-color: var(--orange); }
 
 /* Dashboard action cards */
 .action-card:nth-child(1):hover { --hover-glow-color: var(--cyan); }
-.action-card:nth-child(2):hover { --hover-glow-color: var(--orange); }
-.action-card:nth-child(3):hover { --hover-glow-color: var(--gold); }
+.action-card:nth-child(2):hover { --hover-glow-color: var(--green); }
+.action-card:nth-child(3):hover { --hover-glow-color: var(--orange); }
+.action-card:nth-child(4):hover { --hover-glow-color: var(--gold); }
 
 /* Error — cancel, delete, destructive buttons */
 .cancel-button:not(:disabled):hover,

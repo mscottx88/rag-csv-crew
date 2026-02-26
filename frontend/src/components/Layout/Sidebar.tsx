@@ -41,6 +41,21 @@ export const Sidebar: React.FC = () => {
         </NavLink>
 
         <NavLink
+          to="/upload"
+          data-route="upload"
+          className={({ isActive }): string => `nav-link ${isActive ? 'active' : ''}`}
+        >
+          <svg className="nav-icon-svg nav-icon-green" viewBox="0 0 48 48" fill="none">
+            <rect x="8" y="20" width="32" height="24" rx="2" strokeWidth="2" />
+            <polyline points="16,28 24,20 32,28" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <line x1="24" y1="20" x2="24" y2="38" strokeWidth="2" strokeLinecap="round" />
+            <line x1="14" y1="8" x2="34" y2="8" strokeWidth="1.5" strokeLinecap="round" opacity="0.4" />
+            <line x1="18" y1="13" x2="30" y2="13" strokeWidth="1.5" strokeLinecap="round" opacity="0.4" />
+          </svg>
+          <span className="nav-text">Upload</span>
+        </NavLink>
+
+        <NavLink
           to="/datasets"
           data-route="datasets"
           className={({ isActive }): string => `nav-link ${isActive ? 'active' : ''}`}

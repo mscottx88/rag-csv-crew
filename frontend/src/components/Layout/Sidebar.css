@@ -60,6 +60,19 @@
   border-left-color: rgba(0, 238, 255, 0.3);
 }
 
+/* Upload → green */
+.nav-link[data-route="upload"].active {
+  color: var(--green);
+  border-left-color: var(--green);
+  background: var(--green-dim);
+  text-shadow: 0 0 8px var(--green);
+}
+
+.nav-link[data-route="upload"]:hover {
+  color: var(--green);
+  border-left-color: rgba(57, 255, 20, 0.3);
+}
+
 /* Datasets → orange */
 .nav-link[data-route="datasets"].active {
   color: var(--orange);
@@ -102,6 +115,7 @@
 /* Idle colors with subtle glow */
 .nav-icon-pink  { color: var(--txt-muted); filter: drop-shadow(0 0 2px var(--pink-dim)); }
 .nav-icon-cyan  { color: var(--txt-muted); filter: drop-shadow(0 0 2px var(--cyan-dim)); }
+.nav-icon-green { color: var(--txt-muted); filter: drop-shadow(0 0 2px var(--green-dim)); }
 .nav-icon-orange{ color: var(--txt-muted); filter: drop-shadow(0 0 2px var(--orange-dim)); }
 .nav-icon-gold  { color: var(--txt-muted); filter: drop-shadow(0 0 2px var(--gold-dim)); }
 
@@ -113,6 +127,10 @@
 .nav-link[data-route="query"].active .nav-icon-cyan {
   color: var(--cyan);
   filter: drop-shadow(0 0 4px var(--cyan)) drop-shadow(0 0 10px var(--cyan-dim));
+}
+.nav-link[data-route="upload"].active .nav-icon-green {
+  color: var(--green);
+  filter: drop-shadow(0 0 4px var(--green)) drop-shadow(0 0 10px var(--green-dim));
 }
 .nav-link[data-route="datasets"].active .nav-icon-orange {
   color: var(--orange);
@@ -133,6 +151,11 @@
   color: var(--cyan);
   filter: drop-shadow(0 0 5px var(--cyan)) drop-shadow(0 0 12px var(--cyan-glow));
   animation: nav-icon-scan 1.2s ease-in-out infinite;
+}
+.nav-link[data-route="upload"]:hover .nav-icon-green {
+  color: var(--green);
+  filter: drop-shadow(0 0 5px var(--green)) drop-shadow(0 0 12px var(--green-glow));
+  animation: nav-icon-float 1.5s ease-in-out infinite;
 }
 .nav-link[data-route="datasets"]:hover .nav-icon-orange {
   color: var(--orange);
@@ -155,6 +178,12 @@
 @keyframes nav-icon-scan {
   0%, 100% { transform: translateX(0); }
   50%      { transform: translateX(3px); }
+}
+
+/* Upload arrow: floating up */
+@keyframes nav-icon-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
 }
 
 /* Datasets grid: breathing pulse */

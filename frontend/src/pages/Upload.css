@@ -1,22 +1,17 @@
-.datasets-page {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
+.upload-page {
   padding: 2rem;
-  min-height: 0;
-  overflow: hidden;
 }
 
-.datasets-page h1 {
+.upload-page h1 {
   margin: 0 0 0.5rem 0;
-  color: var(--orange);
+  color: var(--green);
   font-size: clamp(1.5rem, 3vw, 2rem);
   font-family: 'Courier New', Courier, monospace;
   letter-spacing: 0.04em;
-  text-shadow: 0 0 10px var(--orange-dim);
+  text-shadow: 0 0 10px var(--green-dim);
 }
 
-.datasets-page > .page-description {
+.upload-page > .page-description {
   margin: 0 0 1.5rem 0;
   color: var(--txt-muted);
   font-size: 0.9rem;

@@ -28,7 +28,7 @@
 
 /* Status badges — neon variants */
 .status-badge {
-  padding: 0.3rem 0.7rem;
+  padding: 0.2rem 0.7rem;
   border-radius: 2px;
   font-size: 0.7rem;
   font-weight: 700;
@@ -40,6 +40,7 @@
   align-items: center;
   gap: 0.3rem;
   white-space: nowrap;
+  line-height: 1.4;
 }
 
 .status-check-icon {

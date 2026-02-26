@@ -321,7 +321,7 @@
 
 /* Status badges (gold-themed) */
 .status-badge {
-  padding: 0.3rem 0.7rem;
+  padding: 0.2rem 0.7rem;
   border-radius: 2px;
   font-size: 0.7rem;
   font-weight: 700;
@@ -332,6 +332,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
+  line-height: 1.4;
 }
 
 .status-check-icon {
