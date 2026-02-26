@@ -4,11 +4,14 @@
  *
  * Animation phases:
  *   hidden      – no animation shown
- *   uploading   – BeakerProgress (HTTP upload, 0–99%)
- *   processing  – FunnelProgress (upload hit 100%, first ~3 s of server work)
- *   embedding   – VectorizeProgress (3 s+ of server work; embedding phase)
- *   complete    – CogProgress (response received, shown for 3.5 s)
- *   fading      – CogProgress fading out over 1.5 s
+ *   uploading   – BeakerProgress (HTTP upload, 0–100%)
+ *   processing  – FunnelProgress (ingestion phase)
+ *   embedding   – VectorizeProgress (embedding phase)
+ *   complete    – CogProgress (shown for COMPLETE_HOLD_MS then fades out)
+ *
+ * Each phase is shown for at least MIN_PHASE_MS before transitioning.
+ * Transitions are cross-fades: fade out → swap content → fade in.
+ * Opacity is controlled via inline style so the CSS transition animates it.
  */
 
 import React, { useState, ChangeEvent, DragEvent, useRef, useEffect } from 'react';
@@ -20,7 +23,16 @@ import { VectorizeProgress } from './VectorizeProgress';
 import { CogProgress } from './CogProgress';
 import './UploadForm.css';
 
-type AnimPhase = 'hidden' | 'uploading' | 'processing' | 'embedding' | 'complete' | 'fading';
+type AnimPhase = 'hidden' | 'uploading' | 'processing' | 'embedding' | 'complete';
+
+/** Cross-fade duration in ms */
+const FADE_MS: number = 350;
+/** Minimum time each phase is visible before transitioning away */
+const MIN_PHASE_MS: number = 1000;
+/** How long to hold the "complete" animation before fading out */
+const COMPLETE_HOLD_MS: number = 3000;
+/** Seconds of processing before auto-advancing to embedding phase */
+const PROCESSING_HOLD_MS: number = 3000;
 
 interface UploadFormProps {
   onUploadComplete: (dataset: Dataset) => void;
@@ -33,23 +45,60 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConf
   const [progress, setProgress] = useState<number>(0);
   const [error, setError] = useState<string>('');
   const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [animPhase, setAnimPhase] = useState<AnimPhase>('hidden');
+  const [displayPhase, setDisplayPhase] = useState<AnimPhase>('hidden');
+  const [animOpacity, setAnimOpacity] = useState<number>(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const phaseTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  // Guards against setting up the processing→embedding timer more than once
+  const phaseStartRef = useRef<number>(0);
   const processingStartedRef = useRef<boolean>(false);
 
-  /** Cancel any pending phase-transition timers */
+  /** Cancel all pending phase-transition timers. */
   const clearPhaseTimers = (): void => {
     phaseTimersRef.current.forEach((id: ReturnType<typeof setTimeout>) => clearTimeout(id));
     phaseTimersRef.current = [];
   };
 
-  // Clean up timers on unmount
   useEffect(() => {
     return (): void => { clearPhaseTimers(); };
   }, []);
+
+  /**
+   * Cross-fade to a new phase, honouring MIN_PHASE_MS for the current phase.
+   *
+   * Sequence:
+   *   1. Wait until current phase has been shown for MIN_PHASE_MS.
+   *   2. Fade opacity to 0 (FADE_MS transition).
+   *   3. Swap displayPhase to newPhase (React re-renders at opacity 0).
+   *   4. One tick later: set opacity to 1 (FADE_MS transition).
+   *   5. Call onShown() so callers can schedule follow-up transitions.
+   */
+  const crossFadeTo = (newPhase: AnimPhase, onShown?: () => void): void => {
+    const elapsed: number = Date.now() - phaseStartRef.current;
+    const wait: number = Math.max(0, MIN_PHASE_MS - elapsed);
+
+    const tWait: ReturnType<typeof setTimeout> = setTimeout((): void => {
+      setAnimOpacity(0);
+
+      const tSwap: ReturnType<typeof setTimeout> = setTimeout((): void => {
+        setDisplayPhase(newPhase);
+        phaseStartRef.current = Date.now();
+
+        // One tick after React renders the new content at opacity 0, fade in.
+        const tFadeIn: ReturnType<typeof setTimeout> = setTimeout((): void => {
+          setAnimOpacity(1);
+          if (onShown) {
+            onShown();
+          }
+        }, 16);
+        phaseTimersRef.current.push(tFadeIn);
+      }, FADE_MS);
+
+      phaseTimersRef.current.push(tSwap);
+    }, wait);
+
+    phaseTimersRef.current.push(tWait);
+  };
 
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>): void => {
     const file: File | null = e.target.files?.[0] || null;
@@ -93,7 +142,14 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConf
     setUploading(true);
     setError('');
     setProgress(0);
-    setAnimPhase('uploading');
+
+    // Show uploading phase immediately: render at opacity 0, then fade in after 1 tick.
+    setDisplayPhase('uploading');
+    phaseStartRef.current = Date.now();
+    const tFadeIn: ReturnType<typeof setTimeout> = setTimeout((): void => {
+      setAnimOpacity(1);
+    }, 16);
+    phaseTimersRef.current.push(tFadeIn);
 
     try {
       const dataset: Dataset = await datasetsService.upload(
@@ -102,50 +158,51 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConf
           const pct: number = uploadProgress.percentage;
           setProgress(pct);
 
-          // When HTTP upload finishes, switch to funnel (ingestion) phase.
-          // After 3 s of waiting, switch to vectorize (embedding) phase.
-          // Guard prevents multiple timers if the callback fires > once at 100%.
+          // When HTTP upload completes, cross-fade to processing.
+          // After PROCESSING_HOLD_MS of showing processing, cross-fade to embedding.
+          // Guard prevents double-scheduling if this callback fires multiple times at 100%.
           if (pct >= 100 && !processingStartedRef.current) {
             processingStartedRef.current = true;
-            setAnimPhase('processing');
-
-            const t0: ReturnType<typeof setTimeout> = setTimeout((): void => {
-              // Only advance if we haven't already moved to 'complete'
-              setAnimPhase((prev: AnimPhase): AnimPhase =>
-                prev === 'processing' ? 'embedding' : prev
-              );
-            }, 3000);
-            phaseTimersRef.current.push(t0);
+            crossFadeTo('processing', (): void => {
+              const tEmbedding: ReturnType<typeof setTimeout> = setTimeout((): void => {
+                crossFadeTo('embedding');
+              }, PROCESSING_HOLD_MS);
+              phaseTimersRef.current.push(tEmbedding);
+            });
           }
         }
       );
 
-      // Server responded — all phases done
+      // Server responded — cancel any pending phase timers and go to complete.
       clearPhaseTimers();
-      setSelectedFile(null);
+      processingStartedRef.current = false;
       setProgress(0);
-      setAnimPhase('complete');
-
+      setSelectedFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
 
-      // Show cog for 3.5 s, then 1.5 s fade-out, then notify parent
-      const t1: ReturnType<typeof setTimeout> = setTimeout((): void => {
-        setAnimPhase('fading');
-        const t2: ReturnType<typeof setTimeout> = setTimeout((): void => {
-          setAnimPhase('hidden');
-          onUploadComplete(dataset);
-        }, 1500);
-        phaseTimersRef.current.push(t2);
-      }, 3500);
-      phaseTimersRef.current.push(t1);
+      crossFadeTo('complete', (): void => {
+        // After holding complete, fade out and notify parent.
+        const tHold: ReturnType<typeof setTimeout> = setTimeout((): void => {
+          setAnimOpacity(0);
+          const tHide: ReturnType<typeof setTimeout> = setTimeout((): void => {
+            setDisplayPhase('hidden');
+            onUploadComplete(dataset);
+          }, FADE_MS);
+          phaseTimersRef.current.push(tHide);
+        }, COMPLETE_HOLD_MS);
+        phaseTimersRef.current.push(tHold);
+      });
 
     } catch (err: unknown) {
       clearPhaseTimers();
-      setAnimPhase('hidden');
+      setAnimOpacity(0);
+      const tHide: ReturnType<typeof setTimeout> = setTimeout((): void => {
+        setDisplayPhase('hidden');
+      }, FADE_MS);
+      phaseTimersRef.current.push(tHide);
 
-      // Check for conflict error (409)
       if (typeof err === 'object' && err !== null && 'status' in err && err.status === 409) {
         if (onConflict && selectedFile) {
           onConflict(selectedFile.name);
@@ -163,19 +220,20 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConf
   const handleCancel = (): void => {
     clearPhaseTimers();
     processingStartedRef.current = false;
-    setSelectedFile(null);
     setProgress(0);
     setError('');
     setUploading(false);
-    setAnimPhase('hidden');
+    setAnimOpacity(0);
+    const tHide: ReturnType<typeof setTimeout> = setTimeout((): void => {
+      setDisplayPhase('hidden');
+    }, FADE_MS);
+    phaseTimersRef.current.push(tHide);
+    setSelectedFile(null);
 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
-
-  const showAnimation: boolean = animPhase !== 'hidden';
-  const isFading: boolean = animPhase === 'fading';
 
   return (
     <div className="upload-form">
@@ -211,18 +269,18 @@ export const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onConf
         </div>
       )}
 
-      {showAnimation && (
-        <div className={`upload-animation ${isFading ? 'fading-out' : ''}`}>
-          {animPhase === 'uploading' && (
+      {displayPhase !== 'hidden' && (
+        <div className="upload-animation" style={{ opacity: animOpacity }}>
+          {displayPhase === 'uploading' && (
             <BeakerProgress progress={progress} />
           )}
-          {animPhase === 'processing' && (
+          {displayPhase === 'processing' && (
             <FunnelProgress label="Ingesting..." />
           )}
-          {animPhase === 'embedding' && (
+          {displayPhase === 'embedding' && (
             <VectorizeProgress label="Embedding..." />
           )}
-          {(animPhase === 'complete' || animPhase === 'fading') && (
+          {displayPhase === 'complete' && (
             <CogProgress label="Complete!" />
           )}
         </div>

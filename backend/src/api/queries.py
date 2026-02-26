@@ -596,7 +596,7 @@ def get_example_queries(
     return {"examples": examples}
 
 
-@router.get("", response_model=QueryHistory)
+@router.get("/history", response_model=QueryHistory)
 def get_query_history(
     response: Response,
     page: int = 1,

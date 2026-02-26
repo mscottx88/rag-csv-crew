@@ -1,9 +1,10 @@
 /**
  * CursorSnake — Geometric neon hexagon chain that follows the cursor.
  *
- * A fixed full-viewport canvas overlay (pointer-events: none) renders a
- * connected chain of hexagons whose size, opacity, and colour fade from
- * head to tail, giving the illusion of a glowing wireframe snake.
+ * Uses a spring/lerp chain: each node continuously interpolates toward the
+ * node ahead of it (node[0] interpolates toward the mouse). When the mouse
+ * is idle the entire chain catches up and converges to a single glowing
+ * hexagon at the cursor — no stagnant trail.
  */
 
 import React, { useEffect, useRef } from 'react';
@@ -14,9 +15,14 @@ interface Point {
   y: number;
 }
 
-const CHAIN_LENGTH: number = 32;
+const CHAIN_LENGTH: number = 28;
 const HEAD_RADIUS: number = 7;
 const TAIL_RADIUS: number = 1;
+const HEAD_LERP: number = 0.18;   // how fast node[0] chases the mouse
+const NODE_LERP: number = 0.30;   // how fast each node chases the one ahead
+const MIN_SEG_DIST: number = 1.5; // skip drawing segments shorter than this (px)
+const SHADOW_BLUR: number = 14;
+
 const NEON_COLORS: readonly string[] = [
   '#ff10f0', // pink
   '#00eeff', // cyan
@@ -24,8 +30,8 @@ const NEON_COLORS: readonly string[] = [
   '#39ff14', // green
   '#ffd700', // gold
 ];
-const SHADOW_BLUR: number = 14;
-const FRAME_SKIP: number = 2; // sample cursor every N pixels of movement
+
+const OFF_SCREEN: number = -2000;
 
 function hexagonPath(
   ctx: CanvasRenderingContext2D,
@@ -47,11 +53,15 @@ function hexagonPath(
 
 export const CursorSnake: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const pointsRef = useRef<Point[]>([]);
+  const mousePosRef = useRef<Point>({ x: OFF_SCREEN, y: OFF_SCREEN });
+  const nodesRef = useRef<Point[]>(
+    Array.from({ length: CHAIN_LENGTH }, (): Point => ({ x: OFF_SCREEN, y: OFF_SCREEN }))
+  );
   const rafRef = useRef<number>(0);
-  const lastRef = useRef<Point>({ x: -999, y: -999 });
   const frameRef = useRef<number>(0);
   const colorIdxRef = useRef<number>(0);
+  const prevHeadRef = useRef<Point>({ x: OFF_SCREEN, y: OFF_SCREEN });
+  const mouseSeenRef = useRef<boolean>(false);
 
   useEffect(() => {
     const canvas: HTMLCanvasElement | null = canvasRef.current;
@@ -65,19 +75,16 @@ export const CursorSnake: React.FC = () => {
     window.addEventListener('resize', resize);
 
     const onMove = (e: MouseEvent): void => {
-      const cur: Point = { x: e.clientX, y: e.clientY };
-      const last: Point = lastRef.current;
-      const dx: number = cur.x - last.x;
-      const dy: number = cur.y - last.y;
-      const dist: number = Math.sqrt(dx * dx + dy * dy);
-
-      if (dist < FRAME_SKIP) return;
-
-      // Advance color index slowly as the snake moves
-      colorIdxRef.current = (colorIdxRef.current + 0.04) % NEON_COLORS.length;
-
-      pointsRef.current = [cur, ...pointsRef.current].slice(0, CHAIN_LENGTH);
-      lastRef.current = cur;
+      mousePosRef.current = { x: e.clientX, y: e.clientY };
+      if (!mouseSeenRef.current) {
+        // Snap all nodes to cursor on first sighting to avoid fly-in from off-screen
+        for (const node of nodesRef.current) {
+          node.x = e.clientX;
+          node.y = e.clientY;
+        }
+        prevHeadRef.current = { x: e.clientX, y: e.clientY };
+        mouseSeenRef.current = true;
+      }
     };
 
     window.addEventListener('mousemove', onMove);
@@ -88,52 +95,82 @@ export const CursorSnake: React.FC = () => {
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const points: Point[] = pointsRef.current;
-      const count: number = points.length;
-      if (count < 2) { rafRef.current = requestAnimationFrame(draw); return; }
+      if (!mouseSeenRef.current) { rafRef.current = requestAnimationFrame(draw); return; }
+
+      // ── 1. Update node positions via lerp ──
+      const mouse: Point = mousePosRef.current;
+      const nodes: Point[] = nodesRef.current;
+
+      nodes[0]!.x += (mouse.x - nodes[0]!.x) * HEAD_LERP;
+      nodes[0]!.y += (mouse.y - nodes[0]!.y) * HEAD_LERP;
+
+      for (let i: number = 1; i < CHAIN_LENGTH; i++) {
+        nodes[i]!.x += (nodes[i - 1]!.x - nodes[i]!.x) * NODE_LERP;
+        nodes[i]!.y += (nodes[i - 1]!.y - nodes[i]!.y) * NODE_LERP;
+      }
+
+      // ── 2. Advance color based on how much the head moved this frame ──
+      const hdx: number = nodes[0]!.x - prevHeadRef.current.x;
+      const hdy: number = nodes[0]!.y - prevHeadRef.current.y;
+      const headDist: number = Math.sqrt(hdx * hdx + hdy * hdy);
+      colorIdxRef.current = (colorIdxRef.current + headDist * 0.004) % NEON_COLORS.length;
+      prevHeadRef.current = { x: nodes[0]!.x, y: nodes[0]!.y };
 
       frameRef.current += 1;
 
+      // ── 3. Build visible node list (skip nodes that haven't separated enough) ──
+      const visible: number[] = [0];
+      for (let i: number = 1; i < CHAIN_LENGTH; i++) {
+        const prev: number = visible[visible.length - 1]!;
+        const dx: number = nodes[i]!.x - nodes[prev]!.x;
+        const dy: number = nodes[i]!.y - nodes[prev]!.y;
+        if (Math.sqrt(dx * dx + dy * dy) >= MIN_SEG_DIST) {
+          visible.push(i);
+        }
+      }
+
+      const count: number = visible.length;
       const baseColorIdx: number = Math.floor(colorIdxRef.current) % NEON_COLORS.length;
       const headColor: string = NEON_COLORS[baseColorIdx] ?? '#ff10f0';
 
-      // Draw connecting lines first (below hexagons)
-      for (let i: number = 0; i < count - 1; i++) {
-        const t: number = i / (count - 1);
-        const alpha: number = (1 - t) * 0.6;
-        const segColorIdx: number = (baseColorIdx + Math.floor(i / 6)) % NEON_COLORS.length;
+      // ── 4. Draw connecting lines ──
+      for (let vi: number = 0; vi < count - 1; vi++) {
+        const i: number = visible[vi]!;
+        const j: number = visible[vi + 1]!;
+        const t: number = vi / Math.max(count - 1, 1);
+        const segColorIdx: number = (baseColorIdx + Math.floor(vi / 5)) % NEON_COLORS.length;
         const segColor: string = NEON_COLORS[segColorIdx] ?? headColor;
 
         ctx.save();
-        ctx.globalAlpha = alpha;
+        ctx.globalAlpha = (1 - t) * 0.55;
         ctx.strokeStyle = segColor;
-        ctx.lineWidth = Math.max(0.5, (1 - t) * 1.5);
+        ctx.lineWidth = Math.max(0.4, (1 - t) * 1.5);
         ctx.shadowBlur = SHADOW_BLUR * (1 - t);
         ctx.shadowColor = segColor;
         ctx.beginPath();
-        ctx.moveTo(points[i]!.x, points[i]!.y);
-        ctx.lineTo(points[i + 1]!.x, points[i + 1]!.y);
+        ctx.moveTo(nodes[i]!.x, nodes[i]!.y);
+        ctx.lineTo(nodes[j]!.x, nodes[j]!.y);
         ctx.stroke();
         ctx.restore();
       }
 
-      // Draw hexagons (head → tail)
-      for (let i: number = 0; i < count; i++) {
-        const t: number = i / (count - 1);
+      // ── 5. Draw hexagons ──
+      for (let vi: number = 0; vi < count; vi++) {
+        const i: number = visible[vi]!;
+        const t: number = vi / Math.max(count - 1, 1);
         const alpha: number = 1 - t;
         const r: number = TAIL_RADIUS + (HEAD_RADIUS - TAIL_RADIUS) * (1 - t);
-        const segColorIdx: number = (baseColorIdx + Math.floor(i / 6)) % NEON_COLORS.length;
+        const segColorIdx: number = (baseColorIdx + Math.floor(vi / 5)) % NEON_COLORS.length;
         const segColor: string = NEON_COLORS[segColorIdx] ?? headColor;
-        // Rotate hexagons slowly over time, faster at head
-        const rotation: number = (frameRef.current * 0.015) * (1 - t * 0.7);
+        const rotation: number = frameRef.current * 0.015 * (1 - t * 0.7);
 
         ctx.save();
         ctx.globalAlpha = alpha;
         ctx.strokeStyle = segColor;
-        ctx.lineWidth = Math.max(0.5, (1 - t) * 1.5);
+        ctx.lineWidth = Math.max(0.4, (1 - t) * 1.5);
         ctx.shadowBlur = SHADOW_BLUR * (1 - t * 0.8);
         ctx.shadowColor = segColor;
-        hexagonPath(ctx, points[i]!.x, points[i]!.y, r, rotation);
+        hexagonPath(ctx, nodes[i]!.x, nodes[i]!.y, r, rotation);
         ctx.stroke();
         ctx.restore();
       }

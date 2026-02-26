@@ -309,7 +309,7 @@ class CrossReferenceService:
         """
         cur.execute(
             """
-            SELECT column_name, data_type
+            SELECT column_name, inferred_type
             FROM column_mappings
             WHERE dataset_id = %s
             AND column_name NOT LIKE '_%%'  -- Exclude metadata columns (escape %% for psycopg)
@@ -368,14 +368,14 @@ class CrossReferenceService:
         Returns:
             True if types are compatible
         """
-        # Numeric types
-        numeric_types: set[str] = {"integer", "bigint", "numeric", "real", "double precision"}
+        # Numeric types (inferred_type values from ingestion)
+        numeric_types: set[str] = {"INTEGER", "FLOAT"}
 
         # Text types
-        text_types: set[str] = {"text", "varchar", "character varying", "char"}
+        text_types: set[str] = {"TEXT"}
 
         # Date/time types
-        date_types: set[str] = {"date", "timestamp", "timestamp with time zone"}
+        date_types: set[str] = {"DATE", "TIMESTAMP"}
 
         if type1 in numeric_types and type2 in numeric_types:
             return True

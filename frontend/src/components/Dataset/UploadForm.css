@@ -105,13 +105,8 @@
   color: var(--txt);
 }
 
-/* Animation phase wrapper */
+/* Animation phase wrapper — opacity controlled via inline style; transition provides the cross-fade */
 .upload-animation {
   width: 100%;
-  opacity: 1;
-  transition: opacity 1.5s ease;
-}
-
-.upload-animation.fading-out {
-  opacity: 0;
+  transition: opacity 350ms ease;
 }
