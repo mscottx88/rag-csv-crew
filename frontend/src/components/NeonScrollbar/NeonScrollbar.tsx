@@ -33,6 +33,14 @@ interface NeonScrollbarProps {
   innerStyle?: React.CSSProperties;
   /** Forward the inner element to this ref for external scroll control. */
   scrollRef?: { current: HTMLDivElement | null };
+  /** Total items in virtual content (enables virtual Y-thumb sizing). */
+  virtualYTotal?: number;
+  /** 0-based index of first loaded item in DOM. */
+  virtualYStart?: number;
+  /** Number of loaded items currently in DOM. */
+  virtualYLoadedCount?: number;
+  /** Called on track click / drag-release with target 0-based item index. */
+  onVirtualYNavigate?: (targetRow: number) => void;
 }
 
 const MIN_THUMB_PX = 28;
@@ -45,6 +53,10 @@ export const NeonScrollbar: React.FC<NeonScrollbarProps> = ({
   innerClassName,
   innerStyle,
   scrollRef,
+  virtualYTotal,
+  virtualYStart,
+  virtualYLoadedCount,
+  onVirtualYNavigate,
 }) => {
   const innerRef = useRef<HTMLDivElement | null>(null);
   const thumbYRef = useRef<HTMLDivElement>(null);
@@ -52,6 +64,20 @@ export const NeonScrollbar: React.FC<NeonScrollbarProps> = ({
   const trackYRef = useRef<HTMLDivElement>(null);
   const trackXRef = useRef<HTMLDivElement>(null);
   const cornerRef = useRef<HTMLDivElement>(null);
+
+  // Virtual Y-axis: latest prop values in refs for use inside [] effects
+  const virtualYTotalRef = useRef(0);
+  const virtualYStartRef = useRef(0);
+  const virtualYLoadedCountRef = useRef(0);
+  const onVirtualYNavigateRef = useRef(onVirtualYNavigate);
+  const virtualStateRef = useRef<{ thumbH: number; visibleRows: number } | null>(null);
+  const isDraggingVirtualRef = useRef(false);
+
+  // Sync refs on every render (refs are mutable, no effect needed)
+  virtualYTotalRef.current = virtualYTotal ?? 0;
+  virtualYStartRef.current = virtualYStart ?? 0;
+  virtualYLoadedCountRef.current = virtualYLoadedCount ?? 0;
+  onVirtualYNavigateRef.current = onVirtualYNavigate;
 
   const setInnerRef = useCallback(
     (el: HTMLDivElement | null): void => {
@@ -81,19 +107,48 @@ export const NeonScrollbar: React.FC<NeonScrollbarProps> = ({
       const trackYH = trackY.clientHeight;
       const trackXW = trackX.clientWidth;
 
-      const showY = scrollHeight > clientHeight + 1;
+      const vTotal = virtualYTotalRef.current;
+      const vStart = virtualYStartRef.current;
+      const vLoaded = virtualYLoadedCountRef.current;
+      const useVirtual = vTotal > 0 && vLoaded > 0;
+
+      const showY = scrollHeight > clientHeight + 1 || (useVirtual && vTotal > vLoaded);
       if (showY) {
-        const thumbH = Math.max(MIN_THUMB_PX, (clientHeight / scrollHeight) * trackYH);
-        const maxScrollY = scrollHeight - clientHeight;
-        const maxThumbTop = trackYH - thumbH;
-        const thumbTop = maxScrollY > 0 ? (scrollTop / maxScrollY) * maxThumbTop : 0;
-        thumbY.style.height = `${thumbH}px`;
-        thumbY.style.top = `${thumbTop}px`;
+        let thumbH: number;
+        let thumbTop: number;
+
+        if (useVirtual) {
+          const maxScrollY = scrollHeight - clientHeight;
+          const vpRatio = scrollHeight > 0 ? clientHeight / scrollHeight : 1;
+          const visibleRows = Math.min(vpRatio * vLoaded, vTotal);
+          thumbH = Math.max(MIN_THUMB_PX, (visibleRows / vTotal) * trackYH);
+
+          const domFrac = maxScrollY > 0 ? scrollTop / maxScrollY : 0;
+          const scrolledRows = domFrac * Math.max(0, vLoaded - visibleRows);
+          const topRow = vStart + scrolledRows;
+          const maxRow = Math.max(0, vTotal - visibleRows);
+          const posFrac = maxRow > 0 ? Math.min(1, Math.max(0, topRow / maxRow)) : 0;
+          thumbTop = posFrac * (trackYH - thumbH);
+
+          virtualStateRef.current = { thumbH, visibleRows };
+        } else {
+          thumbH = Math.max(MIN_THUMB_PX, (clientHeight / scrollHeight) * trackYH);
+          const maxScrollY = scrollHeight - clientHeight;
+          const maxThumbTop = trackYH - thumbH;
+          thumbTop = maxScrollY > 0 ? (scrollTop / maxScrollY) * maxThumbTop : 0;
+          virtualStateRef.current = null;
+        }
+
+        if (!isDraggingVirtualRef.current) {
+          thumbY.style.height = `${thumbH}px`;
+          thumbY.style.top = `${thumbTop}px`;
+        }
         thumbY.style.display = '';
         trackY.style.display = '';
       } else {
         thumbY.style.display = 'none';
         trackY.style.display = 'none';
+        virtualStateRef.current = null;
       }
 
       const showX = scrollWidth > clientWidth + 1;
@@ -154,16 +209,27 @@ export const NeonScrollbar: React.FC<NeonScrollbarProps> = ({
     let isDragging = false;
     let dragStartMouse = 0;
     let dragStartScroll = 0;
+    let dragStartThumbTop = 0;
     let thumbSizeAtStart = 0;
     let trackSizeAtStart = 0;
+    let isVirtual = false;
+    let vDragFraction: number | null = null;
 
     const onMouseDown = (e: MouseEvent): void => {
       e.preventDefault();
       isDragging = true;
       dragStartMouse = e.clientY;
-      dragStartScroll = inner.scrollTop;
       thumbSizeAtStart = thumbY.offsetHeight;
       trackSizeAtStart = trackY.clientHeight;
+      if (virtualStateRef.current && onVirtualYNavigateRef.current) {
+        isVirtual = true;
+        isDraggingVirtualRef.current = true;
+        dragStartThumbTop = parseFloat(thumbY.style.top) || 0;
+        vDragFraction = null;
+      } else {
+        isVirtual = false;
+        dragStartScroll = inner.scrollTop;
+      }
       document.body.style.userSelect = 'none';
     };
 
@@ -171,16 +237,34 @@ export const NeonScrollbar: React.FC<NeonScrollbarProps> = ({
       if (!isDragging) return;
       const maxThumbTop = trackSizeAtStart - thumbSizeAtStart;
       if (maxThumbTop <= 0) return;
-      const delta = e.clientY - dragStartMouse;
-      const fraction = delta / maxThumbTop;
-      const maxScroll = inner.scrollHeight - inner.clientHeight;
-      inner.scrollTop = dragStartScroll + fraction * maxScroll;
+      if (isVirtual) {
+        const delta = e.clientY - dragStartMouse;
+        const newTop = Math.max(0, Math.min(maxThumbTop, dragStartThumbTop + delta));
+        thumbY.style.top = `${newTop}px`;
+        vDragFraction = newTop / maxThumbTop;
+      } else {
+        const delta = e.clientY - dragStartMouse;
+        const fraction = delta / maxThumbTop;
+        const maxScroll = inner.scrollHeight - inner.clientHeight;
+        inner.scrollTop = dragStartScroll + fraction * maxScroll;
+      }
     };
 
     const onMouseUp = (): void => {
       if (!isDragging) return;
       isDragging = false;
       document.body.style.userSelect = '';
+      if (isVirtual && vDragFraction !== null) {
+        const vs = virtualStateRef.current;
+        const navigate = onVirtualYNavigateRef.current;
+        if (vs && navigate) {
+          const maxRow = Math.max(0, virtualYTotalRef.current - vs.visibleRows);
+          navigate(Math.round(vDragFraction * maxRow));
+        }
+        vDragFraction = null;
+      }
+      isVirtual = false;
+      isDraggingVirtualRef.current = false;
     };
 
     thumbY.addEventListener('mousedown', onMouseDown);
@@ -257,7 +341,14 @@ export const NeonScrollbar: React.FC<NeonScrollbarProps> = ({
       if (e.target === thumbY) return;
       const rect = trackY.getBoundingClientRect();
       const fraction = (e.clientY - rect.top) / rect.height;
-      inner.scrollTop = fraction * (inner.scrollHeight - inner.clientHeight);
+      const vs = virtualStateRef.current;
+      const navigate = onVirtualYNavigateRef.current;
+      if (vs && navigate) {
+        const maxRow = Math.max(0, virtualYTotalRef.current - vs.visibleRows);
+        navigate(Math.round(fraction * maxRow));
+      } else {
+        inner.scrollTop = fraction * (inner.scrollHeight - inner.clientHeight);
+      }
     };
 
     const onTrackXClick = (e: MouseEvent): void => {

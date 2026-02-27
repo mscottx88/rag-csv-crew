@@ -674,7 +674,18 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
       </div>
 
       {/* Scrollable table area */}
-      <NeonScrollbar className="table-scroll-container" scrollRef={scrollContainerRef} color="orange">
+      <NeonScrollbar
+        className="table-scroll-container"
+        scrollRef={scrollContainerRef}
+        color="orange"
+        virtualYTotal={totalRowCount}
+        virtualYStart={(firstLoadedPage - 1) * pageSize}
+        virtualYLoadedCount={allRows.length}
+        onVirtualYNavigate={(targetRow: number): void => {
+          const page: number = Math.floor(targetRow / pageSize) + 1;
+          handlePageChange(Math.max(1, Math.min(page, totalPages)));
+        }}
+      >
         {/* Top loading indicator when prepending a previous page */}
         {loadingTop && (
           <div className="load-top-sentinel">
