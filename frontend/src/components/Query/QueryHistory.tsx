@@ -293,6 +293,7 @@ export const QueryHistory: React.FC<QueryHistoryProps> = ({ refresh = 0 }) => {
               {isExpanded && (
                 <NeonScrollbar
                   className="history-item-detail"
+                  innerClassName="history-detail-inner"
                   innerStyle={{ overflowX: 'hidden', paddingTop: '1rem', paddingLeft: '1rem' }}
                   color="gold"
                 >

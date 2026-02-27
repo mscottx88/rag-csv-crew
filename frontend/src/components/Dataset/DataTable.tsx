@@ -257,6 +257,8 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
   const lastLoadedPageRef = useRef<number>(1);      // no state mirror needed (not rendered)
   // Captured scrollHeight before prepend — used to restore scroll position
   const pendingScrollAdjustRef = useRef<number | null>(null);
+  // After sort: intra-page row index to scroll to once the new data renders
+  const pendingSortScrollRef = useRef<number | null>(null);
 
   const [colWidths, setColWidths] = useState<number[]>([]);
   const tableRef = useRef<HTMLTableElement>(null);
@@ -434,6 +436,33 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
     }
   }, [allRows.length]);
 
+  // ── Restore scroll position after sort ──────────────────────────────────
+  // When a sort replaces the data, scroll to the intra-page row that was
+  // visible before the sort so the user keeps their place in the dataset.
+
+  useLayoutEffect(() => {
+    if (
+      pendingSortScrollRef.current !== null &&
+      !loading &&
+      scrollContainerRef.current &&
+      tableRef.current &&
+      allRows.length > 0
+    ) {
+      const container: HTMLDivElement = scrollContainerRef.current;
+      const tbody: HTMLTableSectionElement | null =
+        tableRef.current.querySelector('tbody');
+      if (tbody) {
+        // The thead is sticky (top:0), so the visible data area starts at
+        // scrollTop + theadHeight in content coordinates.  Row N sits at
+        // theadHeight + N * rowHeight.  Setting scrollTop = N * rowHeight
+        // places row N right below the sticky header.
+        const rowHeight: number = tbody.scrollHeight / allRows.length;
+        container.scrollTop = pendingSortScrollRef.current * rowHeight;
+      }
+      pendingSortScrollRef.current = null;
+    }
+  }, [loading, allRows.length]);
+
   // ── Bottom sentinel — loads next page as user scrolls down ───────────────
 
   useEffect(() => {
@@ -532,11 +561,39 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
       setSortColumn(colName);
       setSortDirection('asc');
     }
+    // Compute the global row index at the top of the viewport.
+    // Use getBoundingClientRect so coordinates are viewport-relative and
+    // unaffected by offsetParent chains.  The thead is sticky, so the
+    // first visible data row sits below thead.bottom, not container.top.
+    let topLocalRow: number = 0;
+    const container: HTMLDivElement | null = scrollContainerRef.current;
+    const tbody: HTMLTableSectionElement | null =
+      tableRef.current?.querySelector('tbody') ?? null;
+    if (container && tbody && allRows.length > 0) {
+      const thead: HTMLTableSectionElement | null =
+        tableRef.current?.querySelector('thead') ?? null;
+      const containerTop: number = container.getBoundingClientRect().top;
+      const visibleTop: number = thead
+        ? Math.max(containerTop, thead.getBoundingClientRect().bottom)
+        : containerTop;
+      const tbodyRect: DOMRect = tbody.getBoundingClientRect();
+      const rowHeight: number = tbodyRect.height / allRows.length;
+      topLocalRow = rowHeight > 0
+        ? Math.max(0, Math.round((visibleTop - tbodyRect.top) / rowHeight))
+        : 0;
+    }
+    const targetRow: number =
+      (firstLoadedPageRef.current - 1) * pageSize + topLocalRow;
+    const targetPage: number =
+      Math.min(totalPages, Math.floor(targetRow / pageSize) + 1);
+    const intraPageRow: number = targetRow - (targetPage - 1) * pageSize;
+    pendingSortScrollRef.current = intraPageRow;
+
     generationRef.current += 1;
     loadingRef.current = false;
     loadingTopRef.current = false;
     loadingBottomRef.current = false;
-    doLoad(1, pageSize);
+    doLoad(targetPage, pageSize);
   };
 
   // ── Explicit page navigation ──────────────────────────────────────────────
