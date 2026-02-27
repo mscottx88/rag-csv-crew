@@ -13,6 +13,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from
 import { getRows } from '../../services/dataset-rows';
 import type { DatasetRowsResponse } from '../../types';
 import { NeonSelect } from '../NeonSelect/NeonSelect';
+import { NeonScrollbar } from '../NeonScrollbar/NeonScrollbar';
 import './DataTable.css';
 
 interface DataTableProps {
@@ -673,7 +674,7 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
       </div>
 
       {/* Scrollable table area */}
-      <div className="table-scroll-container" ref={scrollContainerRef}>
+      <NeonScrollbar className="table-scroll-container" scrollRef={scrollContainerRef} color="orange">
         {/* Top loading indicator when prepending a previous page */}
         {loadingTop && (
           <div className="load-top-sentinel">
@@ -771,7 +772,7 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
             All {totalRowCount.toLocaleString()} rows loaded
           </div>
         )}
-      </div>
+      </NeonScrollbar>
 
       {/* Pagination controls */}
       <PaginationControls

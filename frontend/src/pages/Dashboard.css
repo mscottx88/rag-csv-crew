@@ -48,9 +48,9 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
-  /* 1px gap with a faint substrate colour shows as a PCB-trace divider cross */
-  gap: 1px;
-  background: rgba(255, 255, 255, 0.05);
+  gap: 1rem;
+  padding: 1rem;
+  background: transparent;
   min-height: 0;
 }
 
@@ -58,7 +58,7 @@
 .action-card {
   background: var(--bg-card);
   padding: 3rem 4rem;
-  border-radius: 0;          /* no rounding — quadrant tiles */
+  border-radius: 8px;
   cursor: pointer;
   transition: background 0.25s;
   text-align: center;

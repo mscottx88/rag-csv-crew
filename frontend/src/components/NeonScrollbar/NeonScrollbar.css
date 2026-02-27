@@ -1,0 +1,137 @@
+/**
+ * NeonScrollbar — custom wireframe scrollbar overlay.
+ *
+ * Track width / height: 10 px
+ * Inner padding-right + padding-bottom: 10 px (content never overlaps tracks)
+ */
+
+/* ── Outer wrapper ────────────────────────────────────────────────────────── */
+.neon-scrollbar {
+  position: relative;
+  overflow: hidden;
+  /* height is determined by context: flex-item sizing, explicit height,
+     or max-height on this element — all work correctly */
+}
+
+/* ── Inner scrollable area ───────────────────────────────────────────────── */
+.neon-scrollbar-inner {
+  height: 100%;
+  min-height: 0;
+  overflow: scroll;
+  scrollbar-width: none;      /* Firefox */
+  /* Inherit max-height so auto-height outers (max-height only) constrain inner */
+  max-height: inherit;
+  /* Reserve space so content never slides under the tracks */
+  padding-right: 10px;
+  padding-bottom: 10px;
+  box-sizing: border-box;
+}
+
+.neon-scrollbar-inner::-webkit-scrollbar {
+  display: none;              /* Chrome / Safari */
+}
+
+/* ── Color custom properties (default: cyan) ─────────────────────────────── */
+.neon-scrollbar {
+  --nsb-track-bg:    rgba(0, 16, 20, 0.90);
+  --nsb-track-bdr:   rgba(0, 238, 255, 0.35);
+  --nsb-thumb:       rgba(0, 238, 255, 0.50);
+  --nsb-thumb-hover: rgba(0, 238, 255, 0.88);
+  --nsb-glow:        rgba(0, 238, 255, 0.30);
+}
+
+[data-color="orange"].neon-scrollbar {
+  --nsb-track-bg:    rgba(32, 10, 0, 0.90);
+  --nsb-track-bdr:   rgba(255, 102, 0, 0.35);
+  --nsb-thumb:       rgba(255, 102, 0, 0.50);
+  --nsb-thumb-hover: rgba(255, 102, 0, 0.88);
+  --nsb-glow:        rgba(255, 102, 0, 0.30);
+}
+
+[data-color="gold"].neon-scrollbar {
+  --nsb-track-bg:    rgba(28, 22, 0, 0.90);
+  --nsb-track-bdr:   rgba(255, 215, 0, 0.35);
+  --nsb-thumb:       rgba(255, 215, 0, 0.50);
+  --nsb-thumb-hover: rgba(255, 215, 0, 0.88);
+  --nsb-glow:        rgba(255, 215, 0, 0.30);
+}
+
+[data-color="green"].neon-scrollbar {
+  --nsb-track-bg:    rgba(0, 18, 0, 0.90);
+  --nsb-track-bdr:   rgba(57, 255, 20, 0.35);
+  --nsb-thumb:       rgba(57, 255, 20, 0.50);
+  --nsb-thumb-hover: rgba(57, 255, 20, 0.88);
+  --nsb-glow:        rgba(57, 255, 20, 0.28);
+}
+
+[data-color="pink"].neon-scrollbar {
+  --nsb-track-bg:    rgba(28, 0, 28, 0.90);
+  --nsb-track-bdr:   rgba(255, 16, 240, 0.35);
+  --nsb-thumb:       rgba(255, 16, 240, 0.50);
+  --nsb-thumb-hover: rgba(255, 16, 240, 0.88);
+  --nsb-glow:        rgba(255, 16, 240, 0.28);
+}
+
+/* ── Tracks ───────────────────────────────────────────────────────────────── */
+.nsb-track {
+  position: absolute;
+  z-index: 10;
+  background: var(--nsb-track-bg);
+}
+
+.nsb-track-y {
+  top: 0;
+  right: 0;
+  bottom: 10px;     /* leave room for corner */
+  width: 10px;
+  border-left: 1px solid var(--nsb-track-bdr);
+}
+
+.nsb-track-x {
+  left: 0;
+  right: 10px;      /* leave room for corner */
+  bottom: 0;
+  height: 10px;
+  border-top: 1px solid var(--nsb-track-bdr);
+}
+
+/* ── Corner ───────────────────────────────────────────────────────────────── */
+.nsb-corner {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  z-index: 10;
+  background: var(--nsb-track-bg);
+  border-left: 1px solid var(--nsb-track-bdr);
+  border-top: 1px solid var(--nsb-track-bdr);
+}
+
+/* ── Thumbs ───────────────────────────────────────────────────────────────── */
+.nsb-thumb {
+  position: absolute;
+  border-radius: 3px;
+  cursor: pointer;
+  background: var(--nsb-thumb);
+  box-shadow: 0 0 6px var(--nsb-glow);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.nsb-thumb:hover,
+.nsb-thumb:active {
+  background: var(--nsb-thumb-hover);
+  box-shadow: 0 0 10px var(--nsb-glow), 0 0 4px var(--nsb-glow);
+}
+
+/* Vertical thumb: left/right inset; top/height set by JS */
+.nsb-thumb-y {
+  left: 2px;
+  right: 2px;
+}
+
+/* Horizontal thumb: top/bottom inset; left/width set by JS */
+.nsb-thumb-x {
+  top: 2px;
+  bottom: 2px;
+}

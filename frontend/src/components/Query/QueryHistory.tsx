@@ -9,6 +9,7 @@ import * as queriesService from '../../services/queries';
 import { ResultDisplay } from './ResultDisplay';
 import { useQueryReplay } from './useQueryReplay';
 import { NeonSelect } from '../NeonSelect/NeonSelect';
+import { NeonScrollbar } from '../NeonScrollbar/NeonScrollbar';
 import type { Query, QueryHistory as QueryHistoryType, QueryStatus } from '../../types';
 import './QueryHistory.css';
 
@@ -216,7 +217,12 @@ export const QueryHistory: React.FC<QueryHistoryProps> = ({ refresh = 0 }) => {
         </div>
       ) : (
       <>
-      <div className="history-list">
+      <NeonScrollbar
+        style={{ flex: 1, minHeight: 0 }}
+        innerClassName="history-list"
+        innerStyle={{ overflowX: 'hidden' }}
+        color="gold"
+      >
         {history.queries.map((query: Query) => {
           const isExpanded: boolean = expandedId === query.id;
 
@@ -285,7 +291,11 @@ export const QueryHistory: React.FC<QueryHistoryProps> = ({ refresh = 0 }) => {
               </div>
 
               {isExpanded && (
-                <div className="history-item-detail">
+                <NeonScrollbar
+                  className="history-item-detail"
+                  innerStyle={{ overflowX: 'hidden', paddingTop: '1rem', paddingLeft: '1rem' }}
+                  color="gold"
+                >
                   {detailLoading === query.id ? (
                     <div className="history-detail-loading">Loading details...</div>
                   ) : replayingId === query.id && replayState.isReplaying ? (
@@ -299,12 +309,12 @@ export const QueryHistory: React.FC<QueryHistoryProps> = ({ refresh = 0 }) => {
                   ) : (
                     <ResultDisplay query={detailCache[query.id] || query} />
                   )}
-                </div>
+                </NeonScrollbar>
               )}
             </div>
           );
         })}
-      </div>
+      </NeonScrollbar>
 
       {totalPages > 1 && (
         <div className="pagination">

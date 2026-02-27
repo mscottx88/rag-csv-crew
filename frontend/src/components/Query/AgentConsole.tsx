@@ -5,6 +5,7 @@
  */
 
 import React, { useState } from 'react';
+import { NeonScrollbar } from '../NeonScrollbar/NeonScrollbar';
 import './AgentConsole.css';
 
 /* ── ANSI escape code → neon color map ── */
@@ -165,14 +166,14 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ agentLogs }) => {
       </div>
 
       {isExpanded && (
-        <div className="console-body">
+        <NeonScrollbar className="console-body" innerStyle={{ overflowX: 'hidden' }} color="gold">
           {sections.map((section, index) => (
             <div key={index} className="console-section">
               <div className="section-title">{section.title}</div>
               <pre className="section-content">{renderAnsi(section.content)}</pre>
             </div>
           ))}
-        </div>
+        </NeonScrollbar>
       )}
     </div>
   );

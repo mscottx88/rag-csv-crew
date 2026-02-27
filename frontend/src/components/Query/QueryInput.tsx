@@ -6,6 +6,7 @@
 import React, { useState, useEffect, FormEvent, ChangeEvent, KeyboardEvent } from 'react';
 import * as queriesService from '../../services/queries';
 import * as datasetsService from '../../services/datasets';
+import { NeonScrollbar } from '../NeonScrollbar/NeonScrollbar';
 import type { Query, QueryExample, Dataset } from '../../types';
 import './QueryInput.css';
 
@@ -163,7 +164,12 @@ export const QueryInput: React.FC<QueryInputProps> = ({
               >
                 {selectedDatasetIds.length === datasets.length ? 'Deselect All' : 'Select All'}
               </button>
-              <div className="dataset-picker-grid">
+              <NeonScrollbar
+                style={{ maxHeight: '220px' }}
+                innerClassName="dataset-picker-grid"
+                innerStyle={{ overflowX: 'hidden' }}
+                color="cyan"
+              >
                 {datasets.map((dataset: Dataset) => (
                   <label key={dataset.id} className="dataset-checkbox">
                     <input
@@ -179,7 +185,7 @@ export const QueryInput: React.FC<QueryInputProps> = ({
                     </span>
                   </label>
                 ))}
-              </div>
+              </NeonScrollbar>
             </div>
           </div>
         )}

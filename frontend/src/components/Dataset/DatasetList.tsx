@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import * as datasetsService from '../../services/datasets';
 import { DataTable } from './DataTable';
+import { NeonScrollbar } from '../NeonScrollbar/NeonScrollbar';
 import type { Dataset, DatasetList as DatasetListType } from '../../types';
 import './DatasetList.css';
 
@@ -113,7 +114,12 @@ export const DatasetList: React.FC<DatasetListProps> = ({ refresh = 0, onEmptyCh
         <span className="dataset-count">{datasets.length} dataset{datasets.length !== 1 ? 's' : ''}</span>
       </div>
 
-      <div className="dataset-items">
+      <NeonScrollbar
+        style={{ flex: 1, minHeight: 0 }}
+        innerClassName="dataset-items"
+        innerStyle={{ overflowX: 'hidden' }}
+        color="orange"
+      >
         {datasets.map((dataset: Dataset) => {
           const isExpanded: boolean = expandedId === dataset.id;
 
@@ -167,7 +173,7 @@ export const DatasetList: React.FC<DatasetListProps> = ({ refresh = 0, onEmptyCh
             </div>
           );
         })}
-      </div>
+      </NeonScrollbar>
 
       {deleteConfirm && (
         <div className="confirm-dialog-overlay">

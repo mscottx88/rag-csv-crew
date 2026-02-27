@@ -77,8 +77,6 @@
   background: var(--bg);
   color: var(--txt-muted);
   max-height: 500px;
-  overflow-y: auto;
-  overflow-x: auto;
 }
 
 .console-section {
@@ -112,28 +110,6 @@
   background: var(--bg);
 }
 
-/* Scrollbar — gold (vertical + horizontal) */
-.console-body::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.console-body::-webkit-scrollbar-track {
-  background: var(--bg);
-}
-
-.console-body::-webkit-scrollbar-thumb {
-  background: rgba(255, 215, 0, 0.3);
-  border-radius: 3px;
-}
-
-.console-body::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 215, 0, 0.5);
-}
-
-.console-body::-webkit-scrollbar-corner {
-  background: var(--bg);
-}
 
 /* Mobile */
 @media (max-width: 768px) {

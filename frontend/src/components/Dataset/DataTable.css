@@ -34,37 +34,13 @@
   color: var(--txt-dim);
 }
 
-/* ── Scroll container — both axes ── */
+/* ── Scroll container — NeonScrollbar outer ── */
 .table-scroll-container {
   flex: 1;
-  overflow: auto;
+  min-height: 0;
   border: 1px solid var(--orange);
   border-radius: 4px;
   box-shadow: 0 0 12px var(--orange-dim);
-  min-height: 0;
-}
-
-/* Scrollbar — orange (horizontal + vertical) */
-.table-scroll-container::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.table-scroll-container::-webkit-scrollbar-track {
-  background: var(--bg-dim);
-}
-
-.table-scroll-container::-webkit-scrollbar-thumb {
-  background: rgba(255, 102, 0, 0.3);
-  border-radius: 4px;
-}
-
-.table-scroll-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 102, 0, 0.5);
-}
-
-.table-scroll-container::-webkit-scrollbar-corner {
-  background: var(--bg-dim);
 }
 
 /* ── Table ── */

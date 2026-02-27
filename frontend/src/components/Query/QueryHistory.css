@@ -61,32 +61,11 @@
   border-radius: 2px;
 }
 
+/* ── Items list — applied to NeonScrollbar inner div ── */
 .history-list {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  min-height: 0;
-}
-
-/* ── Scrollbar — gold ── */
-.history-list::-webkit-scrollbar {
-  width: 8px;
-}
-
-.history-list::-webkit-scrollbar-track {
-  background: var(--bg-dim);
-}
-
-.history-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 215, 0, 0.25);
-  border-radius: 4px;
-}
-
-.history-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 215, 0, 0.45);
 }
 
 /* ── History item ── */
@@ -339,31 +318,12 @@
   border-bottom: 1px solid var(--border);
 }
 
-/* ── Expanded detail area — scrolls independently ── */
+/* ── Expanded detail area — NeonScrollbar outer ── */
 .history-item-detail {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
   border-top: 1px solid var(--border);
-  padding: 1rem;
   background: var(--bg-dim);
-}
-
-.history-item-detail::-webkit-scrollbar {
-  width: 6px;
-}
-
-.history-item-detail::-webkit-scrollbar-track {
-  background: var(--bg-dim);
-}
-
-.history-item-detail::-webkit-scrollbar-thumb {
-  background: rgba(255, 215, 0, 0.2);
-  border-radius: 3px;
-}
-
-.history-item-detail::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 215, 0, 0.4);
 }
 
 .history-item-detail .result-display {
