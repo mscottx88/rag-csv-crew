@@ -12,24 +12,19 @@ This script:
 6. Reports overall accuracy score
 """
 
+from collections.abc import Generator
 import json
 import os
 from pathlib import Path
-import sys
 from typing import Any
 
 from psycopg_pool import ConnectionPool
 import pytest
 
-# Add backend to path
-backend_dir: Path = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(backend_dir))
-
-# JUSTIFICATION: sys.path.insert required before importing backend src modules
-from src.models.config import DatabaseConfig  # noqa: E402
-from src.services.cross_reference import CrossReferenceService  # noqa: E402
-from src.services.ingestion import IngestionService  # noqa: E402
-from src.services.text_to_sql import TextToSQLService  # noqa: E402
+from backend.src.models.config import DatabaseConfig
+from backend.src.services.cross_reference import CrossReferenceService
+from backend.src.services.ingestion import IngestionService
+from backend.src.services.text_to_sql import TextToSQLService
 
 
 class CrossDatasetEvaluator:
@@ -181,7 +176,7 @@ class CrossDatasetEvaluator:
         try:
             # Resolve relevant datasets
             resolved: list[str] = self.text_to_sql_service.resolve_datasets(
-                username=self.username,
+                _username=self.username,
                 query_text=query_text,
                 available_datasets=list(self.dataset_ids.keys()),
                 dataset_ids=None,  # Let system auto-detect
@@ -240,7 +235,7 @@ def evaluation_data() -> dict[str, Any]:
 
 
 @pytest.fixture
-def test_pool() -> ConnectionPool:
+def test_pool() -> Generator[ConnectionPool]:
     """Create test database connection pool.
 
     Returns:
@@ -281,7 +276,7 @@ def test_username() -> str:
 @pytest.fixture
 def evaluator(
     test_pool: ConnectionPool, test_username: str, evaluation_data: dict[str, Any]
-) -> CrossDatasetEvaluator:
+) -> Generator[CrossDatasetEvaluator]:
     """Create and setup evaluator with test data.
 
     Args:

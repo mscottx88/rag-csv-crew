@@ -576,14 +576,25 @@ class TextToSQLService:
         errors: list[str] = []
         corrections: dict[str, str] = {}
 
+        # Extract CTE names from WITH ... AS clauses so we don't flag them as missing tables
+        cte_pattern: str = r"\bWITH\s+(?:RECURSIVE\s+)?(\w+)\s+AS\s*\("
+        cte_continuation_pattern: str = r"\)\s*,\s*(\w+)\s+AS\s*\("
+        cte_names: set[str] = set()
+        for cte_match in re.finditer(cte_pattern, sql_query, re.IGNORECASE):
+            cte_names.add(cte_match.group(1).lower())
+        for cte_match in re.finditer(cte_continuation_pattern, sql_query, re.IGNORECASE):
+            cte_names.add(cte_match.group(1).lower())
+
         # Extract table names from SQL (FROM and JOIN clauses)
         # Simplified regex - matches table names after FROM or JOIN
         table_pattern: str = r"\b(?:FROM|JOIN)\s+([a-z_][a-z0-9_]*)"
         referenced_tables: list[str] = re.findall(table_pattern, sql_query, re.IGNORECASE)
 
-        # Check each referenced table
+        # Check each referenced table (skip CTE names — they're query-defined, not real tables)
         for table in referenced_tables:
             table_lower: str = table.lower()
+            if table_lower in cte_names:
+                continue
             if table_lower not in valid_tables:
                 errors.append(
                     f"Table '{table}' does not exist. Valid tables: {', '.join(valid_tables)}"
@@ -1129,17 +1140,46 @@ class TextToSQLService:
         return keywords
 
     def _clean_sql(self, raw_sql: str) -> str:
-        """Clean generated SQL by removing markdown formatting.
+        """Clean generated SQL by extracting SQL from LLM response.
+
+        Handles cases where the LLM returns prose mixed with SQL code blocks.
+        Extracts the last (most refined) SQL block from markdown fences, or
+        falls back to stripping markdown markers if no fenced blocks found.
 
         Args:
-            raw_sql: Raw SQL string possibly with markdown
+            raw_sql: Raw SQL string possibly with markdown and prose
 
         Returns:
             Clean SQL string
         """
-        # Remove markdown code block markers
+        # Strategy 1: Extract SQL from markdown code blocks (```sql ... ``` or ``` ... ```)
+        # Use the LAST fenced block since LLMs often refine their answer
+        code_block_pattern: str = r"```(?:sql)?\s*\n?(.*?)```"
+        matches: list[str] = re.findall(code_block_pattern, raw_sql, re.DOTALL | re.IGNORECASE)
+
+        if matches:
+            # Use the last code block (LLMs often say "here's a better version" at the end)
+            extracted_sql: str = matches[-1].strip()
+            if extracted_sql:
+                return extracted_sql
+
+        # Strategy 2: No markdown fences found — try to extract SQL by finding
+        # the first SQL statement keyword and taking everything from there
+        # Look for common SQL statement starts
+        sql_start_pattern: str = r"(?:^|\n)\s*((?:WITH|SELECT|INSERT|UPDATE|DELETE)\b.*)"
+        sql_match: re.Match[str] | None = re.search(
+            sql_start_pattern, raw_sql, re.DOTALL | re.IGNORECASE
+        )
+        if sql_match:
+            extracted_sql = sql_match.group(1).strip()
+            # Remove any trailing prose after the SQL (text after final semicolon)
+            semicolon_idx: int = extracted_sql.rfind(";")
+            if semicolon_idx != -1:
+                extracted_sql = extracted_sql[: semicolon_idx + 1]
+            return extracted_sql
+
+        # Strategy 3: Fallback — just strip markdown markers
         cleaned_sql: str = raw_sql.replace("```sql", "").replace("```", "")
-        # Trim whitespace
         return cleaned_sql.strip()
 
 

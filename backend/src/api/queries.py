@@ -600,7 +600,7 @@ def get_query_history(
     response: Response,
     page: int = 1,
     page_size: int = 50,
-    status: str | None = None,
+    status_filter: str | None = None,
     current_username: str = Depends(check_rate_limit),
 ) -> QueryHistory:
     """Get paginated query history for current user.
@@ -629,7 +629,7 @@ def get_query_history(
     history_service: QueryHistoryService = QueryHistoryService(pool)
 
     history: dict[str, Any] = history_service.get_query_history(
-        username=current_username, page=page, page_size=page_size, status=status
+        username=current_username, page=page, page_size=page_size, status=status_filter
     )
 
     return QueryHistory(**history)

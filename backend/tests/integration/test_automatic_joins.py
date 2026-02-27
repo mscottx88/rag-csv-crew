@@ -17,7 +17,8 @@ Requirements:
 # pylint: disable=redefined-outer-name,broad-exception-caught,docstring-first-line-empty
 from psycopg_pool import ConnectionPool
 import pytest
-from src.services.text_to_sql import TextToSQLService
+
+from backend.src.services.text_to_sql import TextToSQLService
 
 
 @pytest.fixture
