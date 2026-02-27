@@ -15,7 +15,8 @@ Requirements:
 # pylint: disable=redefined-outer-name,docstring-first-line-empty
 from psycopg_pool import ConnectionPool
 import pytest
-from src.services.text_to_sql import TextToSQLService
+
+from backend.src.services.text_to_sql import TextToSQLService
 
 
 @pytest.fixture
@@ -39,7 +40,7 @@ class TestDatasetRelationshipResolution:
 
         # Expects only the customers dataset to be resolved
         result: list[str] = text_to_sql_service.resolve_datasets(
-            username=test_username,
+            _username=test_username,
             query_text=query,
             available_datasets=available_datasets,
         )
@@ -58,7 +59,7 @@ class TestDatasetRelationshipResolution:
 
         # Expects all three datasets to be resolved
         result: list[str] = text_to_sql_service.resolve_datasets(
-            username=test_username,
+            _username=test_username,
             query_text=query,
             available_datasets=available_datasets,
         )
@@ -90,7 +91,7 @@ class TestDatasetRelationshipResolution:
 
         # Expected: Only ["customers", "orders"] (respects user filter)
         result: list[str] = text_to_sql_service.resolve_datasets(
-            username=test_username,
+            _username=test_username,
             query_text=query,
             available_datasets=available_datasets,
             dataset_ids=dataset_ids,
@@ -111,7 +112,7 @@ class TestDatasetRelationshipResolution:
 
         # Expected: Match both "customers" and "customer_orders" (contains "customer")
         result: list[str] = text_to_sql_service.resolve_datasets(
-            username=test_username,
+            _username=test_username,
             query_text=query,
             available_datasets=available_datasets,
         )
@@ -131,7 +132,7 @@ class TestDatasetRelationshipResolution:
 
         # Expected: ["orders"] (identified by column name)
         result: list[str] = text_to_sql_service.resolve_datasets(
-            username=test_username,
+            _username=test_username,
             query_text=query,
             available_datasets=available_datasets,
         )

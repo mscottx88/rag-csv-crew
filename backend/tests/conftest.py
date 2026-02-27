@@ -18,7 +18,8 @@ import uuid
 from psycopg import Connection, sql
 from psycopg_pool import ConnectionPool
 import pytest
-from src.models.config import DatabaseConfig
+
+from backend.src.models.config import DatabaseConfig
 
 
 @pytest.fixture(scope="session")
