@@ -1,55 +1,82 @@
+/**
+ * Dashboard — Four-quadrant full-viewport layout
+ * The four action cards divide the available content area into equal quadrants.
+ */
+
+/* ── Page container — fills app-content entirely ── */
 .dashboard-page {
-  padding: 2rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
 }
 
+/* ── Compact welcome header strip ── */
 .welcome-section {
+  flex-shrink: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 1.25rem;
+  padding: 0.5rem 1.5rem;
   background: var(--bg-card);
-  padding: 2rem;
-  border: 1px solid var(--pink);
-  border-radius: 4px;
-  box-shadow: 0 0 20px var(--pink-dim);
-  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--pink);
+  box-shadow: 0 2px 16px var(--pink-dim);
+  /* no border-radius — spans full width */
 }
 
 .welcome-section h1 {
-  margin: 0 0 0.5rem 0;
+  margin: 0;
   color: var(--pink);
-  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-size: 0.95rem;
   font-family: 'Courier New', Courier, monospace;
   letter-spacing: 0.04em;
-  text-shadow: 0 0 10px var(--pink-dim);
+  text-shadow: 0 0 8px var(--pink-dim);
+  white-space: nowrap;
 }
 
 .welcome-section p {
   margin: 0;
   color: var(--txt-muted);
-  font-size: 0.9rem;
+  font-size: 0.78rem;
+  font-family: 'Courier New', Courier, monospace;
 }
 
+/* ── Quadrant grid — fills remaining height ── */
 .quick-actions {
+  flex: 1;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  /* 1px gap with a faint substrate colour shows as a PCB-trace divider cross */
+  gap: 1px;
+  background: rgba(255, 255, 255, 0.05);
+  min-height: 0;
 }
 
+/* ── Action cards — fill their quadrant ── */
 .action-card {
   background: var(--bg-card);
-  padding: 2rem;
-  border-radius: 4px;
+  padding: 3rem 4rem;
+  border-radius: 0;          /* no rounding — quadrant tiles */
   cursor: pointer;
-  transition: all 0.25s;
+  transition: background 0.25s;
   text-align: center;
   color: var(--txt);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Query card → cyan */
 .action-card:nth-child(1) {
   border: 1px solid var(--cyan);
-  box-shadow: 0 0 10px var(--cyan-dim);
+  box-shadow: inset 0 0 40px rgba(0, 238, 255, 0.03);
 }
 
 .action-card:nth-child(1):hover {
-  transform: translateY(-3px);
+  background: rgba(0, 238, 255, 0.04);
 }
 
 .action-card:nth-child(1) h3 {
@@ -60,11 +87,11 @@
 /* Upload card → green */
 .action-card:nth-child(2) {
   border: 1px solid var(--green);
-  box-shadow: 0 0 10px var(--green-dim);
+  box-shadow: inset 0 0 40px rgba(57, 255, 20, 0.03);
 }
 
 .action-card:nth-child(2):hover {
-  transform: translateY(-3px);
+  background: rgba(57, 255, 20, 0.04);
 }
 
 .action-card:nth-child(2) h3 {
@@ -75,11 +102,11 @@
 /* Datasets card → orange */
 .action-card:nth-child(3) {
   border: 1px solid var(--orange);
-  box-shadow: 0 0 10px var(--orange-dim);
+  box-shadow: inset 0 0 40px rgba(255, 102, 0, 0.03);
 }
 
 .action-card:nth-child(3):hover {
-  transform: translateY(-3px);
+  background: rgba(255, 102, 0, 0.04);
 }
 
 .action-card:nth-child(3) h3 {
@@ -90,11 +117,11 @@
 /* History card → gold */
 .action-card:nth-child(4) {
   border: 1px solid var(--gold);
-  box-shadow: 0 0 10px var(--gold-dim);
+  box-shadow: inset 0 0 40px rgba(255, 215, 0, 0.03);
 }
 
 .action-card:nth-child(4):hover {
-  transform: translateY(-3px);
+  background: rgba(255, 215, 0, 0.04);
 }
 
 .action-card:nth-child(4) h3 {
@@ -104,10 +131,10 @@
 
 /* ── Wireframe SVG icons ── */
 .action-icon-svg {
-  width: 56px;
-  height: 56px;
+  width: 72px;
+  height: 72px;
   display: block;
-  margin: 0 auto 1.25rem;
+  margin: 0 auto 1.5rem;
   transition: filter 0.3s, transform 0.3s;
   transform-origin: center center;
 }
@@ -125,7 +152,7 @@
 }
 
 .action-card:nth-child(1):hover .action-icon-cyan {
-  filter: drop-shadow(0 0 6px var(--cyan)) drop-shadow(0 0 16px var(--cyan-glow));
+  filter: drop-shadow(0 0 8px var(--cyan)) drop-shadow(0 0 20px var(--cyan-glow));
   animation: icon-scan 1.2s ease-in-out infinite;
 }
 
@@ -141,13 +168,13 @@
 }
 
 .action-card:nth-child(2):hover .action-icon-green {
-  filter: drop-shadow(0 0 6px var(--green)) drop-shadow(0 0 16px var(--green-glow));
+  filter: drop-shadow(0 0 8px var(--green)) drop-shadow(0 0 20px var(--green-glow));
   animation: icon-float 1.5s ease-in-out infinite;
 }
 
 @keyframes icon-float {
   0%, 100% { transform: translateY(0) scale(1.1); }
-  50%      { transform: translateY(-4px) scale(1.1); }
+  50%      { transform: translateY(-5px) scale(1.1); }
 }
 
 /* Orange — data grid: pulsing scale */
@@ -157,13 +184,13 @@
 }
 
 .action-card:nth-child(3):hover .action-icon-orange {
-  filter: drop-shadow(0 0 6px var(--orange)) drop-shadow(0 0 16px var(--orange-glow));
+  filter: drop-shadow(0 0 8px var(--orange)) drop-shadow(0 0 20px var(--orange-glow));
   animation: icon-pulse 1.4s ease-in-out infinite;
 }
 
 @keyframes icon-pulse {
   0%, 100% { transform: scale(1.08); }
-  50%      { transform: scale(1.16); }
+  50%      { transform: scale(1.18); }
 }
 
 /* Gold — clock: pendulum swing */
@@ -173,7 +200,7 @@
 }
 
 .action-card:nth-child(4):hover .action-icon-gold {
-  filter: drop-shadow(0 0 6px var(--gold)) drop-shadow(0 0 16px var(--gold-glow));
+  filter: drop-shadow(0 0 8px var(--gold)) drop-shadow(0 0 20px var(--gold-glow));
   animation: icon-pendulum 1.6s ease-in-out infinite;
 }
 
@@ -184,34 +211,34 @@
 
 /* ── Shared hover: glow pulse on card border ── */
 @keyframes border-glow-cyan {
-  0%, 100% { box-shadow: 0 0 24px var(--cyan-glow), 0 4px 20px var(--cyan-dim); }
-  50%      { box-shadow: 0 0 32px var(--cyan-glow), 0 4px 28px var(--cyan-dim), 0 0 48px var(--cyan-dim); }
+  0%, 100% { box-shadow: inset 0 0 40px rgba(0, 238, 255, 0.03), 0 0 28px var(--cyan-glow); }
+  50%      { box-shadow: inset 0 0 60px rgba(0, 238, 255, 0.06), 0 0 40px var(--cyan-glow); }
 }
 
 @keyframes border-glow-green {
-  0%, 100% { box-shadow: 0 0 24px var(--green-glow), 0 4px 20px var(--green-dim); }
-  50%      { box-shadow: 0 0 32px var(--green-glow), 0 4px 28px var(--green-dim), 0 0 48px var(--green-dim); }
+  0%, 100% { box-shadow: inset 0 0 40px rgba(57, 255, 20, 0.03), 0 0 28px var(--green-glow); }
+  50%      { box-shadow: inset 0 0 60px rgba(57, 255, 20, 0.06), 0 0 40px var(--green-glow); }
 }
 
 @keyframes border-glow-orange {
-  0%, 100% { box-shadow: 0 0 24px var(--orange-glow), 0 4px 20px var(--orange-dim); }
-  50%      { box-shadow: 0 0 32px var(--orange-glow), 0 4px 28px var(--orange-dim), 0 0 48px var(--orange-dim); }
+  0%, 100% { box-shadow: inset 0 0 40px rgba(255, 102, 0, 0.03), 0 0 28px var(--orange-glow); }
+  50%      { box-shadow: inset 0 0 60px rgba(255, 102, 0, 0.06), 0 0 40px var(--orange-glow); }
 }
 
 @keyframes border-glow-gold {
-  0%, 100% { box-shadow: 0 0 24px var(--gold-glow), 0 4px 20px var(--gold-dim); }
-  50%      { box-shadow: 0 0 32px var(--gold-glow), 0 4px 28px var(--gold-dim), 0 0 48px var(--gold-dim); }
+  0%, 100% { box-shadow: inset 0 0 40px rgba(255, 215, 0, 0.03), 0 0 28px var(--gold-glow); }
+  50%      { box-shadow: inset 0 0 60px rgba(255, 215, 0, 0.06), 0 0 40px var(--gold-glow); }
 }
 
-.action-card:nth-child(1):hover { animation: border-glow-cyan 2s ease-in-out infinite; }
-.action-card:nth-child(2):hover { animation: border-glow-green 2s ease-in-out infinite; }
+.action-card:nth-child(1):hover { animation: border-glow-cyan   2s ease-in-out infinite; }
+.action-card:nth-child(2):hover { animation: border-glow-green  2s ease-in-out infinite; }
 .action-card:nth-child(3):hover { animation: border-glow-orange 2s ease-in-out infinite; }
-.action-card:nth-child(4):hover { animation: border-glow-gold 2s ease-in-out infinite; }
+.action-card:nth-child(4):hover { animation: border-glow-gold   2s ease-in-out infinite; }
 
 /* ── Text animations on hover ── */
 .action-card h3 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.1rem;
+  margin: 0 0 0.75rem 0;
+  font-size: 1.2rem;
   font-family: 'Courier New', Courier, monospace;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -225,10 +252,11 @@
 .action-card p {
   margin: 0;
   color: var(--txt-muted);
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   line-height: 1.5;
   font-family: 'Courier New', Courier, monospace;
   transition: color 0.3s;
+  max-width: 280px;
 }
 
 .action-card:hover p {

@@ -1,10 +1,12 @@
 /**
  * DataTable Component
- * Infinite-scroll data table with sortable columns and data-type icons.
+ * Paginated + bi-directional infinite-scroll data table with sortable columns.
  *
- * Column headers show: drag-handle | type-icon | name | sort-icon
- * Clicking a column header cycles sort: none → asc → desc → none
- * Sort is applied server-side; state resets to offset 0 on each change.
+ * Scrolling down auto-loads the next page (rows appended).
+ * Scrolling up near the top auto-loads the previous page (rows prepended,
+ * scroll position preserved via scrollHeight compensation).
+ * Pagination controls allow jumping to any specific page directly.
+ * Column widths lock after the first render and persist across all navigation.
  */
 
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
@@ -34,7 +36,6 @@ function TypeIcon({ type }: { type: string }): React.ReactElement {
       </svg>
     );
   }
-
   if (t === 'numeric' || t === 'decimal' || t === 'real' ||
       t.startsWith('float') || t.includes('double')) {
     return (
@@ -43,7 +44,6 @@ function TypeIcon({ type }: { type: string }): React.ReactElement {
       </svg>
     );
   }
-
   if (t === 'text' || t.startsWith('varchar') || t.startsWith('char') ||
       t === 'bpchar' || t === 'character varying') {
     return (
@@ -54,7 +54,6 @@ function TypeIcon({ type }: { type: string }): React.ReactElement {
       </svg>
     );
   }
-
   if (t === 'boolean' || t === 'bool') {
     return (
       <svg className={cls} viewBox="0 0 18 11" aria-hidden="true">
@@ -62,7 +61,6 @@ function TypeIcon({ type }: { type: string }): React.ReactElement {
       </svg>
     );
   }
-
   if (t === 'date') {
     return (
       <svg className={cls} viewBox="0 0 13 12" fill="none" stroke="currentColor" strokeWidth="1" aria-hidden="true">
@@ -78,7 +76,6 @@ function TypeIcon({ type }: { type: string }): React.ReactElement {
       </svg>
     );
   }
-
   if (t.startsWith('timestamp') || t === 'timestamptz') {
     return (
       <svg className={cls} viewBox="0 0 13 12" fill="none" stroke="currentColor" strokeWidth="1" aria-hidden="true">
@@ -92,8 +89,6 @@ function TypeIcon({ type }: { type: string }): React.ReactElement {
       </svg>
     );
   }
-
-  // Default: uuid, unknown, etc.
   return (
     <svg className={cls} viewBox="0 0 10 11" aria-hidden="true">
       <text x="0" y="9" fontFamily="Courier New,monospace" fontSize="9" fontWeight="700" fill="currentColor">#</text>
@@ -106,8 +101,6 @@ function TypeIcon({ type }: { type: string }): React.ReactElement {
 function SortIcon(
   { active, direction }: { active: boolean; direction: 'asc' | 'desc' },
 ): React.ReactElement {
-  // Always rendered so its width is permanently reserved in the header layout.
-  // visibility:hidden (not display:none) keeps the space without showing the icon.
   const points: string = direction === 'asc' ? '1,6 4,2 7,6' : '1,2 4,6 7,2';
   return (
     <svg
@@ -129,10 +122,105 @@ function formatCell(value: string | number | boolean | null): React.ReactNode {
   if (value === null || value === undefined) {
     return <span className="cell-null">NULL</span>;
   }
-  if (typeof value === 'boolean') {
-    return value ? 'true' : 'false';
-  }
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
   return String(value);
+}
+
+// ── Pagination helpers ─────────────────────────────────────────────────────
+
+function getPageNumbers(page: number, total: number): (number | '...')[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_: unknown, i: number): number => i + 1);
+  }
+  const pages: Set<number> = new Set([1, total]);
+  for (let i: number = Math.max(1, page - 2); i <= Math.min(total, page + 2); i++) {
+    pages.add(i);
+  }
+  const sorted: number[] = Array.from(pages).sort((a: number, b: number): number => a - b);
+  const result: (number | '...')[] = [];
+  let prev: number = 0;
+  for (const p of sorted) {
+    if (p - prev > 1) result.push('...');
+    result.push(p);
+    prev = p;
+  }
+  return result;
+}
+
+interface PaginationControlsProps {
+  page: number;
+  totalPages: number;
+  totalRows: number;
+  pageSize: number;
+  loading: boolean;
+  onPage: (p: number) => void;
+}
+
+function PaginationControls({
+  page,
+  totalPages,
+  totalRows,
+  pageSize,
+  loading,
+  onPage,
+}: PaginationControlsProps): React.ReactElement {
+  const pageNums: (number | '...')[] = getPageNumbers(page, totalPages);
+  const startRow: number = totalRows > 0 ? (page - 1) * pageSize + 1 : 0;
+  const endRow: number = Math.min(page * pageSize, totalRows);
+
+  return (
+    <div className="pagination-controls">
+      <span className="pagination-info">
+        {totalRows > 0
+          ? `${startRow.toLocaleString()}–${endRow.toLocaleString()} of ${totalRows.toLocaleString()}`
+          : 'No rows'}
+      </span>
+      <div className="pagination-pips">
+        <button
+          className="pagination-btn"
+          onClick={(): void => { onPage(page - 1); }}
+          disabled={page <= 1 || loading}
+          aria-label="Previous page"
+        >
+          <svg viewBox="0 0 12 12" fill="none" stroke="currentColor"
+            strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="8,2 4,6 8,10" />
+          </svg>
+        </button>
+
+        {pageNums.map((p: number | '...', i: number): React.ReactElement => {
+          if (p === '...') {
+            return <span key={`e${i}`} className="pagination-ellipsis">···</span>;
+          }
+          const pageNum: number = p;
+          return (
+            <button
+              key={pageNum}
+              className={`pagination-pip${pageNum === page ? ' active' : ''}`}
+              onClick={(): void => { onPage(pageNum); }}
+              disabled={loading}
+              aria-label={`Page ${pageNum}`}
+              aria-current={pageNum === page ? 'page' : undefined}
+            >
+              {pageNum}
+            </button>
+          );
+        })}
+
+        <button
+          className="pagination-btn"
+          onClick={(): void => { onPage(page + 1); }}
+          disabled={page >= totalPages || loading}
+          aria-label="Next page"
+        >
+          <svg viewBox="0 0 12 12" fill="none" stroke="currentColor"
+            strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="4,2 8,6 4,10" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -143,108 +231,183 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
   const [columnOrder, setColumnOrder] = useState<number[]>([]);
   const [allRows, setAllRows] = useState<(string | number | boolean | null)[][]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [loadingMore, setLoadingMore] = useState<boolean>(false);
+  const [loadingTop, setLoadingTop] = useState<boolean>(false);
+  const [loadingBottom, setLoadingBottom] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
-  const [hasMore, setHasMore] = useState<boolean>(true);
-  const [batchSize, setBatchSize] = useState<number>(50);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(50);
+  // Page range currently held in allRows
+  const [firstLoadedPage, setFirstLoadedPage] = useState<number>(1);
+  const [hasMoreTop, setHasMoreTop] = useState<boolean>(false);
+  const [hasMoreBottom, setHasMoreBottom] = useState<boolean>(true);
 
-  // Sort state for rendering
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  // Refs: hold current values accessible inside callbacks without stale closures
+  // Refs: stable values for use inside async callbacks / event listeners
   const sortColumnRef = useRef<string | null>(null);
   const sortDirectionRef = useRef<'asc' | 'desc'>('asc');
-  const currentOffsetRef = useRef<number>(0);
-  const hasMoreRef = useRef<boolean>(true);
-  const loadingRef = useRef<boolean>(false);
-  // Generation counter — incremented on sort/dataset change to discard in-flight stale responses
+  const loadingRef = useRef<boolean>(false);        // doLoad guard
+  const loadingTopRef = useRef<boolean>(false);     // loadPrevPage guard
+  const loadingBottomRef = useRef<boolean>(false);  // loadNextPage guard
   const generationRef = useRef<number>(0);
+  const columnsRef = useRef<string[]>([]);          // set-once guard per dataset
+  const firstLoadedPageRef = useRef<number>(1);     // mirrors firstLoadedPage state
+  const lastLoadedPageRef = useRef<number>(1);      // no state mirror needed (not rendered)
+  // Captured scrollHeight before prepend — used to restore scroll position
+  const pendingScrollAdjustRef = useRef<number | null>(null);
 
-  // Locked column widths — measured after first batch, held fixed during re-sorts
   const [colWidths, setColWidths] = useState<number[]>([]);
   const tableRef = useRef<HTMLTableElement>(null);
-
-  // Manual column resize state
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const resizingRef = useRef<{ colIdx: number; startX: number; startWidth: number } | null>(null);
+  const bottomSentinelRef = useRef<HTMLDivElement>(null);
 
-  // Drag-and-drop state
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
 
-  const sentinelRef = useRef<HTMLDivElement>(null);
+  const totalPages: number = totalRowCount > 0 ? Math.ceil(totalRowCount / pageSize) : 1;
 
-  // ── Data fetching ─────────────────────────────────────────────────────────
+  // ── Full page load — resets allRows to a single page ─────────────────────
 
-  const loadNextBatch = useCallback(async (): Promise<void> => {
-    if (loadingRef.current || !hasMoreRef.current) return;
+  const doLoad = useCallback((page: number, size: number): void => {
+    if (loadingRef.current) return;
     loadingRef.current = true;
-    setLoadingMore(true);
-
     const myGeneration: number = generationRef.current;
-    const offset: number = currentOffsetRef.current;
+    const offset: number = (page - 1) * size;
+    setLoading(true);
 
-    try {
-      const result: DatasetRowsResponse = await getRows(
-        datasetId,
-        offset,
-        batchSize,
-        sortColumnRef.current ?? undefined,
-        sortDirectionRef.current,
-      );
-
-      // Discard stale response if sort changed while this request was in flight
+    void getRows(
+      datasetId,
+      offset,
+      size,
+      sortColumnRef.current ?? undefined,
+      sortDirectionRef.current,
+    ).then((result: DatasetRowsResponse): void => {
       if (myGeneration !== generationRef.current) return;
-
-      if (offset === 0) {
+      if (columnsRef.current.length === 0) {
+        columnsRef.current = result.columns;
         setColumns(result.columns);
-        setColumnOrder(result.columns.map((_: string, i: number) => i));
         setColumnTypes(result.column_types);
-        setAllRows(result.rows);
-      } else {
-        setAllRows((prev: (string | number | boolean | null)[][]) => [...prev, ...result.rows]);
+        setColumnOrder(result.columns.map((_: string, i: number): number => i));
       }
-
-      currentOffsetRef.current += result.rows.length;
-      hasMoreRef.current = result.has_more;
-      setHasMore(result.has_more);
-    } catch (err) {
+      firstLoadedPageRef.current = page;
+      lastLoadedPageRef.current = page;
+      setFirstLoadedPage(page);
+      setHasMoreTop(page > 1);
+      setHasMoreBottom(result.has_more);
+      setAllRows(result.rows);
+      setCurrentPage(page);
+    }).catch((err: unknown): void => {
       if (myGeneration !== generationRef.current) return;
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Failed to load data');
-      }
-    } finally {
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+    }).finally((): void => {
       if (myGeneration === generationRef.current) {
         loadingRef.current = false;
-        setLoadingMore(false);
         setLoading(false);
       }
-    }
-  }, [datasetId, batchSize]);
+    });
+  }, [datasetId]);
 
-  // Initial load and reset on datasetId change
-  useEffect(() => {
+  // ── Append next page (scroll down) ───────────────────────────────────────
+
+  const loadNextPage = useCallback((): void => {
+    if (loadingBottomRef.current || loadingTopRef.current || loadingRef.current) return;
+    const nextPage: number = lastLoadedPageRef.current + 1;
+    if (nextPage > Math.ceil(totalRowCount / pageSize)) return;
+
+    loadingBottomRef.current = true;
+    setLoadingBottom(true);
+    const myGeneration: number = generationRef.current;
+    const offset: number = (nextPage - 1) * pageSize;
+
+    void getRows(
+      datasetId,
+      offset,
+      pageSize,
+      sortColumnRef.current ?? undefined,
+      sortDirectionRef.current,
+    ).then((result: DatasetRowsResponse): void => {
+      if (myGeneration !== generationRef.current) return;
+      lastLoadedPageRef.current = nextPage;
+      setHasMoreBottom(result.has_more);
+      setAllRows((prev: (string | number | boolean | null)[][]) => [...prev, ...result.rows]);
+    }).catch((): void => { /* discard — stale generation */ })
+      .finally((): void => {
+        if (myGeneration === generationRef.current) {
+          loadingBottomRef.current = false;
+          setLoadingBottom(false);
+        }
+      });
+  }, [datasetId, pageSize, totalRowCount]);
+
+  // ── Prepend previous page (scroll to top) ────────────────────────────────
+
+  const loadPrevPage = useCallback((): void => {
+    if (loadingTopRef.current || loadingBottomRef.current || loadingRef.current) return;
+    const prevPage: number = firstLoadedPageRef.current - 1;
+    if (prevPage < 1) return;
+
+    loadingTopRef.current = true;
+    setLoadingTop(true);
+    const myGeneration: number = generationRef.current;
+    const offset: number = (prevPage - 1) * pageSize;
+
+    // Capture current scrollHeight so we can compensate after prepend
+    if (scrollContainerRef.current) {
+      pendingScrollAdjustRef.current = scrollContainerRef.current.scrollHeight;
+    }
+
+    void getRows(
+      datasetId,
+      offset,
+      pageSize,
+      sortColumnRef.current ?? undefined,
+      sortDirectionRef.current,
+    ).then((result: DatasetRowsResponse): void => {
+      if (myGeneration !== generationRef.current) return;
+      firstLoadedPageRef.current = prevPage;
+      setFirstLoadedPage(prevPage);
+      setHasMoreTop(prevPage > 1);
+      setAllRows((prev: (string | number | boolean | null)[][]) => [...result.rows, ...prev]);
+    }).catch((): void => { /* discard — stale generation */ })
+      .finally((): void => {
+        if (myGeneration === generationRef.current) {
+          loadingTopRef.current = false;
+          setLoadingTop(false);
+        }
+      });
+  }, [datasetId, pageSize]);
+
+  // ── Initial load and reset on datasetId change ───────────────────────────
+
+  useEffect((): void => {
     generationRef.current += 1;
-    currentOffsetRef.current = 0;
-    hasMoreRef.current = true;
     loadingRef.current = false;
+    loadingTopRef.current = false;
+    loadingBottomRef.current = false;
     sortColumnRef.current = null;
     sortDirectionRef.current = 'asc';
+    columnsRef.current = [];
     setSortColumn(null);
     setSortDirection('asc');
     setColWidths([]);
+    setColumns([]);
+    setColumnTypes({});
+    setColumnOrder([]);
     setAllRows([]);
-    setHasMore(true);
+    setCurrentPage(1);
+    setFirstLoadedPage(1);
+    setHasMoreTop(false);
+    setHasMoreBottom(true);
     setLoading(true);
-    void loadNextBatch();
+    doLoad(1, pageSize);
+    // pageSize intentionally excluded — handled by handlePageSizeChange
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [datasetId]);
+  }, [datasetId, doLoad]);
 
-  // Lock column widths after the first batch renders so re-sorts don't
-  // cause columns to expand / collapse as different-length values arrive.
-  // Fires synchronously after DOM paint so there's no flash of auto widths.
+  // ── Lock column widths after first data render ────────────────────────────
+
   useLayoutEffect(() => {
     if (colWidths.length > 0 || allRows.length === 0 || !tableRef.current) return;
     const ths = Array.from(
@@ -256,23 +419,98 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
     }
   }, [allRows.length, colWidths.length]);
 
-  // Infinite scroll via IntersectionObserver
+  // ── Restore scroll position after prepending rows ─────────────────────────
+  // Prepending rows grows the DOM upward. Without compensation the viewport
+  // appears to jump to the newly added content. We shift scrollTop by the
+  // amount scrollHeight grew so the previously visible rows stay in view.
+
+  useLayoutEffect(() => {
+    if (pendingScrollAdjustRef.current !== null && scrollContainerRef.current) {
+      const prevScrollHeight: number = pendingScrollAdjustRef.current;
+      const delta: number = scrollContainerRef.current.scrollHeight - prevScrollHeight;
+      scrollContainerRef.current.scrollTop += delta;
+      pendingScrollAdjustRef.current = null;
+    }
+  }, [allRows.length]);
+
+  // ── Bottom sentinel — loads next page as user scrolls down ───────────────
+
   useEffect(() => {
-    const sentinel: HTMLDivElement | null = sentinelRef.current;
-    if (!sentinel || !hasMore || loading) return;
+    const sentinel: HTMLDivElement | null = bottomSentinelRef.current;
+    if (!sentinel || !hasMoreBottom || loading) return;
 
     const observer: IntersectionObserver = new IntersectionObserver(
       (entries: IntersectionObserverEntry[]) => {
-        if (entries[0]?.isIntersecting && !loadingRef.current) {
-          void loadNextBatch();
+        if (entries[0]?.isIntersecting && !loadingBottomRef.current && !loadingTopRef.current) {
+          void loadNextPage();
         }
       },
       { rootMargin: '200px' },
     );
-
     observer.observe(sentinel);
     return (): void => { observer.disconnect(); };
-  }, [hasMore, loading, loadNextBatch]);
+  }, [hasMoreBottom, loading, loadNextPage]);
+
+  // ── After doLoad: proactively trigger prev-page load if already at top ──────
+  // When the user jumps to page N > 1 via pagination, scrollTop is reset to 0
+  // and hasMoreTop becomes true, but no scroll event fires automatically.
+  // This effect runs once after each doLoad completes and checks the condition.
+
+  useEffect(() => {
+    if (loading) return;
+    const container: HTMLDivElement | null = scrollContainerRef.current;
+    if (
+      container &&
+      hasMoreTop &&
+      !loadingTopRef.current &&
+      !loadingBottomRef.current &&
+      container.scrollTop < 120
+    ) {
+      void loadPrevPage();
+    }
+    // Only run when loading transitions to false (i.e. doLoad just completed)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
+  // ── Scroll listener — loads prev page and tracks current page ─────────────
+
+  useEffect(() => {
+    const container: HTMLDivElement | null = scrollContainerRef.current;
+    if (!container || loading) return;
+
+    const onScroll = (): void => {
+      // Near-top threshold: trigger previous-page load
+      if (
+        container.scrollTop < 120 &&
+        hasMoreTop &&
+        !loadingTopRef.current &&
+        !loadingBottomRef.current &&
+        !loadingRef.current
+      ) {
+        void loadPrevPage();
+      }
+
+      // Update the current-page indicator based on scroll position within loaded range
+      const loadedPageCount: number = lastLoadedPageRef.current - firstLoadedPageRef.current + 1;
+      if (loadedPageCount > 0) {
+        const maxScroll: number = container.scrollHeight - container.clientHeight;
+        if (maxScroll > 0) {
+          const fraction: number = container.scrollTop / maxScroll;
+          const totalLoadedRows: number = loadedPageCount * pageSize;
+          const visibleRow: number = Math.floor(fraction * totalLoadedRows);
+          const estimatedPage: number =
+            firstLoadedPageRef.current + Math.floor(visibleRow / pageSize);
+          setCurrentPage(
+            Math.max(firstLoadedPageRef.current,
+              Math.min(estimatedPage, lastLoadedPageRef.current)),
+          );
+        }
+      }
+    };
+
+    container.addEventListener('scroll', onScroll, { passive: true });
+    return (): void => { container.removeEventListener('scroll', onScroll); };
+  }, [loading, hasMoreTop, loadPrevPage, pageSize]);
 
   // ── Sort toggle ───────────────────────────────────────────────────────────
 
@@ -293,17 +531,25 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
       setSortColumn(colName);
       setSortDirection('asc');
     }
-
-    // Invalidate in-flight request, reset pagination, reload from scratch.
-    // Do NOT set loading=true here — that unmounts the table and loses the
-    // horizontal scroll position. Keep the stale rows visible until the first
-    // sorted batch arrives and atomically replaces them via setAllRows().
     generationRef.current += 1;
-    currentOffsetRef.current = 0;
-    hasMoreRef.current = true;
     loadingRef.current = false;
-    setHasMore(true);
-    void loadNextBatch();
+    loadingTopRef.current = false;
+    loadingBottomRef.current = false;
+    doLoad(1, pageSize);
+  };
+
+  // ── Explicit page navigation ──────────────────────────────────────────────
+
+  const handlePageChange = (page: number): void => {
+    if (page < 1 || page > totalPages || loadingRef.current) return;
+    generationRef.current += 1;
+    loadingRef.current = false;
+    loadingTopRef.current = false;
+    loadingBottomRef.current = false;
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+    doLoad(page, pageSize);
   };
 
   // ── Manual column resizing ────────────────────────────────────────────────
@@ -360,7 +606,6 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
       setDropIndex(null);
       return;
     }
-
     const sourceIndex: number = dragIndex;
     setColumnOrder((prev: number[]) => {
       const next: number[] = [...prev];
@@ -368,9 +613,6 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
       next.splice(targetIndex, 0, removed);
       return next;
     });
-    // Keep colWidths in sync with the new visual order so fixed-layout col
-    // elements stay aligned with the headers after a drag.  colWidths[0] is
-    // the row-number column; data columns start at index 1.
     setColWidths((prev: number[]) => {
       if (prev.length === 0) return prev;
       const next: number[] = [...prev];
@@ -392,24 +634,30 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
   if (loading) {
     return <div className="table-loading">Loading data...</div>;
   }
-
   if (error) {
     return <div className="table-error">{error}</div>;
   }
-
   if (columns.length === 0) {
     return <div className="table-empty">No columns found in this dataset.</div>;
   }
 
   return (
     <div className="data-table-root">
-      {/* Controls */}
+      {/* Controls bar */}
       <div className="table-controls">
         <label>
-          Rows per batch:
+          Page size:
           <NeonSelect
-            value={String(batchSize)}
-            onChange={(val: string): void => { setBatchSize(Number(val)); }}
+            value={String(pageSize)}
+            onChange={(val: string): void => {
+              const size: number = Number(val);
+              generationRef.current += 1;
+              loadingRef.current = false;
+              loadingTopRef.current = false;
+              loadingBottomRef.current = false;
+              setPageSize(size);
+              doLoad(1, size);
+            }}
             options={[
               { value: '25', label: '25' },
               { value: '50', label: '50' },
@@ -420,12 +668,19 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
           />
         </label>
         <span className="row-count-display">
-          Showing {allRows.length.toLocaleString()} of {totalRowCount.toLocaleString()} rows
+          {totalRowCount.toLocaleString()} rows
         </span>
       </div>
 
-      {/* Scrollable table area — both axes scroll inside this container */}
-      <div className="table-scroll-container">
+      {/* Scrollable table area */}
+      <div className="table-scroll-container" ref={scrollContainerRef}>
+        {/* Top loading indicator when prepending a previous page */}
+        {loadingTop && (
+          <div className="load-top-sentinel">
+            <div className="loading-indicator">Loading previous page…</div>
+          </div>
+        )}
+
         <table
           ref={tableRef}
           className={`data-table${colWidths.length > 0 ? ' fixed-layout' : ''}`}
@@ -492,7 +747,9 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
           <tbody>
             {allRows.map((row: (string | number | boolean | null)[], rowIdx: number) => (
               <tr key={rowIdx}>
-                <td className="row-num">{rowIdx + 1}</td>
+                <td className="row-num">
+                  {((firstLoadedPage - 1) * pageSize + rowIdx + 1).toLocaleString()}
+                </td>
                 {columnOrder.map((colIdx: number) => (
                   <td key={colIdx}>{formatCell(row[colIdx] ?? null)}</td>
                 ))}
@@ -501,21 +758,30 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
           </tbody>
         </table>
 
-        {/* Sentinel + status inside scroll container so they scroll with data */}
-        {hasMore && (
-          <div ref={sentinelRef} className="load-more-sentinel">
-            {loadingMore && (
-              <div className="loading-indicator">Loading more rows...</div>
+        {/* Bottom sentinel — triggers loading next page */}
+        {hasMoreBottom && (
+          <div ref={bottomSentinelRef} className="load-more-sentinel">
+            {loadingBottom && (
+              <div className="loading-indicator">Loading more rows…</div>
             )}
           </div>
         )}
-
-        {!hasMore && allRows.length > 0 && (
+        {!hasMoreBottom && allRows.length > 0 && (
           <div className="load-more-sentinel">
             All {totalRowCount.toLocaleString()} rows loaded
           </div>
         )}
       </div>
+
+      {/* Pagination controls */}
+      <PaginationControls
+        page={currentPage}
+        totalPages={totalPages}
+        totalRows={totalRowCount}
+        pageSize={pageSize}
+        loading={loading}
+        onPage={handlePageChange}
+      />
     </div>
   );
 };

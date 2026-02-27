@@ -259,3 +259,4 @@ select:not(:disabled):hover {
     radial-gradient(circle at 4px calc(100% - 4px), rgba(255,215,0,0.35) 2.5px, transparent 2.5px),
     radial-gradient(circle at calc(100% - 4px) calc(100% - 4px), rgba(255,215,0,0.35) 2.5px, transparent 2.5px);
 }
+

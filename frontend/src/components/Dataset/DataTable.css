@@ -1,6 +1,6 @@
 /**
  * DataTable Styles — Neon Orange Theme
- * Infinite-scroll data table for the Dataset Inspector
+ * Page-based data table for the Dataset Inspector
  */
 
 /* ── Root wrapper — fills inspector page ── */
@@ -275,7 +275,125 @@
   z-index: 2;
 }
 
-/* ── Loading sentinel ── */
+/* ── Pagination controls ─────────────────────────────────────────────────── */
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.625rem 0.25rem 0.125rem;
+  flex-shrink: 0;
+}
+
+.pagination-info {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.7rem;
+  color: var(--txt-dim);
+  letter-spacing: 0.04em;
+}
+
+.pagination-pips {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* Prev / Next arrow buttons — wireframe chevrons */
+.pagination-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  color: var(--orange);
+  border: 1px solid rgba(255, 102, 0, 0.35);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.pagination-btn svg {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
+.pagination-btn:not(:disabled):hover {
+  background: var(--orange-dim);
+  border-color: var(--orange);
+  box-shadow: 0 0 8px var(--orange-dim);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.22;
+  cursor: not-allowed;
+}
+
+/* Page number pips — small PCB pad squares */
+.pagination-pip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 28px;
+  padding: 0 4px;
+  background: transparent;
+  color: var(--txt-dim);
+  border: 1px solid rgba(255, 102, 0, 0.18);
+  border-radius: 2px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.68rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.pagination-pip:not(:disabled):hover {
+  background: var(--orange-dim);
+  color: var(--orange);
+  border-color: rgba(255, 102, 0, 0.5);
+}
+
+.pagination-pip:disabled {
+  cursor: not-allowed;
+}
+
+/* Active page — neon-lit pad with inner glow */
+.pagination-pip.active {
+  background: rgba(255, 102, 0, 0.14);
+  color: var(--orange);
+  border-color: var(--orange);
+  font-weight: 700;
+  box-shadow:
+    0 0 6px var(--orange-dim),
+    inset 0 0 8px rgba(255, 102, 0, 0.08);
+}
+
+/* Ellipsis separators */
+.pagination-ellipsis {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 28px;
+  color: var(--txt-dim);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  user-select: none;
+}
+
+/* ── Infinite-scroll sentinels ── */
+
+/* Top sentinel — appears above the table while loading a previous page */
+.load-top-sentinel {
+  padding: 0.625rem 1rem;
+  text-align: center;
+}
+
+/* Bottom sentinel — appears below the table, triggers next-page load */
 .load-more-sentinel {
   padding: 1rem;
   text-align: center;
@@ -290,6 +408,8 @@
   justify-content: center;
   gap: 0.5rem;
   color: var(--orange);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8rem;
   animation: load-pulse 1.5s ease-in-out infinite;
 }
 

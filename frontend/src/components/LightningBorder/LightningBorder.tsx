@@ -189,7 +189,9 @@ export const LightningBorder: React.FC = () => {
         jitterOffsets: generateJitter(segCount),
         lastJitterTime: performance.now(),
       };
-      startRef.current = performance.now();
+      // Start at a random perimeter offset so the bolt never always begins
+      // at the top-left corner — it spawns at a different point each hover.
+      startRef.current = performance.now() - Math.random() * (perim / BOLT_SPEED_PX) * 1000;
     };
 
     const onLeave = (e: MouseEvent): void => {
