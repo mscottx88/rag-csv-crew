@@ -22,7 +22,7 @@ interface NeonSelectProps {
 }
 
 /** Duration of the close animation in milliseconds. */
-const CLOSE_ANIM_MS: number = 500;
+const CLOSE_ANIM_MS: number = 600;
 
 export const NeonSelect: React.FC<NeonSelectProps> = ({
   value,
