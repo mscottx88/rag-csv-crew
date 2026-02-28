@@ -257,8 +257,10 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
   const lastLoadedPageRef = useRef<number>(1);      // no state mirror needed (not rendered)
   // Captured scrollHeight before prepend — used to restore scroll position
   const pendingScrollAdjustRef = useRef<number | null>(null);
-  // After sort: intra-page row index to scroll to once the new data renders
+  // After sort/navigate: intra-page row index to scroll to once new data renders
   const pendingSortScrollRef = useRef<number | null>(null);
+  // Suppress proactive prev-page load after deliberate page navigation
+  const suppressPrevLoadRef = useRef<boolean>(false);
 
   const [colWidths, setColWidths] = useState<number[]>([]);
   const tableRef = useRef<HTMLTableElement>(null);
@@ -488,6 +490,12 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
 
   useEffect(() => {
     if (loading) return;
+    // Skip after deliberate navigation — prev page should only load on
+    // user scroll, not because scrollTop happens to be 0 after a jump.
+    if (suppressPrevLoadRef.current) {
+      suppressPrevLoadRef.current = false;
+      return;
+    }
     const container: HTMLDivElement | null = scrollContainerRef.current;
     if (
       container &&
@@ -542,6 +550,35 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
     return (): void => { container.removeEventListener('scroll', onScroll); };
   }, [loading, hasMoreTop, loadPrevPage, pageSize]);
 
+  // ── Wheel fallback when native scroll is exhausted ─────────────────────
+  // On pages where content doesn't fill the viewport (e.g. last page with
+  // few rows), mousewheel events produce no scroll change.  This handler
+  // converts wheel events into page loads when native scroll can't act.
+
+  useEffect(() => {
+    const container: HTMLDivElement | null = scrollContainerRef.current;
+    if (!container || loading) return;
+
+    const onWheel = (e: WheelEvent): void => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const maxScroll: number = scrollHeight - clientHeight;
+      const canScrollNatively: boolean = maxScroll > 1;
+      const atTop: boolean = scrollTop <= 1;
+      const atBottom: boolean = scrollTop >= maxScroll - 1;
+
+      if (e.deltaY < 0 && (!canScrollNatively || atTop) && hasMoreTop) {
+        e.preventDefault();
+        loadPrevPage();
+      } else if (e.deltaY > 0 && (!canScrollNatively || atBottom) && hasMoreBottom) {
+        e.preventDefault();
+        loadNextPage();
+      }
+    };
+
+    container.addEventListener('wheel', onWheel, { passive: false });
+    return (): void => { container.removeEventListener('wheel', onWheel); };
+  }, [loading, hasMoreTop, hasMoreBottom, loadNextPage, loadPrevPage]);
+
   // ── Sort toggle ───────────────────────────────────────────────────────────
 
   const handleSortToggle = (colName: string): void => {
@@ -588,6 +625,7 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
       Math.min(totalPages, Math.floor(targetRow / pageSize) + 1);
     const intraPageRow: number = targetRow - (targetPage - 1) * pageSize;
     pendingSortScrollRef.current = intraPageRow;
+    suppressPrevLoadRef.current = true;
 
     generationRef.current += 1;
     loadingRef.current = false;
@@ -604,9 +642,9 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
     loadingRef.current = false;
     loadingTopRef.current = false;
     loadingBottomRef.current = false;
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = 0;
-    }
+    // Defer scroll reset until new data renders (while dissolve hides it)
+    pendingSortScrollRef.current = 0;
+    suppressPrevLoadRef.current = true;
     doLoad(page, pageSize);
   };
 
@@ -689,7 +727,8 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
 
   // ── Render states ─────────────────────────────────────────────────────────
 
-  if (loading) {
+  // True initial load — no data has ever been fetched yet
+  if (loading && columns.length === 0) {
     return <div className="table-loading">Loading data...</div>;
   }
   if (error) {
@@ -699,8 +738,11 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
     return <div className="table-empty">No columns found in this dataset.</div>;
   }
 
+  // Navigation-in-progress: old data stays visible but dissolves out
+  const navigating: boolean = loading && columns.length > 0;
+
   return (
-    <div className="data-table-root">
+    <div className={`data-table-root${navigating ? ' navigating' : ''}`}>
       {/* Controls bar */}
       <div className="table-controls">
         <label>
@@ -713,6 +755,8 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
               loadingRef.current = false;
               loadingTopRef.current = false;
               loadingBottomRef.current = false;
+              pendingSortScrollRef.current = 0;
+              suppressPrevLoadRef.current = true;
               setPageSize(size);
               doLoad(1, size);
             }}

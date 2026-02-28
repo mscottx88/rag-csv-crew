@@ -155,7 +155,21 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ agentLogs }) => {
     <div className="agent-console">
       <div className="console-header" onClick={toggleExpanded}>
         <div className="header-left">
-          <span className="console-icon">🤖</span>
+          <svg className="console-robot" viewBox="0 0 20 24" fill="none" stroke="currentColor" aria-hidden="true">
+            {/* Antenna */}
+            <line x1="10" y1="6" x2="10" y2="2.5" strokeWidth="1.2" strokeLinecap="round" />
+            <circle cx="10" cy="1.5" r="1.2" strokeWidth="1" />
+            {/* Head */}
+            <rect x="2" y="6" width="16" height="13" rx="2" strokeWidth="1.2" />
+            {/* Ears */}
+            <line x1="0.5" y1="10" x2="0.5" y2="15" strokeWidth="1" strokeLinecap="round" />
+            <line x1="19.5" y1="10" x2="19.5" y2="15" strokeWidth="1" strokeLinecap="round" />
+            {/* Eyes — blink via CSS animation */}
+            <rect className="robot-eye" x="5.5" y="10.5" width="3" height="3.5" rx="0.5" fill="currentColor" stroke="none" />
+            <rect className="robot-eye" x="11.5" y="10.5" width="3" height="3.5" rx="0.5" fill="currentColor" stroke="none" />
+            {/* Mouth */}
+            <line x1="7" y1="16.5" x2="13" y2="16.5" strokeWidth="1" strokeLinecap="round" />
+          </svg>
           <span className="console-title">Agent Activity</span>
         </div>
         <span className={`console-expand-indicator ${isExpanded ? 'expanded' : ''}`}>

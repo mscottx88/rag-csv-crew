@@ -41,6 +41,18 @@
   border: 1px solid var(--orange);
   border-radius: 4px;
   box-shadow: 0 0 12px var(--orange-dim);
+  transition: opacity 0.22s ease-out;
+}
+
+/* ── Dissolve transition for page navigation ── */
+.data-table-root.navigating .table-scroll-container {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.data-table-root.navigating .pagination-controls {
+  pointer-events: none;
+  opacity: 0.4;
 }
 
 /* ── Table ── */

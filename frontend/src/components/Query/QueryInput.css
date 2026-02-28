@@ -137,18 +137,6 @@
   box-shadow: 0 0 8px var(--cyan-dim);
 }
 
-.dataset-checkbox input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-  accent-color: var(--cyan);
-  flex-shrink: 0;
-}
-
-.dataset-checkbox input[type="checkbox"]:disabled {
-  cursor: not-allowed;
-}
-
 .dataset-name {
   flex: 1;
   font-weight: 500;
@@ -172,16 +160,16 @@
   font-family: 'Courier New', Courier, monospace;
 }
 
-.dataset-checkbox input[type="checkbox"]:checked + .dataset-name {
+.dataset-checkbox.selected .dataset-name {
   color: var(--cyan);
 }
 
-.dataset-checkbox:has(input[type="checkbox"]:checked) {
+.dataset-checkbox.selected {
   background: var(--cyan-dim);
   border-color: var(--cyan);
 }
 
-.dataset-checkbox:has(input[type="checkbox"]:checked) .dataset-meta {
+.dataset-checkbox.selected .dataset-meta {
   background: var(--bg-card);
   color: var(--cyan);
 }

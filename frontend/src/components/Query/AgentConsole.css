@@ -11,6 +11,8 @@
   box-shadow: 0 0 12px var(--gold-dim);
   min-width: 0;
   max-width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .console-header {
@@ -24,6 +26,7 @@
   cursor: pointer;
   user-select: none;
   transition: background 0.2s;
+  flex-shrink: 0;
 }
 
 .console-header:hover {
@@ -36,8 +39,33 @@
   gap: 0.5rem;
 }
 
-.console-icon {
-  font-size: 1.1rem;
+/* ── Wireframe neon robot icon ── */
+.console-robot {
+  width: 20px;
+  height: 24px;
+  color: var(--gold);
+  filter: drop-shadow(0 0 3px var(--gold-dim));
+  flex-shrink: 0;
+}
+
+.console-header:hover .console-robot {
+  filter: drop-shadow(0 0 5px var(--gold)) drop-shadow(0 0 10px var(--gold-dim));
+}
+
+.robot-eye {
+  transform-box: fill-box;
+  transform-origin: center center;
+  animation: robot-blink 4s ease-in-out infinite;
+}
+
+/* Stagger the second eye by a tiny amount for a more natural blink */
+.robot-eye:nth-child(2) {
+  animation-delay: 0.05s;
+}
+
+@keyframes robot-blink {
+  0%, 93%, 100% { transform: scaleY(1); }
+  95.5% { transform: scaleY(0.05); }
 }
 
 .console-title {
@@ -77,6 +105,8 @@
   background: var(--bg);
   color: var(--txt-muted);
   max-height: 500px;
+  flex: 1;
+  min-height: 0;
 }
 
 .console-section {

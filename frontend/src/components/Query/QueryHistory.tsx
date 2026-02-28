@@ -164,58 +164,35 @@ export const QueryHistory: React.FC<QueryHistoryProps> = ({ refresh = 0 }) => {
     );
   };
 
-  if (loading) {
-    return <div className="history-loading">Loading history...</div>;
-  }
-
-  if (error) {
-    return (
-      <div className="history-error" role="alert">
-        {error}
-      </div>
-    );
-  }
-
-  if (!history && !statusFilter) {
-    return (
-      <div className="history-empty">
-        <p>No query history found.</p>
-      </div>
-    );
-  }
-
   const totalPages: number = history ? Math.ceil(history.total / history.page_size) : 0;
 
-  return (
-    <div className="query-history">
-      <div className="history-header">
-        <h2>Query History</h2>
-        <div className="filter-group">
-          <label htmlFor="status-filter">Status</label>
-          <NeonSelect
-            id="status-filter"
-            value={statusFilter ?? ''}
-            onChange={(val: string): void =>
-              handleStatusFilterChange(val ? (val as QueryStatus) : undefined)
-            }
-            options={[
-              { value: '', label: 'All' },
-              { value: 'pending', label: 'Pending' },
-              { value: 'processing', label: 'Processing' },
-              { value: 'completed', label: 'Completed' },
-              { value: 'failed', label: 'Failed' },
-              { value: 'cancelled', label: 'Cancelled' },
-            ]}
-            color="gold"
-          />
+  // Render content area based on state (header always stays visible)
+  const renderBody = (): JSX.Element => {
+    if (loading) {
+      return <div className="history-loading">Loading history...</div>;
+    }
+    if (error) {
+      return (
+        <div className="history-error" role="alert">
+          {error}
         </div>
-      </div>
-
-      {(!history || history.queries.length === 0) ? (
+      );
+    }
+    if (!history && !statusFilter) {
+      return (
+        <div className="history-empty">
+          <p>No query history found.</p>
+        </div>
+      );
+    }
+    if (!history || history.queries.length === 0) {
+      return (
         <div className="history-empty">
           <p>No queries match the selected filter.</p>
         </div>
-      ) : (
+      );
+    }
+    return (
       <>
       <NeonScrollbar
         style={{ flex: 1, minHeight: 0 }}
@@ -339,7 +316,35 @@ export const QueryHistory: React.FC<QueryHistoryProps> = ({ refresh = 0 }) => {
         </div>
       )}
       </>
-      )}
+    );
+  };
+
+  const statusOptions: { value: string; label: string }[] = [
+    { value: '', label: 'All' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'processing', label: 'Processing' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'failed', label: 'Failed' },
+    { value: 'cancelled', label: 'Cancelled' },
+  ];
+
+  return (
+    <div className="query-history">
+      <div className="history-header">
+        <h2>Query History</h2>
+        <div className="filter-group">
+          <label htmlFor="status-filter">Status</label>
+          <NeonSelect
+            id="status-filter"
+            value={statusFilter || ''}
+            onChange={(val: string): void =>
+              handleStatusFilterChange(val === '' ? undefined : val as QueryStatus)
+            }
+            options={statusOptions}
+          />
+        </div>
+      </div>
+      {renderBody()}
     </div>
   );
 };

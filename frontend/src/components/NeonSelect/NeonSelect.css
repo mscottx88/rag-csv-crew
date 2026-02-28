@@ -99,6 +99,42 @@
   box-shadow: 0 0 12px var(--orange-dim), 0 4px 16px rgba(0, 0, 0, 0.6);
 }
 
+/* ── Close animation ── */
+.neon-select-dropdown.closing {
+  animation: neon-dropdown-out 0.5s ease forwards;
+  pointer-events: none;
+}
+
+@keyframes neon-dropdown-out {
+  0%   { opacity: 1; transform: translateY(0); }
+  50%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-10px); }
+}
+
+/* Non-selected options dim out during close */
+.neon-select-dropdown.closing .neon-select-option:not(.selected) {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+/* Selected option flares with neon glow during close — gold */
+.neon-select-gold .neon-select-dropdown.closing .neon-select-option.selected {
+  color: var(--gold);
+  background: rgba(255, 215, 0, 0.18);
+  text-shadow: 0 0 10px var(--gold), 0 0 24px var(--gold-dim);
+  box-shadow: inset 0 0 18px var(--gold-dim);
+  transition: all 0.12s ease;
+}
+
+/* Selected option flares with neon glow during close — orange */
+.neon-select-orange .neon-select-dropdown.closing .neon-select-option.selected {
+  color: var(--orange);
+  background: rgba(255, 102, 0, 0.18);
+  text-shadow: 0 0 10px var(--orange), 0 0 24px var(--orange-dim);
+  box-shadow: inset 0 0 18px var(--orange-dim);
+  transition: all 0.12s ease;
+}
+
 /* ── Options ── */
 .neon-select-option {
   padding: 0.4rem 0.75rem;
@@ -108,7 +144,7 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s, opacity 0.15s;
 }
 
 .neon-select-gold .neon-select-option {

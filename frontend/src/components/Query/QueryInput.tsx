@@ -7,6 +7,7 @@ import React, { useState, useEffect, FormEvent, ChangeEvent, KeyboardEvent } fro
 import * as queriesService from '../../services/queries';
 import * as datasetsService from '../../services/datasets';
 import { NeonScrollbar } from '../NeonScrollbar/NeonScrollbar';
+import { NeonCheckbox } from '../NeonCheckbox/NeonCheckbox';
 import type { Query, QueryExample, Dataset } from '../../types';
 import './QueryInput.css';
 
@@ -170,21 +171,27 @@ export const QueryInput: React.FC<QueryInputProps> = ({
                 innerStyle={{ overflowX: 'hidden' }}
                 color="cyan"
               >
-                {datasets.map((dataset: Dataset) => (
-                  <label key={dataset.id} className="dataset-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={selectedDatasetIds.includes(dataset.id)}
-                      onChange={(): void => handleDatasetToggle(dataset.id)}
-                      disabled={submitting || isProcessing}
-                      aria-label={`Select dataset ${dataset.filename}`}
-                    />
-                    <span className="dataset-name">{dataset.filename}</span>
-                    <span className="dataset-meta">
-                      ({dataset.row_count.toLocaleString()} rows)
-                    </span>
-                  </label>
-                ))}
+                {datasets.map((dataset: Dataset) => {
+                  const isChecked: boolean = selectedDatasetIds.includes(dataset.id);
+                  return (
+                    <label
+                      key={dataset.id}
+                      className={`dataset-checkbox${isChecked ? ' selected' : ''}`}
+                    >
+                      <NeonCheckbox
+                        checked={isChecked}
+                        onChange={(): void => handleDatasetToggle(dataset.id)}
+                        disabled={submitting || isProcessing}
+                        color="cyan"
+                        ariaLabel={`Select dataset ${dataset.filename}`}
+                      />
+                      <span className="dataset-name">{dataset.filename}</span>
+                      <span className="dataset-meta">
+                        ({dataset.row_count.toLocaleString()} rows)
+                      </span>
+                    </label>
+                  );
+                })}
               </NeonScrollbar>
             </div>
           </div>

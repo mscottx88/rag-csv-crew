@@ -1,0 +1,145 @@
+/**
+ * NeonCheckbox — Custom wireframe neon checkbox.
+ *
+ * Replaces native <input type="checkbox"> with an SVG-based toggle
+ * that matches the neon wireframe theme.
+ */
+
+/* ── Wrapper ── */
+.neon-checkbox {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.neon-checkbox.disabled {
+  cursor: not-allowed;
+  opacity: 0.3;
+}
+
+/* Hide the native input but keep it accessible */
+.neon-checkbox input {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: inherit;
+  z-index: 1;
+}
+
+/* ── SVG icon ── */
+.neon-checkbox-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+/* ── Color: cyan (default) ── */
+.neon-checkbox {
+  --ncb-border: rgba(0, 238, 255, 0.40);
+  --ncb-fill:   rgba(0, 238, 255, 0.06);
+  --ncb-check:  rgba(0, 238, 255, 0.80);
+  --ncb-glow:   rgba(0, 238, 255, 0.25);
+  --ncb-bright: rgba(0, 238, 255, 0.55);
+  --ncb-core:   0, 238, 255;
+}
+
+.neon-checkbox[data-color="orange"] {
+  --ncb-border: rgba(255, 102, 0, 0.40);
+  --ncb-fill:   rgba(255, 102, 0, 0.06);
+  --ncb-check:  rgba(255, 102, 0, 0.80);
+  --ncb-glow:   rgba(255, 102, 0, 0.25);
+  --ncb-bright: rgba(255, 102, 0, 0.55);
+  --ncb-core:   255, 102, 0;
+}
+
+.neon-checkbox[data-color="gold"] {
+  --ncb-border: rgba(255, 215, 0, 0.40);
+  --ncb-fill:   rgba(255, 215, 0, 0.06);
+  --ncb-check:  rgba(255, 215, 0, 0.80);
+  --ncb-glow:   rgba(255, 215, 0, 0.25);
+  --ncb-bright: rgba(255, 215, 0, 0.55);
+  --ncb-core:   255, 215, 0;
+}
+
+.neon-checkbox[data-color="green"] {
+  --ncb-border: rgba(57, 255, 20, 0.40);
+  --ncb-fill:   rgba(57, 255, 20, 0.06);
+  --ncb-check:  rgba(57, 255, 20, 0.80);
+  --ncb-glow:   rgba(57, 255, 20, 0.22);
+  --ncb-bright: rgba(57, 255, 20, 0.50);
+  --ncb-core:   57, 255, 20;
+}
+
+.neon-checkbox[data-color="pink"] {
+  --ncb-border: rgba(255, 16, 240, 0.40);
+  --ncb-fill:   rgba(255, 16, 240, 0.06);
+  --ncb-check:  rgba(255, 16, 240, 0.80);
+  --ncb-glow:   rgba(255, 16, 240, 0.22);
+  --ncb-bright: rgba(255, 16, 240, 0.50);
+  --ncb-core:   255, 16, 240;
+}
+
+/* ── Box outline ── */
+.ncb-box {
+  fill: var(--ncb-fill);
+  stroke: var(--ncb-border);
+  transition: fill 0.18s ease, stroke 0.18s ease;
+}
+
+/* ── Check mark ── */
+.ncb-check {
+  stroke: var(--ncb-check);
+  fill: none;
+  stroke-dasharray: 14;
+  stroke-dashoffset: 14;
+  transition: stroke-dashoffset 0.2s ease;
+}
+
+/* ── Glow filter (applied to the SVG) ── */
+.neon-checkbox-icon {
+  filter: drop-shadow(0 0 2px var(--ncb-glow));
+  transition: filter 0.2s ease;
+}
+
+/* ── Checked state ── */
+.neon-checkbox.checked .ncb-box {
+  fill: rgba(var(--ncb-core), 0.12);
+  stroke: rgba(var(--ncb-core), 0.70);
+}
+
+.neon-checkbox.checked .ncb-check {
+  stroke-dashoffset: 0;
+}
+
+.neon-checkbox.checked .neon-checkbox-icon {
+  filter:
+    drop-shadow(0 0 4px var(--ncb-bright))
+    drop-shadow(0 0 10px var(--ncb-glow));
+}
+
+/* ── Hover (not disabled) ── */
+.neon-checkbox:not(.disabled):hover .ncb-box {
+  stroke: rgba(var(--ncb-core), 0.65);
+  fill: rgba(var(--ncb-core), 0.08);
+}
+
+.neon-checkbox:not(.disabled):hover .neon-checkbox-icon {
+  filter:
+    drop-shadow(0 0 4px var(--ncb-bright))
+    drop-shadow(0 0 8px var(--ncb-glow));
+}
+
+/* ── Focus-visible ring ── */
+.neon-checkbox input:focus-visible ~ .neon-checkbox-icon {
+  outline: 2px solid rgba(var(--ncb-core), 0.50);
+  outline-offset: 2px;
+  border-radius: 2px;
+}

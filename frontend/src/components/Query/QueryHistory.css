@@ -332,10 +332,10 @@
   flex-direction: column;
 }
 
-/* Replay animation: ResultDisplay fills the scrollbar viewport */
+/* ResultDisplay: grow to fill during replay, but never shrink below content
+   so the agent-console bottom border stays visible and the parent scrolls. */
 .history-detail-inner > .result-display {
-  flex: 1;
-  min-height: 0;
+  flex: 1 0 auto;
 }
 
 .history-item-detail .result-display {

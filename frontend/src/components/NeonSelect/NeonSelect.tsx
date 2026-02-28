@@ -21,6 +21,9 @@ interface NeonSelectProps {
   id?: string;
 }
 
+/** Duration of the close animation in milliseconds. */
+const CLOSE_ANIM_MS: number = 500;
+
 export const NeonSelect: React.FC<NeonSelectProps> = ({
   value,
   onChange,
@@ -29,26 +32,49 @@ export const NeonSelect: React.FC<NeonSelectProps> = ({
   id,
 }) => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [closing, setClosing] = useState<boolean>(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const closingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentLabel: string =
     options.find((o: NeonSelectOption) => o.value === value)?.label ?? value;
 
   const handleToggle = (): void => {
+    if (closing) return; // ignore clicks during close animation
     setIsOpen((prev: boolean) => !prev);
   };
 
   const handleSelect = (optionValue: string): void => {
+    if (closing) return;
     onChange(optionValue);
-    setIsOpen(false);
+    setClosing(true);
+    closingTimerRef.current = setTimeout((): void => {
+      setIsOpen(false);
+      setClosing(false);
+      closingTimerRef.current = null;
+    }, CLOSE_ANIM_MS);
   };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return (): void => {
+      if (closingTimerRef.current) {
+        clearTimeout(closingTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key === 'Escape') {
       setIsOpen(false);
+      setClosing(false);
+      if (closingTimerRef.current) {
+        clearTimeout(closingTimerRef.current);
+        closingTimerRef.current = null;
+      }
     } else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      setIsOpen((prev: boolean) => !prev);
+      if (!closing) setIsOpen((prev: boolean) => !prev);
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       const idx: number = options.findIndex((o: NeonSelectOption) => o.value === value);
@@ -68,6 +94,11 @@ export const NeonSelect: React.FC<NeonSelectProps> = ({
     const handleClickOutside = (e: MouseEvent): void => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
         setIsOpen(false);
+        setClosing(false);
+        if (closingTimerRef.current) {
+          clearTimeout(closingTimerRef.current);
+          closingTimerRef.current = null;
+        }
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -92,7 +123,7 @@ export const NeonSelect: React.FC<NeonSelectProps> = ({
       >
         <span className="neon-select-value">{currentLabel}</span>
         <svg
-          className={`neon-select-chevron${isOpen ? ' open' : ''}`}
+          className={`neon-select-chevron${isOpen && !closing ? ' open' : ''}`}
           width="10"
           height="10"
           viewBox="0 0 10 10"
@@ -110,7 +141,11 @@ export const NeonSelect: React.FC<NeonSelectProps> = ({
       </button>
 
       {isOpen && (
-        <ul className="neon-select-dropdown" role="listbox">
+        <ul
+          className={`neon-select-dropdown${closing ? ' closing' : ''}`}
+          role="listbox"
+          onClick={(e: React.MouseEvent): void => { e.stopPropagation(); }}
+        >
           {options.map((option: NeonSelectOption) => (
             <li
               key={option.value}
