@@ -178,13 +178,11 @@ export const Dashboard: React.FC = () => {
 
       // Trigger expansion on the next frame so the browser paints the start position first
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          Object.assign(overlay.style, {
-            top: `${gridRect.top}px`,
-            left: `${gridRect.left}px`,
-            width: `${gridRect.width}px`,
-            height: `${gridRect.height}px`,
-          });
+        Object.assign(overlay.style, {
+          top: `${gridRect.top}px`,
+          left: `${gridRect.left}px`,
+          width: `${gridRect.width}px`,
+          height: `${gridRect.height}px`,
         });
       });
 
@@ -198,31 +196,28 @@ export const Dashboard: React.FC = () => {
         // Navigate — Dashboard unmounts, destination page mounts underneath
         navigate(route);
 
-        // Wait for React to render + browser to paint the destination page,
-        // then fade card overlay out to reveal the fully-rendered page
+        // Wait for React to render the destination page, then fade overlay out
         requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            overlay.classList.add('fade-out');
+          overlay.classList.add('fade-out');
 
-            const headerOv = headerOverlayRef.current;
+          const headerOv = headerOverlayRef.current;
 
-            const onFaded = (fe: TransitionEvent): void => {
-              if (fe.propertyName !== 'opacity') return;
-              overlay.removeEventListener('transitionend', onFaded);
-              overlay.remove();
-              // Remove header overlay instantly — text already matches destination
-              if (headerOv) {
-                headerOv.remove();
-              }
-              document.body.classList.remove('has-card-overlay');
-              if (overlayRef.current === overlay) {
-                overlayRef.current = null;
-              }
-              headerOverlayRef.current = null;
-              scrambleCancelsRef.current = [];
-            };
-            overlay.addEventListener('transitionend', onFaded);
-          });
+          const onFaded = (fe: TransitionEvent): void => {
+            if (fe.propertyName !== 'opacity') return;
+            overlay.removeEventListener('transitionend', onFaded);
+            overlay.remove();
+            // Remove header overlay instantly — text already matches destination
+            if (headerOv) {
+              headerOv.remove();
+            }
+            document.body.classList.remove('has-card-overlay');
+            if (overlayRef.current === overlay) {
+              overlayRef.current = null;
+            }
+            headerOverlayRef.current = null;
+            scrambleCancelsRef.current = [];
+          };
+          overlay.addEventListener('transitionend', onFaded);
         });
       };
 

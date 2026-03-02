@@ -350,7 +350,7 @@ export function animatePageTransition(
         };
         overlay.addEventListener('transitionend', onFaded);
       } else {
-        setTimeout(cleanup, 500);
+        setTimeout(cleanup, 400);
       }
     });
   }, 200);

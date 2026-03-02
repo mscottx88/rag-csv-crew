@@ -256,12 +256,12 @@
 .dashboard-page.animating > h1,
 .dashboard-page.animating > .page-description {
   opacity: 0;
-  transition: opacity 0.5s ease-out;
+  transition: opacity 0.15s ease-out;
 }
 
 .dashboard-page.animating .action-card {
   opacity: 0;
-  transition: opacity 0.5s ease-out;
+  transition: opacity 0.15s ease-out;
   pointer-events: none;
 }
 
@@ -280,10 +280,10 @@
   pointer-events: none;
   will-change: top, left, width, height;
   transition:
-    top 0.7s cubic-bezier(0.4, 0, 0.2, 1),
-    left 0.7s cubic-bezier(0.4, 0, 0.2, 1),
-    width 0.7s cubic-bezier(0.4, 0, 0.2, 1),
-    height 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+    top 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Color variants */
@@ -371,7 +371,7 @@
 /* Crossfade: overlay fades out while destination page fades in underneath */
 .card-transition-overlay.fade-out {
   opacity: 0;
-  transition: opacity 0.6s ease-out;
+  transition: opacity 0.3s ease-out;
 }
 
 /* ── Header transition overlay — scramble/rewrite text effect ── */
@@ -391,7 +391,7 @@
   white-space: nowrap;
   color: var(--pink);
   text-shadow: 0 0 10px var(--pink-dim);
-  transition: color 0.7s ease-out, text-shadow 0.7s ease-out;
+  transition: color 0.3s ease-out, text-shadow 0.3s ease-out;
 }
 
 .header-transition-overlay p {
@@ -444,5 +444,5 @@
 /* Fade out simultaneously with card overlay */
 .header-transition-overlay.fade-out {
   opacity: 0;
-  transition: opacity 0.6s ease-out;
+  transition: opacity 0.3s ease-out;
 }
