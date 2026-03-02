@@ -24,6 +24,7 @@
   color: var(--txt-muted);
   font-size: 0.9rem;
   line-height: 1.6;
+  font-family: 'Courier New', Courier, monospace;
   flex-shrink: 0;
 }
 

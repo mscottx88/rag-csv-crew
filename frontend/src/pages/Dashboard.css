@@ -3,62 +3,49 @@
  * The four action cards divide the available content area into equal quadrants.
  */
 
-/* ── Page container — fills app-content entirely ── */
+/* ── Page container — 2rem padding matches all destination pages ── */
 .dashboard-page {
   height: 100%;
   display: flex;
   flex-direction: column;
+  padding: 2rem;
   overflow: hidden;
-  padding: 0;
 }
 
-/* ── Compact welcome header strip ── */
-.welcome-section {
-  flex-shrink: 0;
-  display: flex;
-  align-items: baseline;
-  gap: 1.25rem;
-  padding: 0.5rem 1.5rem;
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--pink);
-  box-shadow: 0 2px 16px var(--pink-dim);
-  /* no border-radius — spans full width */
-}
-
-.welcome-section h1 {
-  margin: 0;
+/* ── Welcome header — mirrors destination-page h1 + .page-description layout ── */
+.dashboard-page h1 {
+  margin: 0 0 0.5rem 0;
   color: var(--pink);
-  font-size: 0.95rem;
+  font-size: clamp(1.5rem, 3vw, 2rem);
   font-family: 'Courier New', Courier, monospace;
   letter-spacing: 0.04em;
-  text-shadow: 0 0 8px var(--pink-dim);
-  white-space: nowrap;
+  text-shadow: 0 0 10px var(--pink-dim);
 }
 
-.welcome-section p {
-  margin: 0;
+.dashboard-page > .page-description {
+  margin: 0 0 1.5rem 0;
   color: var(--txt-muted);
-  font-size: 0.78rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
   font-family: 'Courier New', Courier, monospace;
 }
 
-/* ── Quadrant grid — fills remaining height ── */
+/* ── Quadrant grid — fills the bordered-box area of destination pages ── */
 .quick-actions {
   flex: 1;
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
   gap: 1rem;
-  padding: 1rem;
   background: transparent;
   min-height: 0;
 }
 
-/* ── Action cards — fill their quadrant ── */
+/* ── Action cards — fill their quadrant (border-radius matches destination bordered boxes) ── */
 .action-card {
   background: var(--bg-card);
   padding: 3rem 4rem;
-  border-radius: 8px;
+  border-radius: 4px;
   cursor: pointer;
   transition: background 0.25s;
   text-align: center;
@@ -261,4 +248,201 @@
 
 .action-card:hover p {
   color: var(--txt);
+}
+
+/* ── Transition animation: card expands to fill content area ── */
+
+/* Fade out siblings while a card is animating */
+.dashboard-page.animating > h1,
+.dashboard-page.animating > .page-description {
+  opacity: 0;
+  transition: opacity 0.5s ease-out;
+}
+
+.dashboard-page.animating .action-card {
+  opacity: 0;
+  transition: opacity 0.5s ease-out;
+  pointer-events: none;
+}
+
+/* The fixed overlay that expands from card position to full content area */
+.card-transition-overlay {
+  position: fixed;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: var(--bg-card);
+  border-radius: 4px;
+  overflow: hidden;
+  pointer-events: none;
+  will-change: top, left, width, height;
+  transition:
+    top 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+    left 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+    width 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+    height 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Color variants */
+.card-transition-overlay[data-color="cyan"] {
+  border: 1px solid var(--cyan);
+  box-shadow:
+    inset 0 0 60px rgba(0, 238, 255, 0.06),
+    0 0 40px var(--cyan-glow),
+    0 0 80px rgba(0, 238, 255, 0.15);
+}
+
+.card-transition-overlay[data-color="green"] {
+  border: 1px solid var(--green);
+  box-shadow:
+    inset 0 0 60px rgba(57, 255, 20, 0.06),
+    0 0 40px var(--green-glow),
+    0 0 80px rgba(57, 255, 20, 0.15);
+}
+
+.card-transition-overlay[data-color="orange"] {
+  border: 1px solid var(--orange);
+  box-shadow:
+    inset 0 0 60px rgba(255, 102, 0, 0.06),
+    0 0 40px var(--orange-glow),
+    0 0 80px rgba(255, 102, 0, 0.15);
+}
+
+.card-transition-overlay[data-color="gold"] {
+  border: 1px solid var(--gold);
+  box-shadow:
+    inset 0 0 60px rgba(255, 215, 0, 0.06),
+    0 0 40px var(--gold-glow),
+    0 0 80px rgba(255, 215, 0, 0.15);
+}
+
+/* Overlay icon inherits card icon styles */
+.card-transition-overlay .action-icon-svg {
+  width: 72px;
+  height: 72px;
+  display: block;
+  margin: 0 auto 1.5rem;
+}
+
+.card-transition-overlay .action-icon-svg * {
+  stroke: currentColor;
+}
+
+.card-transition-overlay h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.2rem;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.card-transition-overlay p {
+  margin: 0;
+  color: var(--txt-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  font-family: 'Courier New', Courier, monospace;
+  max-width: 280px;
+}
+
+.card-transition-overlay[data-color="cyan"] h3 {
+  color: var(--cyan);
+  text-shadow: 0 0 8px var(--cyan-dim);
+}
+
+.card-transition-overlay[data-color="green"] h3 {
+  color: var(--green);
+  text-shadow: 0 0 8px var(--green-dim);
+}
+
+.card-transition-overlay[data-color="orange"] h3 {
+  color: var(--orange);
+  text-shadow: 0 0 8px var(--orange-dim);
+}
+
+.card-transition-overlay[data-color="gold"] h3 {
+  color: var(--gold);
+  text-shadow: 0 0 8px var(--gold-dim);
+}
+
+/* Crossfade: overlay fades out while destination page fades in underneath */
+.card-transition-overlay.fade-out {
+  opacity: 0;
+  transition: opacity 0.6s ease-out;
+}
+
+/* ── Header transition overlay — scramble/rewrite text effect ── */
+
+.header-transition-overlay {
+  position: fixed;
+  z-index: 101;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.header-transition-overlay h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: var(--pink);
+  text-shadow: 0 0 10px var(--pink-dim);
+  transition: color 0.7s ease-out, text-shadow 0.7s ease-out;
+}
+
+.header-transition-overlay p {
+  margin: 0;
+  color: var(--txt-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+/* Bright flash on individual scramble glyphs — lightning strikes */
+.header-transition-overlay .glyph-flash {
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow:
+    0 0 6px rgba(255, 255, 255, 0.8),
+    0 0 14px rgba(255, 255, 255, 0.4);
+}
+
+/* Rapid glow pulse during active scramble — lightning flicker */
+@keyframes scramble-glow {
+  0%, 100% { text-shadow: 0 0 4px currentColor; }
+  50%      { text-shadow: 0 0 16px currentColor, 0 0 32px currentColor; }
+}
+
+.header-transition-overlay.scrambling h1 {
+  animation: scramble-glow 0.1s ease-in-out infinite;
+}
+
+/* Color targets — h1 transitions from pink to card color */
+.header-transition-overlay.color-cyan h1 {
+  color: var(--cyan);
+  text-shadow: 0 0 10px var(--cyan-dim);
+}
+
+.header-transition-overlay.color-green h1 {
+  color: var(--green);
+  text-shadow: 0 0 10px var(--green-dim);
+}
+
+.header-transition-overlay.color-orange h1 {
+  color: var(--orange);
+  text-shadow: 0 0 10px var(--orange-dim);
+}
+
+.header-transition-overlay.color-gold h1 {
+  color: var(--gold);
+  text-shadow: 0 0 10px var(--gold-dim);
+}
+
+/* Fade out simultaneously with card overlay */
+.header-transition-overlay.fade-out {
+  opacity: 0;
+  transition: opacity 0.6s ease-out;
 }
