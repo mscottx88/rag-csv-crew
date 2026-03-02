@@ -27,6 +27,9 @@ from backend.src.db.schemas import (
     DATASETS_FILENAME_INDEX_SQL,
     DATASETS_TABLE_SQL,
     DATASETS_UPLOADED_INDEX_SQL,
+    INDEX_METADATA_CAPABILITY_INDEX_SQL,
+    INDEX_METADATA_DATASET_INDEX_SQL,
+    INDEX_METADATA_TABLE_SQL,
     QUERIES_STATUS_INDEX_SQL,
     QUERIES_SUBMITTED_INDEX_SQL,
     QUERIES_TABLE_SQL,
@@ -49,6 +52,7 @@ def ensure_user_schema_exists(conn: Connection[tuple[str, ...]], username: str) 
        - cross_references
        - queries
        - responses
+       - index_metadata
 
     Args:
         conn: Active PostgreSQL connection (synchronous)
@@ -167,6 +171,20 @@ def ensure_user_schema_exists(conn: Connection[tuple[str, ...]], username: str) 
             schema_name=schema_name
         )
         cur.execute(responses_generated_idx_sql)
+
+        # Create index_metadata table
+        index_metadata_sql: str = INDEX_METADATA_TABLE_SQL.format(schema_name=schema_name)
+        cur.execute(index_metadata_sql)
+
+        # Create indexes for index_metadata table
+        idx_meta_dataset_idx_sql: str = INDEX_METADATA_DATASET_INDEX_SQL.format(
+            schema_name=schema_name
+        )
+        cur.execute(idx_meta_dataset_idx_sql)
+        idx_meta_capability_idx_sql: str = INDEX_METADATA_CAPABILITY_INDEX_SQL.format(
+            schema_name=schema_name
+        )
+        cur.execute(idx_meta_capability_idx_sql)
 
         # Migration: add progress_timeline column to existing queries tables
         timeline_migration_sql: str = (
