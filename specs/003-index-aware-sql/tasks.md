@@ -31,9 +31,9 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Implement index name generation utility function `generate_index_name(table_name, column_name, index_type)` in backend/src/services/index_manager.py with 63-character identifier truncation and MD5 hash suffix per data-model.md Identifier Length Handling
-- [ ] T005 Write unit tests for Pydantic models (IndexMetadataEntry validation, DataColumnIndexProfile properties: has_fulltext, has_vector, fulltext_column, embedding_column) in tests/unit/models/test_index_metadata.py
-- [ ] T006 Write unit tests for index name generation (normal names, truncated names exceeding 63 chars, hash uniqueness) in tests/unit/services/test_index_manager.py
+- [x] T004 Implement index name generation utility function `generate_index_name(table_name, column_name, index_type)` in backend/src/services/index_manager.py with 63-character identifier truncation and MD5 hash suffix per data-model.md Identifier Length Handling
+- [x] T005 Write unit tests for Pydantic models (IndexMetadataEntry validation, DataColumnIndexProfile properties: has_fulltext, has_vector, fulltext_column, embedding_column) in tests/unit/models/test_index_metadata.py
+- [x] T006 Write unit tests for index name generation (normal names, truncated names exceeding 63 chars, hash uniqueness) in tests/unit/services/test_index_manager.py
 
 **Checkpoint**: Foundation ready — models validated, name generation tested, schema DDL in place
 
