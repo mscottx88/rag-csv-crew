@@ -44,6 +44,7 @@ interface NeonScrollbarProps {
 }
 
 const MIN_THUMB_PX = 28;
+const THUMB_INSET = 3; // px inset on all sides of thumb within track
 
 export const NeonScrollbar: React.FC<NeonScrollbarProps> = ({
   children,
@@ -106,6 +107,9 @@ export const NeonScrollbar: React.FC<NeonScrollbarProps> = ({
 
       const trackYH = trackY.clientHeight;
       const trackXW = trackX.clientWidth;
+      // Usable range after inset on both ends
+      const usableYH = trackYH - THUMB_INSET * 2;
+      const usableXW = trackXW - THUMB_INSET * 2;
 
       const vTotal = virtualYTotalRef.current;
       const vStart = virtualYStartRef.current;
@@ -121,21 +125,21 @@ export const NeonScrollbar: React.FC<NeonScrollbarProps> = ({
           const maxScrollY = scrollHeight - clientHeight;
           const vpRatio = scrollHeight > 0 ? clientHeight / scrollHeight : 1;
           const visibleRows = Math.min(vpRatio * vLoaded, vTotal);
-          thumbH = Math.max(MIN_THUMB_PX, (visibleRows / vTotal) * trackYH);
+          thumbH = Math.max(MIN_THUMB_PX, (visibleRows / vTotal) * usableYH);
 
           const domFrac = maxScrollY > 0 ? scrollTop / maxScrollY : 0;
           const scrolledRows = domFrac * Math.max(0, vLoaded - visibleRows);
           const topRow = vStart + scrolledRows;
           const maxRow = Math.max(0, vTotal - visibleRows);
           const posFrac = maxRow > 0 ? Math.min(1, Math.max(0, topRow / maxRow)) : 0;
-          thumbTop = posFrac * (trackYH - thumbH);
+          thumbTop = THUMB_INSET + posFrac * (usableYH - thumbH);
 
           virtualStateRef.current = { thumbH, visibleRows };
         } else {
-          thumbH = Math.max(MIN_THUMB_PX, (clientHeight / scrollHeight) * trackYH);
+          thumbH = Math.max(MIN_THUMB_PX, (clientHeight / scrollHeight) * usableYH);
           const maxScrollY = scrollHeight - clientHeight;
-          const maxThumbTop = trackYH - thumbH;
-          thumbTop = maxScrollY > 0 ? (scrollTop / maxScrollY) * maxThumbTop : 0;
+          const maxThumbTop = usableYH - thumbH;
+          thumbTop = THUMB_INSET + (maxScrollY > 0 ? (scrollTop / maxScrollY) * maxThumbTop : 0);
           virtualStateRef.current = null;
         }
 
@@ -153,10 +157,10 @@ export const NeonScrollbar: React.FC<NeonScrollbarProps> = ({
 
       const showX = scrollWidth > clientWidth + 1;
       if (showX) {
-        const thumbW = Math.max(MIN_THUMB_PX, (clientWidth / scrollWidth) * trackXW);
+        const thumbW = Math.max(MIN_THUMB_PX, (clientWidth / scrollWidth) * usableXW);
         const maxScrollX = scrollWidth - clientWidth;
-        const maxThumbLeft = trackXW - thumbW;
-        const thumbLeft = maxScrollX > 0 ? (scrollLeft / maxScrollX) * maxThumbLeft : 0;
+        const maxThumbLeft = usableXW - thumbW;
+        const thumbLeft = THUMB_INSET + (maxScrollX > 0 ? (scrollLeft / maxScrollX) * maxThumbLeft : 0);
         thumbX.style.width = `${thumbW}px`;
         thumbX.style.left = `${thumbLeft}px`;
         thumbX.style.display = '';
@@ -167,6 +171,10 @@ export const NeonScrollbar: React.FC<NeonScrollbarProps> = ({
       }
 
       corner.style.display = showY && showX ? '' : 'none';
+
+      // Extend tracks to fill the corner gap when the other axis is hidden
+      trackY.style.bottom = showX ? '15px' : '0';
+      trackX.style.right = showY ? '15px' : '0';
     };
 
     // RAF-debounced updater: batches rapid MO/RO firings into one update per frame,
@@ -235,13 +243,14 @@ export const NeonScrollbar: React.FC<NeonScrollbarProps> = ({
 
     const onMouseMove = (e: MouseEvent): void => {
       if (!isDragging) return;
-      const maxThumbTop = trackSizeAtStart - thumbSizeAtStart;
+      const usableTrack = trackSizeAtStart - THUMB_INSET * 2;
+      const maxThumbTop = usableTrack - thumbSizeAtStart;
       if (maxThumbTop <= 0) return;
       if (isVirtual) {
         const delta = e.clientY - dragStartMouse;
-        const newTop = Math.max(0, Math.min(maxThumbTop, dragStartThumbTop + delta));
+        const newTop = Math.max(THUMB_INSET, Math.min(THUMB_INSET + maxThumbTop, dragStartThumbTop + delta));
         thumbY.style.top = `${newTop}px`;
-        vDragFraction = newTop / maxThumbTop;
+        vDragFraction = (newTop - THUMB_INSET) / maxThumbTop;
       } else {
         const delta = e.clientY - dragStartMouse;
         const fraction = delta / maxThumbTop;
@@ -303,7 +312,8 @@ export const NeonScrollbar: React.FC<NeonScrollbarProps> = ({
 
     const onMouseMove = (e: MouseEvent): void => {
       if (!isDragging) return;
-      const maxThumbLeft = trackSizeAtStart - thumbSizeAtStart;
+      const usableTrack = trackSizeAtStart - THUMB_INSET * 2;
+      const maxThumbLeft = usableTrack - thumbSizeAtStart;
       if (maxThumbLeft <= 0) return;
       const delta = e.clientX - dragStartMouse;
       const fraction = delta / maxThumbLeft;
@@ -340,7 +350,8 @@ export const NeonScrollbar: React.FC<NeonScrollbarProps> = ({
     const onTrackYClick = (e: MouseEvent): void => {
       if (e.target === thumbY) return;
       const rect = trackY.getBoundingClientRect();
-      const fraction = (e.clientY - rect.top) / rect.height;
+      const usable = rect.height - THUMB_INSET * 2;
+      const fraction = Math.max(0, Math.min(1, (e.clientY - rect.top - THUMB_INSET) / usable));
       const vs = virtualStateRef.current;
       const navigate = onVirtualYNavigateRef.current;
       if (vs && navigate) {
@@ -354,7 +365,8 @@ export const NeonScrollbar: React.FC<NeonScrollbarProps> = ({
     const onTrackXClick = (e: MouseEvent): void => {
       if (e.target === thumbX) return;
       const rect = trackX.getBoundingClientRect();
-      const fraction = (e.clientX - rect.left) / rect.width;
+      const usable = rect.width - THUMB_INSET * 2;
+      const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left - THUMB_INSET) / usable));
       inner.scrollLeft = fraction * (inner.scrollWidth - inner.clientWidth);
     };
 
