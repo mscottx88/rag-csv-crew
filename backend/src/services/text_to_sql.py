@@ -42,6 +42,8 @@ from backend.src.crew.tools import (
     list_datasets_tool,
     set_schema_inspector_context,
 )
+from backend.src.models.index_metadata import DataColumnIndexProfile
+from backend.src.services.index_manager import build_index_context, get_index_profiles
 from backend.src.services.schema_inspector import SchemaInspectorService
 from backend.src.utils.logging import get_structured_logger, log_event
 
@@ -785,6 +787,63 @@ class TextToSQLService:
                     f"Schema Inspector Agent will examine {len(tables)} table(s) for relevant columns"
                 )
 
+        # Retrieve index capabilities context for SQL generation (FR-017)
+        index_context: str = ""
+        if self.pool is not None and dataset_ids:
+            try:
+                dataset_id_strs: list[str] = [str(d) for d in dataset_ids]
+                with self.pool.connection() as idx_conn:
+                    index_profiles: dict[str, list[DataColumnIndexProfile]] = get_index_profiles(
+                        idx_conn, username, dataset_id_strs
+                    )
+
+                if index_profiles:
+                    # Build table_names mapping from schema_context
+                    table_names_map: dict[str, str] = {}
+                    for ds_id_str in dataset_id_strs:
+                        for t_name in schema_context.get("tables", []):
+                            # Map dataset_id to table_name using dataset info
+                            table_names_map[ds_id_str] = t_name
+                            break
+
+                    # Better mapping: query datasets table for exact table names
+                    with self.pool.connection() as idx_conn_2, idx_conn_2.cursor() as cur:
+                        user_schema: str = f"{username}_schema"
+                        cur.execute(
+                            sql.SQL("SET search_path TO {}, public").format(
+                                sql.Identifier(user_schema)
+                            )
+                        )
+                        cur.execute(
+                            "SELECT id::text, table_name" " FROM datasets" " WHERE id = ANY(%s)",
+                            (dataset_id_strs,),
+                        )
+                        ds_rows: list[tuple[str, ...]] = cur.fetchall()
+                        for ds_row in ds_rows:
+                            table_names_map[str(ds_row[0])] = str(ds_row[1])
+
+                    index_context = build_index_context(
+                        index_profiles,
+                        table_names_map,
+                    )
+
+                    if progress_callback and index_context:
+                        profile_count: int = sum(len(p) for p in index_profiles.values())
+                        progress_callback(
+                            f"Loaded index capabilities for" f" {profile_count} columns"
+                        )
+            except Exception as idx_err:  # pylint: disable=broad-exception-caught
+                # JUSTIFICATION: Index context is enhancement, not critical.
+                # If index retrieval fails, SQL generation proceeds without
+                # it (agent falls back to standard behavior per FR-017).
+                log_event(
+                    logger=logger,
+                    level="warning",
+                    event="index_context_retrieval_failed",
+                    user=username,
+                    extra={"error": str(idx_err)},
+                )
+
         if progress_callback:
             progress_callback("Creating SQL Generator Agent for query translation...")
 
@@ -801,6 +860,7 @@ class TextToSQLService:
             cross_references=cross_references,
             search_results=search_results,
             schema_context=schema_description,  # Pass explicit schema
+            index_context=index_context if index_context else None,
         )
 
         # Set context if schema inspection task exists

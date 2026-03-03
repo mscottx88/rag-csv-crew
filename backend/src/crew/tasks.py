@@ -23,6 +23,7 @@ def create_sql_generation_task(
     cross_references: list[dict[str, Any]] | None = None,
     search_results: dict[str, Any] | None = None,
     schema_context: str | None = None,
+    index_context: str | None = None,
 ) -> Task:
     """Create task for generating SQL from natural language query.
 
@@ -33,6 +34,10 @@ def create_sql_generation_task(
         cross_references: Optional list of cross-reference relationships for JOIN generation
         search_results: Optional column search results with data value matches
         schema_context: Optional explicit schema description with valid table/column names
+        index_context: Optional index capabilities context from build_index_context().
+            When provided, appended after schema_context and new FTS/vector
+            requirements are added. When None, agent falls back to current
+            behavior per FR-017.
 
     Returns:
         Task configured for SQL generation
@@ -92,10 +97,28 @@ def create_sql_generation_task(
     # Include explicit schema context if provided
     schema_info: str = schema_context if schema_context else ""
 
+    # Include index capabilities context if provided (per FR-017)
+    index_info: str = ""
+    if index_context:
+        index_info = f"\n\n{index_context}"
+
+    # Add FTS/vector requirements when index context is available
+    index_requirements: str = ""
+    if index_context:
+        index_requirements = (
+            "\n11. PREFER full-text search operators (@@, ts_rank,"
+            " plainto_tsquery) over ILIKE for text searches when a"
+            " full-text search index is available on the column."
+            " See INDEX CAPABILITIES section."
+            "\n12. For semantic or meaning-based searches, use vector"
+            " cosine distance (<=> operator) when vector indexes"
+            " are available. See INDEX CAPABILITIES section."
+        )
+
     description: str = f"""Analyze the user's question and generate a SQL query to answer it.
 
 User Question: "{query_text}"
-Target Datasets: {dataset_info}{schema_info}{join_context}{value_context}
+Target Datasets: {dataset_info}{schema_info}{index_info}{join_context}{value_context}
 
 Requirements:
 1. Generate a valid PostgreSQL SQL query
@@ -107,7 +130,7 @@ Requirements:
 7. For foreign_key relationships, use INNER JOIN (or LEFT JOIN if optional)
 8. For shared_values relationships, use INNER JOIN on matching values
 9. Include LIMIT clauses where appropriate to avoid huge result sets
-10. Ensure the query is efficient and readable
+10. Ensure the query is efficient and readable{index_requirements}
 
 Output only the SQL query text, nothing else."""
 

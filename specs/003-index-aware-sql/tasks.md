@@ -103,15 +103,15 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T025 [P] [US1] Write unit tests for `create_sql_generation_task()` with index_context parameter (context injected into task description after schema context; None handled gracefully; FTS and B-tree rules appended to requirements) in tests/unit/crew/test_sql_generation_task.py
-- [ ] T026 [P] [US1] Write unit tests for index context retrieval in query processing flow (get_index_profiles called with correct dataset_ids; build_index_context called with correct profiles and table_names; index_context passed to task) in tests/unit/services/test_text_to_sql.py
+- [x] T025 [P] [US1] Write unit tests for `create_sql_generation_task()` with index_context parameter (context injected into task description after schema context; None handled gracefully; FTS and B-tree rules appended to requirements) in tests/unit/crew/test_sql_generation_task.py
+- [x] T026 [P] [US1] Write unit tests for index context retrieval in query processing flow (get_index_profiles called with correct dataset_ids; build_index_context called with correct profiles and table_names; index_context passed to task) in tests/unit/services/test_text_to_sql.py
 
 ### Implementation for User Story 1
 
-- [ ] T027 [US1] Add `index_context: str | None = None` parameter to `create_sql_generation_task()` in backend/src/crew/tasks.py — inject index_context into task description after schema_context and before requirements section per sql-generation-task-context contract
-- [ ] T028 [US1] Add two new requirements to the SQL generation task description in backend/src/crew/tasks.py — requirement 15 (PREFER FTS over ILIKE) and requirement 16 (use vector cosine distance) per sql-generation-task-context contract Updated Requirements Section
-- [ ] T029 [US1] Modify query processing flow in backend/src/services/text_to_sql.py — after resolving target dataset_ids, call get_index_profiles() and build_index_context(), pass index_context to create_sql_generation_task() per sql-generation-task-context Caller Changes
-- [ ] T030 [US1] Handle None/empty index_context gracefully in backend/src/crew/tasks.py — when index_context is None (pre-existing datasets), skip INDEX CAPABILITIES section, agent falls back to current behavior per FR-017
+- [x] T027 [US1] Add `index_context: str | None = None` parameter to `create_sql_generation_task()` in backend/src/crew/tasks.py — inject index_context into task description after schema_context and before requirements section per sql-generation-task-context contract
+- [x] T028 [US1] Add two new requirements to the SQL generation task description in backend/src/crew/tasks.py — requirement 11 (PREFER FTS over ILIKE) and requirement 12 (use vector cosine distance) per sql-generation-task-context contract Updated Requirements Section
+- [x] T029 [US1] Modify query processing flow in backend/src/services/text_to_sql.py — after resolving target dataset_ids, call get_index_profiles() and build_index_context(), pass index_context to create_sql_generation_task() per sql-generation-task-context Caller Changes
+- [x] T030 [US1] Handle None/empty index_context gracefully in backend/src/crew/tasks.py — when index_context is None (pre-existing datasets), skip INDEX CAPABILITIES section, agent falls back to current behavior per FR-017
 
 **Checkpoint**: P1 MVP complete — text queries produce FTS-aware SQL with tsvector/tsquery and relevance ranking instead of ILIKE
 

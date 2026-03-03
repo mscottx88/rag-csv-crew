@@ -2,6 +2,7 @@
 
 Tests the text-to-SQL service that converts natural language queries to SQL
 using CrewAI SQL Generator agent and executes them against the database.
+Tests index context retrieval in query processing flow (T026).
 
 Constitutional Requirements:
 - Thread-based operations only (no async/await)
@@ -10,11 +11,24 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
+
+from backend.src.models.index_metadata import (
+    DataColumnIndexProfile,
+    IndexCapability,
+    IndexMetadataEntry,
+    IndexStatus,
+    IndexType,
+)
+from backend.src.services.index_manager import (
+    build_index_context,
+    get_index_profiles,
+)
 
 
 @pytest.mark.unit
@@ -201,3 +215,163 @@ class TestTextToSQLService:
             assert isinstance(result["params"], list)
             # Original malicious input should be in params, not SQL string
             assert malicious_query not in result["sql"]
+
+
+_TEST_DATASET_ID: str = "12345678-1234-1234-1234-123456789abc"
+
+
+def _make_index_entry(
+    column_name: str,
+    index_type: IndexType,
+    capability: IndexCapability,
+    generated_column_name: str | None = None,
+) -> IndexMetadataEntry:
+    """Create an IndexMetadataEntry for T026 tests."""
+    return IndexMetadataEntry(
+        id=uuid4(),
+        dataset_id=UUID(_TEST_DATASET_ID),
+        column_name=column_name,
+        index_name=f"idx_test_{column_name}_{index_type.value}",
+        index_type=index_type,
+        capability=capability,
+        generated_column_name=generated_column_name,
+        status=IndexStatus.CREATED,
+        created_at=datetime.now(UTC),
+    )
+
+
+@pytest.mark.unit
+class TestIndexContextRetrieval:
+    """T026: Test index context retrieval in query processing flow."""
+
+    def test_get_index_profiles_called_with_correct_dataset_ids(
+        self,
+    ) -> None:
+        """Test get_index_profiles receives correct dataset_ids."""
+        mock_conn: MagicMock = MagicMock()
+        mock_cursor: MagicMock = MagicMock()
+        mock_conn.cursor.return_value.__enter__ = MagicMock(
+            return_value=mock_cursor,
+        )
+        mock_conn.cursor.return_value.__exit__ = MagicMock(
+            return_value=False,
+        )
+        mock_cursor.fetchall.return_value = []
+
+        ds_ids: list[str] = [_TEST_DATASET_ID]
+        get_index_profiles(
+            mock_conn,
+            "testuser",
+            ds_ids,
+        )
+
+        # Should query with the correct dataset_id
+        mock_cursor.execute.assert_called_once()
+        call_args: tuple[Any, ...] = mock_cursor.execute.call_args[0]
+        assert _TEST_DATASET_ID in str(call_args)
+
+    def test_build_index_context_with_profiles_and_table_names(
+        self,
+    ) -> None:
+        """Test build_index_context called with correct profiles."""
+        btree: IndexMetadataEntry = _make_index_entry(
+            "name",
+            IndexType.BTREE,
+            IndexCapability.FILTERING,
+        )
+        gin: IndexMetadataEntry = _make_index_entry(
+            "name",
+            IndexType.GIN,
+            IndexCapability.FULL_TEXT_SEARCH,
+            generated_column_name="_ts_name",
+        )
+        profile: DataColumnIndexProfile = DataColumnIndexProfile(
+            column_name="name",
+            dataset_id=UUID(_TEST_DATASET_ID),
+            indexes=[btree, gin],
+        )
+        profiles: dict[str, list[DataColumnIndexProfile]] = {
+            _TEST_DATASET_ID: [profile],
+        }
+        table_names: dict[str, str] = {
+            _TEST_DATASET_ID: "products_data",
+        }
+
+        context: str = build_index_context(profiles, table_names)
+
+        assert "Table: products_data" in context
+        assert "Column: name (TEXT)" in context
+        assert "Full-text search via '_ts_name'" in context
+
+    @patch("backend.src.crew.tasks.Task")
+    def test_index_context_passed_to_task_creation(
+        self,
+        mock_task_cls: MagicMock,
+    ) -> None:
+        """Test index_context string is passed to task creation."""
+        from backend.src.crew.tasks import create_sql_generation_task
+
+        mock_task_cls.return_value = MagicMock()
+        agent: MagicMock = MagicMock()
+        context: str = "INDEX CAPABILITIES\nTest context\n"
+
+        create_sql_generation_task(
+            agent=agent,
+            query_text="Find products",
+            dataset_ids=[UUID(_TEST_DATASET_ID)],
+            index_context=context,
+        )
+
+        call_kwargs: dict[str, Any] = mock_task_cls.call_args.kwargs
+        description: str = call_kwargs["description"]
+        assert "INDEX CAPABILITIES" in description
+
+    def test_empty_profiles_produce_no_context(self) -> None:
+        """Test empty profiles produce empty index_context."""
+        context: str = build_index_context({}, {})
+        assert context == ""
+
+    def test_context_includes_all_datasets(self) -> None:
+        """Test context covers all requested datasets."""
+        ds_id_1: str = _TEST_DATASET_ID
+        ds_id_2: str = str(uuid4())
+
+        btree_1: IndexMetadataEntry = _make_index_entry(
+            "name",
+            IndexType.BTREE,
+            IndexCapability.FILTERING,
+        )
+        btree_2: IndexMetadataEntry = IndexMetadataEntry(
+            id=uuid4(),
+            dataset_id=UUID(ds_id_2),
+            column_name="price",
+            index_name="idx_orders_price_btree",
+            index_type=IndexType.BTREE,
+            capability=IndexCapability.FILTERING,
+            status=IndexStatus.CREATED,
+            created_at=datetime.now(UTC),
+        )
+
+        profile_1: DataColumnIndexProfile = DataColumnIndexProfile(
+            column_name="name",
+            dataset_id=UUID(ds_id_1),
+            indexes=[btree_1],
+        )
+        profile_2: DataColumnIndexProfile = DataColumnIndexProfile(
+            column_name="price",
+            dataset_id=UUID(ds_id_2),
+            indexes=[btree_2],
+        )
+        profiles: dict[str, list[DataColumnIndexProfile]] = {
+            ds_id_1: [profile_1],
+            ds_id_2: [profile_2],
+        }
+        table_names: dict[str, str] = {
+            ds_id_1: "products_data",
+            ds_id_2: "orders_data",
+        }
+
+        context: str = build_index_context(profiles, table_names)
+
+        assert "Table: products_data" in context
+        assert "Table: orders_data" in context
