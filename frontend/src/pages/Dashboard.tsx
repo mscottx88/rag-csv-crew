@@ -1,22 +1,13 @@
 /**
  * Dashboard Page
- * Welcome page with quick navigation and card-expand transition animation.
- *
- * Card clicks trigger a two-part animation:
- * 1. Header scramble + lightning (via shared pageTransition utility)
- * 2. Card expansion overlay (Dashboard-specific, expands from card to grid area)
- *
- * Both overlays are appended to document.body so they persist across route changes.
+ * Welcome page with quick navigation cards.
+ * Uses the shared pageTransition utility for consistent animations.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import {
-  createHeaderTransition,
-  getRouteConfig,
-  isTransitioning,
-} from '../utils/pageTransition';
+import { animatePageTransition, isTransitioning } from '../utils/pageTransition';
 import './Dashboard.css';
 
 /* ── Card definitions ── */
@@ -103,143 +94,28 @@ const CARDS: CardDef[] = [
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const gridRef = useRef<HTMLDivElement | null>(null);
-  const overlayRef = useRef<HTMLDivElement | null>(null);
-  const headerOverlayRef = useRef<HTMLDivElement | null>(null);
-  const scrambleCancelsRef = useRef<(() => void)[]>([]);
-  const [isAnimating, setIsAnimating] = useState<boolean>(false);
-
-  // Clean up overlays if Dashboard unmounts unexpectedly (e.g. sidebar nav during animation)
-  useEffect(() => {
-    return () => {
-      scrambleCancelsRef.current.forEach((cancel) => cancel());
-      scrambleCancelsRef.current = [];
-      if (overlayRef.current) {
-        overlayRef.current.remove();
-        overlayRef.current = null;
-      }
-      if (headerOverlayRef.current) {
-        headerOverlayRef.current.remove();
-        headerOverlayRef.current = null;
-      }
-      document.body.classList.remove('has-card-overlay');
-    };
-  }, []);
 
   const handleCardClick = useCallback(
-    (index: number, route: string, color: string): void => {
-      if (isAnimating || isTransitioning()) return;
-
-      const cardEl = cardRefs.current[index];
-      const gridEl = gridRef.current;
-      if (!cardEl || !gridEl) {
-        navigate(route);
-        return;
-      }
-
-      const destConfig = getRouteConfig(route);
-      if (!destConfig) {
-        navigate(route);
-        return;
-      }
-
-      setIsAnimating(true);
-
-      const cardRect = cardEl.getBoundingClientRect();
-      const gridRect = gridEl.getBoundingClientRect();
-
-      // ── Header overlay: scramble + lightning (shared utility) ──
-      const dashboardEl = gridEl.parentElement;
-      const h1El = dashboardEl?.querySelector(':scope > h1') as HTMLElement | null;
-      const descEl = dashboardEl?.querySelector(':scope > .page-description') as HTMLElement | null;
-
-      if (h1El && descEl) {
-        const headerResult = createHeaderTransition(h1El, descEl, destConfig);
-        headerOverlayRef.current = headerResult.overlay;
-        scrambleCancelsRef.current = headerResult.cancels;
-      }
-
-      // ── Card overlay: expand from card position to grid area ──
-      const overlay = document.createElement('div');
-      overlay.className = 'card-transition-overlay';
-      overlay.setAttribute('data-color', color);
-      overlay.innerHTML = cardEl.innerHTML;
-
-      Object.assign(overlay.style, {
-        top: `${cardRect.top}px`,
-        left: `${cardRect.left}px`,
-        width: `${cardRect.width}px`,
-        height: `${cardRect.height}px`,
-      });
-
-      document.body.appendChild(overlay);
-      overlayRef.current = overlay;
-
-      // Trigger expansion on the next frame so the browser paints the start position first
-      requestAnimationFrame(() => {
-        Object.assign(overlay.style, {
-          top: `${gridRect.top}px`,
-          left: `${gridRect.left}px`,
-          width: `${gridRect.width}px`,
-          height: `${gridRect.height}px`,
-        });
-      });
-
-      // On expansion complete: navigate, wait for page to render, then reveal
-      const onExpanded = (e: TransitionEvent): void => {
-        if (e.target !== overlay || e.propertyName !== 'width') return;
-        overlay.removeEventListener('transitionend', onExpanded);
-
-        document.body.classList.add('has-card-overlay');
-
-        // Navigate — Dashboard unmounts, destination page mounts underneath
-        navigate(route);
-
-        // Wait for React to render the destination page, then fade overlay out
-        requestAnimationFrame(() => {
-          overlay.classList.add('fade-out');
-
-          const headerOv = headerOverlayRef.current;
-
-          const onFaded = (fe: TransitionEvent): void => {
-            if (fe.propertyName !== 'opacity') return;
-            overlay.removeEventListener('transitionend', onFaded);
-            overlay.remove();
-            // Remove header overlay instantly — text already matches destination
-            if (headerOv) {
-              headerOv.remove();
-            }
-            document.body.classList.remove('has-card-overlay');
-            if (overlayRef.current === overlay) {
-              overlayRef.current = null;
-            }
-            headerOverlayRef.current = null;
-            scrambleCancelsRef.current = [];
-          };
-          overlay.addEventListener('transitionend', onFaded);
-        });
-      };
-
-      overlay.addEventListener('transitionend', onExpanded);
+    (route: string): void => {
+      if (isTransitioning()) return;
+      animatePageTransition(route, navigate);
     },
-    [isAnimating, navigate],
+    [navigate],
   );
 
   return (
-    <div className={`dashboard-page${isAnimating ? ' animating' : ''}`}>
+    <div className="dashboard-page">
       <h1>Welcome back, {user?.username}!</h1>
       <p className="page-description">
         Get started by uploading a CSV dataset or submitting a natural language query.
       </p>
 
-      <div className="quick-actions" ref={gridRef}>
-        {CARDS.map((card, i) => (
+      <div className="quick-actions">
+        {CARDS.map((card) => (
           <div
             key={card.route}
             className="action-card"
-            ref={(el): void => { cardRefs.current[i] = el; }}
-            onClick={(): void => handleCardClick(i, card.route, card.color)}
+            onClick={(): void => handleCardClick(card.route)}
             role="button"
             tabIndex={0}
           >
