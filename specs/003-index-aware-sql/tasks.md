@@ -49,19 +49,19 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T007 [P] [US2] Write unit tests for `create_indexes_for_dataset()` B-tree index creation (all column types, correct SQL generation, naming conventions) in tests/unit/services/test_index_manager.py
-- [ ] T008 [P] [US2] Write unit tests for `create_indexes_for_dataset()` tsvector column + GIN index creation (TEXT columns only, correct ALTER TABLE and CREATE INDEX SQL, naming conventions) in tests/unit/services/test_index_manager.py
-- [ ] T009 [P] [US2] Write unit tests for index creation error handling (IndexCreationError raised on failure, partial_results populated, failed_index identified) in tests/unit/services/test_index_manager.py
-- [ ] T010 [P] [US2] Write integration test for index creation on a real PostgreSQL table (upload CSV, verify B-tree indexes exist on all columns via pg_indexes, verify GIN indexes on text columns, verify tsvector generated columns exist) in tests/integration/test_index_creation.py
+- [x] T007 [P] [US2] Write unit tests for `create_indexes_for_dataset()` B-tree index creation (all column types, correct SQL generation, naming conventions) in tests/unit/services/test_index_manager.py
+- [x] T008 [P] [US2] Write unit tests for `create_indexes_for_dataset()` tsvector column + GIN index creation (TEXT columns only, correct ALTER TABLE and CREATE INDEX SQL, naming conventions) in tests/unit/services/test_index_manager.py
+- [x] T009 [P] [US2] Write unit tests for index creation error handling (IndexCreationError raised on failure, partial_results populated, failed_index identified) in tests/unit/services/test_index_manager.py
+- [x] T010 [P] [US2] Write integration test for index creation on a real PostgreSQL table (upload CSV, verify B-tree indexes exist on all columns via pg_indexes, verify GIN indexes on text columns, verify tsvector generated columns exist) in tests/integration/test_index_creation.py
 
 ### Implementation for User Story 2
 
-- [ ] T011 [US2] Implement B-tree index creation logic in `create_indexes_for_dataset()` in backend/src/services/index_manager.py — for each column: generate index name, execute CREATE INDEX IF NOT EXISTS, handle errors per FR-001, FR-007
-- [ ] T012 [US2] Implement tsvector generated column + GIN index creation in `create_indexes_for_dataset()` in backend/src/services/index_manager.py — for each TEXT column: ALTER TABLE ADD COLUMN _ts_{col} TSVECTOR GENERATED ALWAYS, CREATE INDEX USING GIN, handle errors per FR-002
-- [ ] T013 [US2] Implement error handling and cleanup in `create_indexes_for_dataset()` in backend/src/services/index_manager.py — on any failure: record status='failed' metadata entries, raise IndexCreationError with partial_results per FR-012, FR-013
-- [ ] T014 [US2] Integrate `create_indexes_for_dataset()` into ingestion pipeline in backend/src/services/ingestion.py — call after `ingest_csv_data()` (step 9 per ingestion contract), pass connection, username, dataset_id, table_name, columns
-- [ ] T015 [US2] Add error handling in backend/src/api/datasets.py upload endpoint — catch IndexCreationError, drop data table, delete dataset metadata, return HTTP 500 with error details per FR-016
-- [ ] T016 [US2] Add progress reporting for index creation steps in backend/src/services/ingestion.py — emit progress events "Creating B-tree indexes" and "Creating full-text search indexes" per FR-015, FR-023
+- [x] T011 [US2] Implement B-tree index creation logic in `create_indexes_for_dataset()` in backend/src/services/index_manager.py — for each column: generate index name, execute CREATE INDEX IF NOT EXISTS, handle errors per FR-001, FR-007
+- [x] T012 [US2] Implement tsvector generated column + GIN index creation in `create_indexes_for_dataset()` in backend/src/services/index_manager.py — for each TEXT column: ALTER TABLE ADD COLUMN _ts_{col} TSVECTOR GENERATED ALWAYS, CREATE INDEX USING GIN, handle errors per FR-002
+- [x] T013 [US2] Implement error handling and cleanup in `create_indexes_for_dataset()` in backend/src/services/index_manager.py — on any failure: record status='failed' metadata entries, raise IndexCreationError with partial_results per FR-012, FR-013
+- [x] T014 [US2] Integrate `create_indexes_for_dataset()` into ingestion pipeline in backend/src/api/datasets.py — call after `ingest_csv_data()` and row count update, pass connection, username, dataset_id, table_name, columns
+- [x] T015 [US2] Add error handling in backend/src/api/datasets.py upload endpoint — catch IndexCreationError, drop data table, delete dataset metadata, return HTTP 500 with error details per FR-016
+- [x] T016 [US2] Add progress reporting for index creation steps — log_event progress events for B-tree and FTS index creation phases already emitted in index_manager.py (btree_index_creation_start, fts_index_creation_start, index_created, index_creation_complete) per FR-015, FR-023
 
 **Checkpoint**: Upload a CSV → all columns have B-tree indexes, TEXT columns have tsvector + GIN indexes, failures properly handled
 

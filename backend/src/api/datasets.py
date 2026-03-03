@@ -28,6 +28,10 @@ from backend.src.api.utils import get_pool_with_error_handling
 from backend.src.db.connection import DatabaseConnectionPool
 from backend.src.models.dataset import ColumnSchema, Dataset, DatasetList
 from backend.src.services.column_metadata import ColumnMetadataService
+from backend.src.services.index_manager import (
+    IndexCreationError,
+    create_indexes_for_dataset,
+)
 from backend.src.services.ingestion import (  # pylint: disable=import-outside-toplevel
     check_filename_conflict,
     create_dataset_table,
@@ -377,6 +381,105 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to ingest CSV data: {e!s}",
+            ) from e
+
+        # Create indexes for dataset (REQUIRED per FR-013 — failure blocks upload)
+        try:
+            # Build column list for index creation using sanitized names
+            index_columns: list[dict[str, str]] = [
+                {
+                    "name": sanitize_column_name(col["name"]),
+                    "type": col["type"].upper(),
+                }
+                for col in schema["columns"]
+            ]
+
+            log_event(
+                logger=logger,
+                level="info",
+                event="index_creation_start",
+                user=username,
+                extra={
+                    "dataset_id": dataset_id,
+                    "table_name": table_name,
+                    "column_count": len(index_columns),
+                },
+            )
+
+            create_indexes_for_dataset(
+                conn,
+                username,
+                dataset_id,
+                table_name,
+                index_columns,
+            )
+
+            log_event(
+                logger=logger,
+                level="info",
+                event="index_creation_success",
+                user=username,
+                extra={
+                    "dataset_id": dataset_id,
+                    "table_name": table_name,
+                },
+            )
+        except IndexCreationError as ice:
+            # Per FR-016: drop data table, delete metadata, return HTTP 500
+            log_event(
+                logger=logger,
+                level="error",
+                event="index_creation_failed",
+                user=username,
+                extra={
+                    "dataset_id": dataset_id,
+                    "failed_index": ice.failed_index,
+                    "partial_count": len(ice.partial_results),
+                    "error": str(ice),
+                },
+            )
+            # Cleanup: drop data table and delete dataset metadata
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(f"DROP TABLE IF EXISTS" f" {username}_schema.{table_name} CASCADE")
+                    cur.execute(
+                        f"DELETE FROM {username}_schema.datasets" f" WHERE id = %s",
+                        (dataset_id,),
+                    )
+                conn.commit()
+            except Exception:  # pylint: disable=broad-exception-caught
+                # JUSTIFICATION: Cleanup is best-effort after primary failure
+                pass
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=(f"Index creation failed on {ice.failed_index}: " f"{ice!s}"),
+            ) from ice
+        except Exception as e:
+            log_event(
+                logger=logger,
+                level="error",
+                event="index_creation_failed",
+                user=username,
+                extra={
+                    "dataset_id": dataset_id,
+                    "error": str(e),
+                },
+            )
+            # Cleanup: drop data table and delete dataset metadata
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(f"DROP TABLE IF EXISTS" f" {username}_schema.{table_name} CASCADE")
+                    cur.execute(
+                        f"DELETE FROM {username}_schema.datasets" f" WHERE id = %s",
+                        (dataset_id,),
+                    )
+                conn.commit()
+            except Exception:  # pylint: disable=broad-exception-caught
+                # JUSTIFICATION: Cleanup is best-effort after primary failure
+                pass
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Index creation failed: {e!s}",
             ) from e
 
         # Store column mappings (REQUIRED - must succeed for dataset to be functional)
