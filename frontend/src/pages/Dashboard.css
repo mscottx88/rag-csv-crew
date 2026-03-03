@@ -45,10 +45,10 @@
   min-height: 0;
 }
 
-/* ── Action cards — fill their quadrant (border-radius matches destination bordered boxes) ── */
+/* ── Action cards — fill their quadrant ── */
 .action-card {
   background: var(--bg-card);
-  padding: 3rem 4rem;
+  padding: 1rem 1.5rem;
   border-radius: 4px;
   cursor: pointer;
   transition: background 0.25s;
@@ -58,6 +58,15 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── 3D canvas container ── */
+.action-card-canvas {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
 }
 
 /* Query card → cyan */
@@ -118,86 +127,6 @@
 .action-card:nth-child(4) h3 {
   color: var(--gold);
   text-shadow: 0 0 8px var(--gold-dim);
-}
-
-/* ── Wireframe SVG icons ── */
-.action-icon-svg {
-  width: 72px;
-  height: 72px;
-  display: block;
-  margin: 0 auto 1.5rem;
-  transition: filter 0.3s, transform 0.3s;
-  transform-origin: center center;
-}
-
-.action-icon-svg * {
-  stroke: currentColor;
-}
-
-/* ── Per-icon idle styles + hover animations ── */
-
-/* Cyan — magnifying glass: scanning sweep */
-.action-icon-cyan {
-  color: var(--cyan);
-  filter: drop-shadow(0 0 4px var(--cyan)) drop-shadow(0 0 10px var(--cyan-dim));
-}
-
-.action-card:nth-child(1):hover .action-icon-cyan {
-  filter: drop-shadow(0 0 8px var(--cyan)) drop-shadow(0 0 20px var(--cyan-glow));
-  animation: icon-scan 1.2s ease-in-out infinite;
-}
-
-@keyframes icon-scan {
-  0%, 100% { transform: translateX(0) scale(1.1); }
-  50%      { transform: translateX(4px) scale(1.1); }
-}
-
-/* Green — upload arrow: floating up */
-.action-icon-green {
-  color: var(--green);
-  filter: drop-shadow(0 0 4px var(--green)) drop-shadow(0 0 10px var(--green-dim));
-}
-
-.action-card:nth-child(2):hover .action-icon-green {
-  filter: drop-shadow(0 0 8px var(--green)) drop-shadow(0 0 20px var(--green-glow));
-  animation: icon-float 1.5s ease-in-out infinite;
-}
-
-@keyframes icon-float {
-  0%, 100% { transform: translateY(0) scale(1.1); }
-  50%      { transform: translateY(-5px) scale(1.1); }
-}
-
-/* Orange — data grid: pulsing scale */
-.action-icon-orange {
-  color: var(--orange);
-  filter: drop-shadow(0 0 4px var(--orange)) drop-shadow(0 0 10px var(--orange-dim));
-}
-
-.action-card:nth-child(3):hover .action-icon-orange {
-  filter: drop-shadow(0 0 8px var(--orange)) drop-shadow(0 0 20px var(--orange-glow));
-  animation: icon-pulse 1.4s ease-in-out infinite;
-}
-
-@keyframes icon-pulse {
-  0%, 100% { transform: scale(1.08); }
-  50%      { transform: scale(1.18); }
-}
-
-/* Gold — clock: pendulum swing */
-.action-icon-gold {
-  color: var(--gold);
-  filter: drop-shadow(0 0 4px var(--gold)) drop-shadow(0 0 10px var(--gold-dim));
-}
-
-.action-card:nth-child(4):hover .action-icon-gold {
-  filter: drop-shadow(0 0 8px var(--gold)) drop-shadow(0 0 20px var(--gold-glow));
-  animation: icon-pendulum 1.6s ease-in-out infinite;
-}
-
-@keyframes icon-pendulum {
-  0%, 100% { transform: rotate(-4deg) scale(1.1); }
-  50%      { transform: rotate(4deg) scale(1.1); }
 }
 
 /* ── Shared hover: glow pulse on card border ── */
