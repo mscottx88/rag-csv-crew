@@ -375,3 +375,85 @@ class TestIndexContextRetrieval:
 
         assert "Table: products_data" in context
         assert "Table: orders_data" in context
+
+
+@pytest.mark.unit
+class TestRuntimeEmbeddingDetection:
+    """T040: Unit tests for runtime embedding detection in query execution."""
+
+    def test_detect_vector_placeholder_in_sql(self) -> None:
+        """Test detection of %s::vector placeholder in generated SQL."""
+        from backend.src.services.text_to_sql import (
+            _detect_vector_placeholders,
+        )
+
+        sql: str = (
+            "SELECT * FROM products_data" " ORDER BY _emb_description <=> %s::vector LIMIT 10"
+        )
+        result: bool = _detect_vector_placeholders(sql)
+
+        assert result is True
+
+    def test_no_vector_placeholder(self) -> None:
+        """Test no detection when SQL lacks vector placeholders."""
+        from backend.src.services.text_to_sql import (
+            _detect_vector_placeholders,
+        )
+
+        sql: str = "SELECT * FROM products_data WHERE price > %s"
+        result: bool = _detect_vector_placeholders(sql)
+
+        assert result is False
+
+    @patch(
+        "backend.src.services.vector_search.VectorSearchService",
+    )
+    def test_embedding_generated_for_vector_query(
+        self,
+        mock_vs_cls: MagicMock,
+    ) -> None:
+        """Test runtime embedding generated when SQL has vector placeholder."""
+        from backend.src.services.text_to_sql import (
+            _resolve_vector_params,
+        )
+
+        mock_vs: MagicMock = MagicMock()
+        mock_vs.generate_embedding.return_value = [0.1] * 1536
+        mock_vs_cls.return_value = mock_vs
+
+        sql: str = (
+            "SELECT * FROM products_data" " ORDER BY _emb_description <=> %s::vector LIMIT 10"
+        )
+        query_text: str = "find similar products"
+
+        resolved_sql: str
+        params: list[Any]
+        resolved_sql, params = _resolve_vector_params(
+            sql,
+            query_text,
+        )
+
+        assert len(params) == 1
+        assert len(params[0]) == 1536
+        # %s::vector should remain as %s for psycopg parameterization
+        assert "%s::vector" not in resolved_sql
+        assert "%s" in resolved_sql
+
+    def test_non_vector_sql_unchanged(self) -> None:
+        """Test non-vector SQL returns unchanged with empty params."""
+        from backend.src.services.text_to_sql import (
+            _resolve_vector_params,
+        )
+
+        sql: str = "SELECT * FROM products_data WHERE price > %s"
+        query_text: str = "find expensive products"
+
+        resolved_sql: str
+        params: list[Any]
+        resolved_sql, params = _resolve_vector_params(
+            sql,
+            query_text,
+        )
+
+        assert resolved_sql == sql
+        assert params == []

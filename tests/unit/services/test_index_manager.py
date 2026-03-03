@@ -1122,6 +1122,117 @@ class TestBuildIndexContext:
 
 
 @pytest.mark.unit
+class TestVectorContextInBuildIndexContext:
+    """T039: Unit tests for vector context in build_index_context()."""
+
+    def test_vector_column_included(self) -> None:
+        """Test columns with has_vector include _emb_ in context."""
+        btree: IndexMetadataEntry = _make_entry(
+            "description",
+            IndexType.BTREE,
+            IndexCapability.FILTERING,
+        )
+        hnsw: IndexMetadataEntry = _make_entry(
+            "description",
+            IndexType.HNSW,
+            IndexCapability.VECTOR_SIMILARITY,
+            generated_column_name="_emb_description",
+        )
+        profile: DataColumnIndexProfile = _make_profile(
+            "description",
+            [btree, hnsw],
+        )
+        profiles: dict[str, list[DataColumnIndexProfile]] = {
+            _TEST_DATASET_ID: [profile],
+        }
+        table_names: dict[str, str] = {_TEST_DATASET_ID: _TEST_TABLE}
+
+        result: str = build_index_context(profiles, table_names)
+
+        assert "_emb_description" in result
+        assert "<=>" in result
+        assert "semantic" in result.lower()
+
+    def test_vector_distance_pattern(self) -> None:
+        """Test vector context includes cosine distance operator pattern."""
+        hnsw: IndexMetadataEntry = _make_entry(
+            "notes",
+            IndexType.HNSW,
+            IndexCapability.VECTOR_SIMILARITY,
+            generated_column_name="_emb_notes",
+        )
+        profile: DataColumnIndexProfile = _make_profile(
+            "notes",
+            [hnsw],
+        )
+        profiles: dict[str, list[DataColumnIndexProfile]] = {
+            _TEST_DATASET_ID: [profile],
+        }
+        table_names: dict[str, str] = {_TEST_DATASET_ID: _TEST_TABLE}
+
+        result: str = build_index_context(profiles, table_names)
+
+        assert "_emb_notes <=> %s::vector" in result
+
+    def test_mixed_fts_and_vector(self) -> None:
+        """Test columns with both FTS and vector show both patterns."""
+        btree: IndexMetadataEntry = _make_entry(
+            "description",
+            IndexType.BTREE,
+            IndexCapability.FILTERING,
+        )
+        gin: IndexMetadataEntry = _make_entry(
+            "description",
+            IndexType.GIN,
+            IndexCapability.FULL_TEXT_SEARCH,
+            generated_column_name="_ts_description",
+        )
+        hnsw: IndexMetadataEntry = _make_entry(
+            "description",
+            IndexType.HNSW,
+            IndexCapability.VECTOR_SIMILARITY,
+            generated_column_name="_emb_description",
+        )
+        profile: DataColumnIndexProfile = _make_profile(
+            "description",
+            [btree, gin, hnsw],
+        )
+        profiles: dict[str, list[DataColumnIndexProfile]] = {
+            _TEST_DATASET_ID: [profile],
+        }
+        table_names: dict[str, str] = {_TEST_DATASET_ID: _TEST_TABLE}
+
+        result: str = build_index_context(profiles, table_names)
+
+        # Should have both FTS and vector sections
+        assert "_ts_description" in result
+        assert "@@" in result
+        assert "_emb_description" in result
+        assert "<=>" in result
+
+    def test_vector_1536d_annotation(self) -> None:
+        """Test vector context includes 1536d dimension annotation."""
+        hnsw: IndexMetadataEntry = _make_entry(
+            "description",
+            IndexType.HNSW,
+            IndexCapability.VECTOR_SIMILARITY,
+            generated_column_name="_emb_description",
+        )
+        profile: DataColumnIndexProfile = _make_profile(
+            "description",
+            [hnsw],
+        )
+        profiles: dict[str, list[DataColumnIndexProfile]] = {
+            _TEST_DATASET_ID: [profile],
+        }
+        table_names: dict[str, str] = {_TEST_DATASET_ID: _TEST_TABLE}
+
+        result: str = build_index_context(profiles, table_names)
+
+        assert "1536d" in result
+
+
+@pytest.mark.unit
 class TestIdentifyQualifyingColumns:
     """T031: Unit tests for identify_qualifying_columns()."""
 

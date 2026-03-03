@@ -30,7 +30,9 @@ from backend.src.models.dataset import ColumnSchema, Dataset, DatasetList
 from backend.src.services.column_metadata import ColumnMetadataService
 from backend.src.services.index_manager import (
     IndexCreationError,
+    create_embedding_indexes,
     create_indexes_for_dataset,
+    identify_qualifying_columns,
 )
 from backend.src.services.ingestion import (  # pylint: disable=import-outside-toplevel
     check_filename_conflict,
@@ -424,6 +426,46 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
                     "table_name": table_name,
                 },
             )
+
+            # P2: Identify qualifying columns and generate embeddings
+            text_col_names: list[str] = [
+                c["name"] for c in index_columns if c.get("type", "").upper() == "TEXT"
+            ]
+            if text_col_names:
+                qualifying: list[str] = identify_qualifying_columns(
+                    conn,
+                    username,
+                    table_name,
+                    text_col_names,
+                )
+                if qualifying:
+                    log_event(
+                        logger=logger,
+                        level="info",
+                        event="embedding_generation_start",
+                        user=username,
+                        extra={
+                            "dataset_id": dataset_id,
+                            "qualifying_columns": qualifying,
+                        },
+                    )
+                    create_embedding_indexes(
+                        conn,
+                        username,
+                        dataset_id,
+                        table_name,
+                        qualifying,
+                    )
+                    log_event(
+                        logger=logger,
+                        level="info",
+                        event="embedding_generation_success",
+                        user=username,
+                        extra={
+                            "dataset_id": dataset_id,
+                            "qualifying_columns": qualifying,
+                        },
+                    )
         except IndexCreationError as ice:
             # Per FR-016: drop data table, delete metadata, return HTTP 500
             log_event(

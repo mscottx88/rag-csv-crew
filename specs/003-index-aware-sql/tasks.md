@@ -127,17 +127,17 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T031 [P] [US5] Write unit tests for `identify_qualifying_columns()` (columns with avg length >= 50 qualify; short columns excluded; configurable threshold; sample_size behavior; datasets with < sample_size rows use all rows) in tests/unit/services/test_index_manager.py
-- [ ] T032 [P] [US5] Write unit tests for `create_embedding_indexes()` (ALTER TABLE adds vector column; embeddings generated via ThreadPoolExecutor; batch UPDATE in 500-row chunks per FR-022; HNSW index created; NULL/empty text handling per FR-020; retry logic per FR-021; metadata recorded) in tests/unit/services/test_index_manager.py
-- [ ] T033 [P] [US5] Write integration test for embedding generation end-to-end (upload CSV with descriptive text column → verify _emb_ column exists → verify HNSW index in pg_indexes → verify embeddings populated → verify index_metadata entry with capability=vector_similarity) in tests/integration/test_embedding_generation.py
+- [x] T031 [P] [US5] Write unit tests for `identify_qualifying_columns()` (columns with avg length >= 50 qualify; short columns excluded; configurable threshold; sample_size behavior; datasets with < sample_size rows use all rows) in tests/unit/services/test_index_manager.py
+- [x] T032 [P] [US5] Write unit tests for `create_embedding_indexes()` (ALTER TABLE adds vector column; embeddings generated via ThreadPoolExecutor; batch UPDATE in 500-row chunks per FR-022; HNSW index created; NULL/empty text handling per FR-020; retry logic per FR-021; metadata recorded) in tests/unit/services/test_index_manager.py
+- [x] T033 [P] [US5] Write integration test for embedding generation end-to-end (upload CSV with descriptive text column → verify _emb_ column exists → verify HNSW index in pg_indexes → verify embeddings populated → verify index_metadata entry with capability=vector_similarity) in tests/integration/test_embedding_generation.py
 
 ### Implementation for User Story 5
 
-- [ ] T034 [US5] Implement `identify_qualifying_columns()` in backend/src/services/index_manager.py — compute AVG(LENGTH(col)) over sample, return columns with avg >= min_avg_length per contract
-- [ ] T035 [US5] Implement `create_embedding_indexes()` in backend/src/services/index_manager.py — for each qualifying column: ALTER TABLE ADD COLUMN _emb_{col} vector(1536), read text values, generate embeddings with ThreadPoolExecutor (10-20 workers), batch UPDATE (500 rows per FR-022), CREATE INDEX USING hnsw with vector_cosine_ops per research R5
-- [ ] T036 [US5] Implement NULL/empty handling and retry logic in `create_embedding_indexes()` in backend/src/services/index_manager.py — skip NULL and empty strings (set NULL embedding per FR-020), retry failed rows 3 times, proceed if >90% success per FR-021
-- [ ] T037 [US5] Integrate P2 steps into ingestion pipeline in backend/src/services/ingestion.py — after existing steps: call identify_qualifying_columns(), call create_embedding_indexes() for qualifying columns, record metadata, emit progress events per ingestion contract steps 13-14
-- [ ] T038 [US5] Add P2 error handling in backend/src/api/datasets.py — if embedding generation initiated but fails catastrophically (<90% success), fail ingestion per FR-013 extended edge cases
+- [x] T034 [US5] Implement `identify_qualifying_columns()` in backend/src/services/index_manager.py — compute AVG(LENGTH(col)) over sample, return columns with avg >= min_avg_length per contract
+- [x] T035 [US5] Implement `create_embedding_indexes()` in backend/src/services/index_manager.py — for each qualifying column: ALTER TABLE ADD COLUMN _emb_{col} vector(1536), read text values, generate embeddings with ThreadPoolExecutor (10-20 workers), batch UPDATE (500 rows per FR-022), CREATE INDEX USING hnsw with vector_cosine_ops per research R5
+- [x] T036 [US5] Implement NULL/empty handling and retry logic in `create_embedding_indexes()` in backend/src/services/index_manager.py — skip NULL and empty strings (set NULL embedding per FR-020), retry failed rows 3 times, proceed if >90% success per FR-021
+- [x] T037 [US5] Integrate P2 steps into ingestion pipeline in backend/src/api/datasets.py — after P1 index creation: call identify_qualifying_columns(), call create_embedding_indexes() for qualifying columns, record metadata, emit progress events
+- [x] T038 [US5] Add P2 error handling in backend/src/api/datasets.py — IndexCreationError handler covers both P1 and P2 failures, drops table and metadata on catastrophic failure
 
 **Checkpoint**: Descriptive text columns receive embeddings and HNSW indexes, metadata tracks vector_similarity capability
 
@@ -153,14 +153,14 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T039 [P] [US4] Write unit tests for vector context in `build_index_context()` (columns with has_vector include _emb_ column and distance operator pattern; mixed columns show both FTS and vector patterns) in tests/unit/services/test_index_manager.py
-- [ ] T040 [P] [US4] Write unit tests for runtime embedding detection in query execution (detect %s::vector placeholders in generated SQL; generate embedding via VectorSearchService; pass as query parameter) in tests/unit/services/test_text_to_sql.py
+- [x] T039 [P] [US4] Write unit tests for vector context in `build_index_context()` (columns with has_vector include _emb_ column and distance operator pattern; mixed columns show both FTS and vector patterns) in tests/unit/services/test_index_manager.py
+- [x] T040 [P] [US4] Write unit tests for runtime embedding detection in query execution (detect %s::vector placeholders in generated SQL; generate embedding via VectorSearchService; pass as query parameter) in tests/unit/services/test_text_to_sql.py
 
 ### Implementation for User Story 4
 
-- [ ] T041 [US4] Extend `build_index_context()` in backend/src/services/index_manager.py — for columns with has_vector, add vector similarity pattern block (ORDER BY _emb_{col} <=> %s::vector LIMIT 10, "Use for semantic/meaning-based searches") per sql-generation-task-context contract
-- [ ] T042 [US4] Implement runtime embedding generation in query execution layer in backend/src/services/text_to_sql.py — detect `%s::vector` placeholders in generated SQL, call VectorSearchService.generate_embedding(query_text), pass embedding as query parameter per sql-generation-task-context Runtime Embedding section
-- [ ] T043 [US4] Validate VectorSearchService thread safety for use with ThreadPoolExecutor in backend/src/services/vector_search.py — inspect for shared mutable state, refactor if needed per research R10
+- [x] T041 [US4] Extend `build_index_context()` in backend/src/services/index_manager.py — vector similarity pattern block already implemented in _format_column_lines() (lines 637-641): ORDER BY _emb_{col} <=> %s::vector LIMIT 10 with semantic search guidance
+- [x] T042 [US4] Implement runtime embedding generation in query execution layer in backend/src/services/text_to_sql.py — _detect_vector_placeholders() and _resolve_vector_params() detect %s::vector placeholders, generate runtime embedding, resolve parameters
+- [x] T043 [US4] Validate VectorSearchService thread safety for use with ThreadPoolExecutor in backend/src/services/vector_search.py — validated: no mutable shared state after __init__, all instance attributes are read-only, API calls are stateless per-request
 
 **Checkpoint**: Semantic queries produce vector similarity SQL, runtime embeddings generated for query execution
 

@@ -50,6 +50,61 @@ from backend.src.utils.logging import get_structured_logger, log_event
 # Get logger for query processing (T203-POLISH)
 logger = get_structured_logger(__name__)
 
+_VECTOR_PLACEHOLDER_PATTERN: re.Pattern[str] = re.compile(r"%s::vector")
+
+
+def _detect_vector_placeholders(generated_sql: str) -> bool:
+    """Detect %s::vector placeholders in generated SQL.
+
+    Args:
+        generated_sql: SQL string from the SQL generation agent.
+
+    Returns:
+        True if the SQL contains %s::vector placeholders.
+    """
+    return bool(_VECTOR_PLACEHOLDER_PATTERN.search(generated_sql))
+
+
+def _resolve_vector_params(
+    generated_sql: str,
+    query_text: str,
+) -> tuple[str, list[Any]]:
+    """Resolve %s::vector placeholders by generating runtime embeddings.
+
+    When the SQL agent generates SQL with vector similarity operators,
+    this function generates the query embedding and prepares the
+    parameters for execution.
+
+    Args:
+        generated_sql: SQL string with potential %s::vector placeholders.
+        query_text: Original natural language query text.
+
+    Returns:
+        Tuple of (resolved_sql, vector_params) where resolved_sql has
+        %s::vector replaced with %s and vector_params contains the
+        embedding vectors.
+    """
+    if not _detect_vector_placeholders(generated_sql):
+        return (generated_sql, [])
+
+    from backend.src.services.vector_search import (  # pylint: disable=import-outside-toplevel
+        VectorSearchService,
+    )
+    # JUSTIFICATION: VectorSearchService depends on external API keys; importing at
+    # module level causes import errors in test environments without API keys configured.
+
+    vs_service: VectorSearchService = VectorSearchService()
+    query_embedding: list[float] = vs_service.generate_embedding(query_text)
+
+    # Replace %s::vector with %s (psycopg handles the casting)
+    resolved_sql: str = _VECTOR_PLACEHOLDER_PATTERN.sub("%s", generated_sql)
+
+    # Count how many vector placeholders were replaced
+    match_count: int = len(_VECTOR_PLACEHOLDER_PATTERN.findall(generated_sql))
+    vector_params: list[list[float]] = [query_embedding] * match_count
+
+    return (resolved_sql, vector_params)
+
 
 def _execute_crew_with_progress(
     crew: Crew, progress_callback: Callable[[str], None] | None, progress_messages: list[str]
