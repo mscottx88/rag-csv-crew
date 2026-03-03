@@ -1350,8 +1350,6 @@ class TextToSQLOrchestrator:
             )
 
         # Log successful query processing (T203-POLISH)
-        from datetime import datetime  # pylint: disable=import-outside-toplevel
-
         query_time_ms: int = int((datetime.now() - query_start_time).total_seconds() * 1000)
         log_event(
             logger=logger,
