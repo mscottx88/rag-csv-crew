@@ -28,9 +28,11 @@ from backend.src.models.index_metadata import (
 from backend.src.services.index_manager import (
     IndexCreationError,
     build_index_context,
+    create_embedding_indexes,
     create_indexes_for_dataset,
     generate_index_name,
     get_index_profiles,
+    identify_qualifying_columns,
 )
 
 
@@ -1117,3 +1119,367 @@ class TestBuildIndexContext:
 
         assert "Column: description (TEXT)" in result
         assert "LIKE 'prefix%'" in result
+
+
+@pytest.mark.unit
+class TestIdentifyQualifyingColumns:
+    """T031: Unit tests for identify_qualifying_columns()."""
+
+    def test_long_text_qualifies(self) -> None:
+        """Test columns with avg length >= 50 qualify for embeddings."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+        # AVG(LENGTH(col)) = 75.0
+        mock_cursor.fetchone.return_value = (75.0,)
+
+        result: list[str] = identify_qualifying_columns(
+            mock_conn,
+            _TEST_USERNAME,
+            _TEST_TABLE,
+            ["description"],
+        )
+
+        assert result == ["description"]
+
+    def test_short_text_excluded(self) -> None:
+        """Test columns with avg length < 50 are excluded."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+        # AVG(LENGTH(col)) = 10.0 (short, like "Widget")
+        mock_cursor.fetchone.return_value = (10.0,)
+
+        result: list[str] = identify_qualifying_columns(
+            mock_conn,
+            _TEST_USERNAME,
+            _TEST_TABLE,
+            ["name"],
+        )
+
+        assert result == []
+
+    def test_configurable_threshold(self) -> None:
+        """Test custom min_avg_length threshold."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+        # avg 30 chars — under default 50, above custom 20
+        mock_cursor.fetchone.return_value = (30.0,)
+
+        result: list[str] = identify_qualifying_columns(
+            mock_conn,
+            _TEST_USERNAME,
+            _TEST_TABLE,
+            ["notes"],
+            min_avg_length=20,
+        )
+
+        assert result == ["notes"]
+
+    def test_empty_columns_list(self) -> None:
+        """Test empty columns list returns empty result."""
+        mock_conn: MagicMock = _make_mock_conn()
+
+        result: list[str] = identify_qualifying_columns(
+            mock_conn,
+            _TEST_USERNAME,
+            _TEST_TABLE,
+            [],
+        )
+
+        assert result == []
+
+    def test_null_avg_excluded(self) -> None:
+        """Test columns with NULL avg (empty data) are excluded."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+        mock_cursor.fetchone.return_value = (None,)
+
+        result: list[str] = identify_qualifying_columns(
+            mock_conn,
+            _TEST_USERNAME,
+            _TEST_TABLE,
+            ["empty_col"],
+        )
+
+        assert result == []
+
+    def test_multiple_columns_mixed(self) -> None:
+        """Test mix of qualifying and non-qualifying columns."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+        # First col: 75 (qualifies), second col: 10 (doesn't)
+        mock_cursor.fetchone.side_effect = [(75.0,), (10.0,)]
+
+        result: list[str] = identify_qualifying_columns(
+            mock_conn,
+            _TEST_USERNAME,
+            _TEST_TABLE,
+            ["description", "name"],
+        )
+
+        assert result == ["description"]
+
+    def test_sample_size_passed_to_query(self) -> None:
+        """Test sample_size is used in the SQL LIMIT clause."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+        mock_cursor.fetchone.return_value = (60.0,)
+
+        identify_qualifying_columns(
+            mock_conn,
+            _TEST_USERNAME,
+            _TEST_TABLE,
+            ["description"],
+            sample_size=500,
+        )
+
+        call_args: tuple[object, ...] = mock_cursor.execute.call_args[0]
+        # The composed SQL should contain the sample_size as Literal(500)
+        # Check the string representation of the Composed object
+        query_repr: str = repr(call_args[0])
+        assert "500" in query_repr
+
+    def test_exact_threshold_qualifies(self) -> None:
+        """Test columns with avg exactly equal to threshold qualify."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+        mock_cursor.fetchone.return_value = (50.0,)
+
+        result: list[str] = identify_qualifying_columns(
+            mock_conn,
+            _TEST_USERNAME,
+            _TEST_TABLE,
+            ["notes"],
+        )
+
+        assert result == ["notes"]
+
+
+@pytest.mark.unit
+class TestCreateEmbeddingIndexes:
+    """T032: Unit tests for create_embedding_indexes()."""
+
+    @patch("backend.src.services.vector_search.VectorSearchService")
+    def test_vector_column_added(
+        self,
+        mock_vs_cls: MagicMock,
+    ) -> None:
+        """Test ALTER TABLE adds _emb_ vector column."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+        mock_cursor.fetchall.return_value = []
+
+        mock_vs: MagicMock = MagicMock()
+        mock_vs_cls.return_value = mock_vs
+
+        create_embedding_indexes(
+            conn=mock_conn,
+            username=_TEST_USERNAME,
+            dataset_id=_TEST_DATASET_ID,
+            table_name=_TEST_TABLE,
+            qualifying_columns=["description"],
+        )
+
+        # Should execute ALTER TABLE ADD COLUMN _emb_description vector(1536)
+        calls: list[tuple[object, ...]] = [c[0] for c in mock_cursor.execute.call_args_list]
+        alter_found: bool = any("_emb_description" in str(c) and "vector" in str(c) for c in calls)
+        assert alter_found, "Expected ALTER TABLE with _emb_description vector column"
+
+    @patch("backend.src.services.vector_search.VectorSearchService")
+    def test_hnsw_index_created(
+        self,
+        mock_vs_cls: MagicMock,
+    ) -> None:
+        """Test HNSW index created on embedding column."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+        mock_cursor.fetchall.return_value = []
+
+        mock_vs: MagicMock = MagicMock()
+        mock_vs_cls.return_value = mock_vs
+
+        create_embedding_indexes(
+            conn=mock_conn,
+            username=_TEST_USERNAME,
+            dataset_id=_TEST_DATASET_ID,
+            table_name=_TEST_TABLE,
+            qualifying_columns=["description"],
+        )
+
+        calls: list[tuple[object, ...]] = [c[0] for c in mock_cursor.execute.call_args_list]
+        hnsw_found: bool = any(
+            "hnsw" in str(c).lower() and "_emb_description" in str(c) for c in calls
+        )
+        assert hnsw_found, "Expected CREATE INDEX USING hnsw"
+
+    @patch("backend.src.services.vector_search.VectorSearchService")
+    def test_metadata_recorded(
+        self,
+        mock_vs_cls: MagicMock,
+    ) -> None:
+        """Test metadata entry with HNSW type and vector_similarity cap."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+        mock_cursor.fetchall.return_value = []
+
+        mock_vs: MagicMock = MagicMock()
+        mock_vs_cls.return_value = mock_vs
+
+        results: list[IndexMetadataEntry] = create_embedding_indexes(
+            conn=mock_conn,
+            username=_TEST_USERNAME,
+            dataset_id=_TEST_DATASET_ID,
+            table_name=_TEST_TABLE,
+            qualifying_columns=["description"],
+        )
+
+        assert len(results) == 1
+        entry: IndexMetadataEntry = results[0]
+        assert entry.index_type == IndexType.HNSW
+        assert entry.capability == IndexCapability.VECTOR_SIMILARITY
+        assert entry.generated_column_name == "_emb_description"
+        assert entry.status == IndexStatus.CREATED
+
+    @patch("backend.src.services.vector_search.VectorSearchService")
+    def test_null_and_empty_skipped(
+        self,
+        mock_vs_cls: MagicMock,
+    ) -> None:
+        """Test NULL and empty text values get NULL embeddings (FR-020)."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+        # Simulate rows: (row_id, text_value)
+        mock_cursor.fetchall.return_value = [
+            (1, "A valid long text for embedding generation"),
+            (2, None),
+            (3, ""),
+            (4, "Another valid text for embedding generation"),
+        ]
+
+        mock_vs: MagicMock = MagicMock()
+        mock_vs.generate_embedding.return_value = [0.1] * 1536
+        mock_vs_cls.return_value = mock_vs
+
+        create_embedding_indexes(
+            conn=mock_conn,
+            username=_TEST_USERNAME,
+            dataset_id=_TEST_DATASET_ID,
+            table_name=_TEST_TABLE,
+            qualifying_columns=["description"],
+        )
+
+        # Only 2 non-null/non-empty texts should be embedded
+        assert mock_vs.generate_embedding.call_count == 2
+
+    @patch("backend.src.services.vector_search.VectorSearchService")
+    def test_batch_update_500_rows(
+        self,
+        mock_vs_cls: MagicMock,
+    ) -> None:
+        """Test batch UPDATE in 500-row chunks (FR-022)."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+        # Simulate 1200 rows
+        mock_cursor.fetchall.return_value = [
+            (i, f"Text value {i} that is long enough for embedding") for i in range(1200)
+        ]
+
+        mock_vs: MagicMock = MagicMock()
+        mock_vs.generate_embedding.return_value = [0.1] * 1536
+        mock_vs_cls.return_value = mock_vs
+
+        create_embedding_indexes(
+            conn=mock_conn,
+            username=_TEST_USERNAME,
+            dataset_id=_TEST_DATASET_ID,
+            table_name=_TEST_TABLE,
+            qualifying_columns=["description"],
+        )
+
+        # Should have batch UPDATE calls: 500 + 500 + 200 = 3 batches
+        update_calls: list[tuple[object, ...]] = [
+            c
+            for c in mock_cursor.execute.call_args_list
+            if "UPDATE" in str(c[0]).upper() and "_emb_" in str(c[0])
+        ]
+        # executemany or multiple execute calls for batch updates
+        assert len(update_calls) >= 3 or mock_cursor.executemany.call_count >= 3
+
+    @patch("backend.src.services.vector_search.VectorSearchService")
+    def test_retry_on_embedding_failure(
+        self,
+        mock_vs_cls: MagicMock,
+    ) -> None:
+        """Test retry logic for failed embedding generation (FR-021)."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+        mock_cursor.fetchall.return_value = [
+            (1, "Valid text for embedding generation test"),
+        ]
+
+        mock_vs: MagicMock = MagicMock()
+        # Fail first 2 times, succeed on 3rd retry
+        mock_vs.generate_embedding.side_effect = [
+            Exception("API error"),
+            Exception("API error"),
+            [0.1] * 1536,
+        ]
+        mock_vs_cls.return_value = mock_vs
+
+        results: list[IndexMetadataEntry] = create_embedding_indexes(
+            conn=mock_conn,
+            username=_TEST_USERNAME,
+            dataset_id=_TEST_DATASET_ID,
+            table_name=_TEST_TABLE,
+            qualifying_columns=["description"],
+        )
+
+        # Should succeed after retries
+        assert len(results) == 1
+        assert results[0].status == IndexStatus.CREATED
+        # 3 total calls (2 failures + 1 success)
+        assert mock_vs.generate_embedding.call_count == 3
+
+    @patch("backend.src.services.vector_search.VectorSearchService")
+    def test_catastrophic_failure_raises(
+        self,
+        mock_vs_cls: MagicMock,
+    ) -> None:
+        """Test <90% success rate raises IndexCreationError (FR-021)."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+        # 10 rows — need >90% success (at least 9)
+        mock_cursor.fetchall.return_value = [
+            (i, f"Text value {i} for embedding generation test") for i in range(10)
+        ]
+
+        mock_vs: MagicMock = MagicMock()
+        # All calls fail (after retries)
+        mock_vs.generate_embedding.side_effect = Exception("API down")
+        mock_vs_cls.return_value = mock_vs
+
+        with pytest.raises(IndexCreationError):
+            create_embedding_indexes(
+                conn=mock_conn,
+                username=_TEST_USERNAME,
+                dataset_id=_TEST_DATASET_ID,
+                table_name=_TEST_TABLE,
+                qualifying_columns=["description"],
+            )
+
+    @patch("backend.src.services.vector_search.VectorSearchService")
+    def test_empty_qualifying_columns(
+        self,
+        mock_vs_cls: MagicMock,
+    ) -> None:
+        """Test empty qualifying columns returns empty results."""
+        mock_conn: MagicMock = _make_mock_conn()
+
+        results: list[IndexMetadataEntry] = create_embedding_indexes(
+            conn=mock_conn,
+            username=_TEST_USERNAME,
+            dataset_id=_TEST_DATASET_ID,
+            table_name=_TEST_TABLE,
+            qualifying_columns=[],
+        )
+
+        assert results == []

@@ -10,6 +10,7 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 import hashlib
 import time
@@ -86,6 +87,21 @@ _TSVECTOR_ALTER_SQL: str = (
 _GIN_CREATE_SQL: str = (
     "CREATE INDEX IF NOT EXISTS {idx_name}" " ON {schema}.{table} USING GIN ({ts_col})"
 )
+
+_VECTOR_ALTER_SQL: str = (
+    "ALTER TABLE {schema}.{table}" " ADD COLUMN IF NOT EXISTS {emb_col} vector(1536)"
+)
+
+_HNSW_CREATE_SQL: str = (
+    "CREATE INDEX IF NOT EXISTS {idx_name}"
+    " ON {schema}.{table} USING hnsw ({emb_col} vector_cosine_ops)"
+    " WITH (m = 16, ef_construction = 64)"
+)
+
+_EMBEDDING_BATCH_SIZE: int = 500
+_EMBEDDING_MAX_RETRIES: int = 3
+_EMBEDDING_MIN_SUCCESS_RATE: float = 0.9
+_EMBEDDING_MAX_WORKERS: int = 10
 
 _CONTEXT_RULES: list[str] = [
     "RULES:",
@@ -741,3 +757,307 @@ def identify_qualifying_columns(
                 qualifying.append(col_name)
 
     return qualifying
+
+
+def _generate_embedding_with_retry(
+    vs_service: Any,
+    text: str,
+    row_id: Any,
+    username: str,
+) -> tuple[Any, list[float] | None]:
+    """Generate embedding for a single text value with retry logic.
+
+    Retries up to _EMBEDDING_MAX_RETRIES times on failure (FR-021).
+
+    Args:
+        vs_service: VectorSearchService instance.
+        text: Text value to embed.
+        row_id: Row identifier for logging.
+        username: Username for logging.
+
+    Returns:
+        Tuple of (row_id, embedding_vector or None on failure).
+    """
+    for attempt in range(_EMBEDDING_MAX_RETRIES):
+        try:
+            embedding: list[float] = vs_service.generate_embedding(text)
+            return (row_id, embedding)
+        except Exception:  # pylint: disable=broad-except
+            # JUSTIFICATION: Retry on any embedding API failure per FR-021
+            if attempt < _EMBEDDING_MAX_RETRIES - 1:
+                log_event(
+                    logger=logger,
+                    level="warning",
+                    event="embedding_retry",
+                    user=username,
+                    extra={
+                        "row_id": str(row_id),
+                        "attempt": attempt + 1,
+                        "max_retries": _EMBEDDING_MAX_RETRIES,
+                    },
+                )
+            else:
+                log_event(
+                    logger=logger,
+                    level="warning",
+                    event="embedding_failed_after_retries",
+                    user=username,
+                    extra={
+                        "row_id": str(row_id),
+                        "max_retries": _EMBEDDING_MAX_RETRIES,
+                    },
+                )
+    return (row_id, None)
+
+
+def _batch_update_embeddings(
+    conn: Connection[tuple[str, ...]],
+    schema_name: str,
+    table_name: str,
+    emb_col_name: str,
+    updates: list[tuple[list[float], Any]],
+) -> None:
+    """Batch UPDATE embedding values in 500-row chunks (FR-022).
+
+    Args:
+        conn: Active database connection.
+        schema_name: User schema name.
+        table_name: Data table name.
+        emb_col_name: Embedding column name (e.g., '_emb_description').
+        updates: List of (embedding_vector, row_id) tuples.
+    """
+    update_sql: sql.Composed = sql.SQL(
+        "UPDATE {schema}.{table} SET {emb_col} = %s" " WHERE ctid = %s"
+    ).format(
+        schema=sql.Identifier(schema_name),
+        table=sql.Identifier(table_name),
+        emb_col=sql.Identifier(emb_col_name),
+    )
+
+    for i in range(0, len(updates), _EMBEDDING_BATCH_SIZE):
+        batch: list[tuple[list[float], Any]] = updates[i : i + _EMBEDDING_BATCH_SIZE]
+        with conn.cursor() as cur:
+            for embedding, row_id in batch:
+                cur.execute(update_sql, (embedding, row_id))
+
+
+# pylint: disable=too-many-locals
+# JUSTIFICATION: Embedding index creation requires many local variables for
+# DDL execution (schema, table, column, index names), row processing (text
+# values, embeddings, success/failure tracking), and batch operations.
+def create_embedding_indexes(
+    conn: Connection[tuple[str, ...]],
+    username: str,
+    dataset_id: str,
+    table_name: str,
+    qualifying_columns: list[str],
+) -> list[IndexMetadataEntry]:
+    """Create vector embedding columns and HNSW indexes for qualifying columns.
+
+    For each qualifying column:
+    1. ALTER TABLE ADD COLUMN _emb_{col} vector(1536)
+    2. Read all text values and generate embeddings (ThreadPoolExecutor)
+    3. Batch UPDATE embeddings in 500-row chunks (FR-022)
+    4. CREATE INDEX USING hnsw with vector_cosine_ops
+    5. Record metadata entry
+
+    Args:
+        conn: Active database connection (caller manages transaction).
+        username: User's username (determines schema name).
+        dataset_id: UUID of the dataset.
+        table_name: Data table name.
+        qualifying_columns: TEXT columns that qualify for embeddings.
+
+    Returns:
+        List of IndexMetadataEntry objects for created HNSW indexes.
+
+    Raises:
+        IndexCreationError: If embedding generation fails catastrophically
+            (<90% success rate per FR-021).
+    """
+    if not qualifying_columns:
+        return []
+
+    # Lazy import to avoid circular dependency at module level
+    from backend.src.services.vector_search import (  # pylint: disable=import-outside-toplevel
+        VectorSearchService,
+    )
+    # JUSTIFICATION: VectorSearchService depends on external API keys; importing at
+    # module level causes import errors in test environments without API keys configured.
+
+    schema_name: str = f"{username}_schema"
+    ds_uuid: UUID = UUID(dataset_id)
+    now: datetime = datetime.now(UTC)
+    results: list[IndexMetadataEntry] = []
+
+    vs_service: VectorSearchService = VectorSearchService()
+
+    for col_name in qualifying_columns:
+        emb_col_name: str = f"_emb_{col_name}"
+        hnsw_index_name: str = generate_index_name(
+            table_name,
+            col_name,
+            "hnsw",
+        )
+
+        entry: IndexMetadataEntry = IndexMetadataEntry(
+            id=uuid4(),
+            dataset_id=ds_uuid,
+            column_name=col_name,
+            index_name=hnsw_index_name,
+            index_type=IndexType.HNSW,
+            capability=IndexCapability.VECTOR_SIMILARITY,
+            generated_column_name=emb_col_name,
+            status=IndexStatus.PENDING,
+            created_at=now,
+        )
+
+        log_event(
+            logger=logger,
+            level="info",
+            event="embedding_index_start",
+            user=username,
+            extra={
+                "column_name": col_name,
+                "table_name": table_name,
+            },
+        )
+
+        try:
+            # Step 1: Add vector column
+            with conn.cursor() as cur:
+                cur.execute(
+                    sql.SQL(_VECTOR_ALTER_SQL).format(
+                        schema=sql.Identifier(schema_name),
+                        table=sql.Identifier(table_name),
+                        emb_col=sql.Identifier(emb_col_name),
+                    )
+                )
+
+            # Step 2: Read all text values with ctid for UPDATE
+            with conn.cursor() as cur:
+                read_query: sql.Composed = sql.SQL(
+                    "SELECT ctid, {col} FROM {schema}.{table}"
+                ).format(
+                    col=sql.Identifier(col_name),
+                    schema=sql.Identifier(schema_name),
+                    table=sql.Identifier(table_name),
+                )
+                cur.execute(read_query)
+                rows: list[tuple[Any, ...]] = cur.fetchall()
+
+            # Step 3: Generate embeddings (parallel, with retry)
+            embeddable_rows: list[tuple[Any, str]] = [
+                (row[0], row[1]) for row in rows if row[1] is not None and str(row[1]).strip() != ""
+            ]
+            total_rows: int = len(embeddable_rows)
+
+            if total_rows > 0:
+                embedding_results: list[tuple[Any, list[float] | None]]
+                with ThreadPoolExecutor(
+                    max_workers=_EMBEDDING_MAX_WORKERS,
+                ) as executor:
+                    embedding_results = list(
+                        executor.map(
+                            lambda r: _generate_embedding_with_retry(
+                                vs_service,
+                                r[1],
+                                r[0],
+                                username,
+                            ),
+                            embeddable_rows,
+                        )
+                    )
+
+                # Filter successful embeddings
+                successful: list[tuple[list[float], Any]] = [
+                    (emb, rid) for rid, emb in embedding_results if emb is not None
+                ]
+                success_count: int = len(successful)
+                success_rate: float = success_count / total_rows if total_rows > 0 else 0.0
+
+                # Check success threshold (FR-021)
+                if success_rate < _EMBEDDING_MIN_SUCCESS_RATE:
+                    entry = entry.model_copy(
+                        update={"status": IndexStatus.FAILED},
+                    )
+                    _insert_metadata_entry(conn, schema_name, entry)
+                    conn.commit()
+                    raise IndexCreationError(
+                        message=(
+                            f"Embedding generation for {col_name} failed:"
+                            f" {success_count}/{total_rows}"
+                            f" ({success_rate:.0%}) below 90% threshold"
+                        ),
+                        partial_results=results,
+                        failed_index=hnsw_index_name,
+                    )
+
+                log_event(
+                    logger=logger,
+                    level="info",
+                    event="embeddings_generated",
+                    user=username,
+                    extra={
+                        "column_name": col_name,
+                        "total_rows": total_rows,
+                        "success_count": success_count,
+                        "success_rate": round(success_rate, 3),
+                    },
+                )
+
+                # Step 4: Batch UPDATE embeddings (FR-022)
+                _batch_update_embeddings(
+                    conn,
+                    schema_name,
+                    table_name,
+                    emb_col_name,
+                    successful,
+                )
+
+            # Step 5: Create HNSW index
+            with conn.cursor() as cur:
+                cur.execute(
+                    sql.SQL(_HNSW_CREATE_SQL).format(
+                        idx_name=sql.Identifier(hnsw_index_name),
+                        schema=sql.Identifier(schema_name),
+                        table=sql.Identifier(table_name),
+                        emb_col=sql.Identifier(emb_col_name),
+                    )
+                )
+
+            # Step 6: Record metadata
+            entry = entry.model_copy(
+                update={"status": IndexStatus.CREATED},
+            )
+            _insert_metadata_entry(conn, schema_name, entry)
+            results.append(entry)
+
+            log_event(
+                logger=logger,
+                level="info",
+                event="embedding_index_created",
+                user=username,
+                extra={
+                    "index_name": hnsw_index_name,
+                    "column_name": col_name,
+                    "embedding_column": emb_col_name,
+                },
+            )
+
+        except IndexCreationError:
+            raise
+        except Exception as exc:
+            entry = entry.model_copy(
+                update={"status": IndexStatus.FAILED},
+            )
+            _insert_metadata_entry(conn, schema_name, entry)
+            conn.commit()
+            raise IndexCreationError(
+                message=(f"Failed to create embedding index" f" on {col_name}: {exc}"),
+                partial_results=results,
+                failed_index=hnsw_index_name,
+            ) from exc
+
+    conn.commit()
+    return results
