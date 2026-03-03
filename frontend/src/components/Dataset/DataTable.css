@@ -432,3 +432,47 @@
   font-size: 0.9rem;
   animation: load-pulse 1.5s ease-in-out infinite;
 }
+
+/* ── Overflow tooltip ─────────────────────────────────────────────────────── */
+
+/* Invisible zone that bridges the gap between cell and tooltip */
+.cell-overflow-tooltip-zone {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: auto;
+}
+
+.cell-overflow-tooltip {
+  --hover-glow-color: #ff6600;
+  max-width: 500px;
+  max-height: 300px;
+  border: 1px solid rgba(255, 102, 0, 0.35);
+  border-radius: 4px;
+  background: rgba(8, 8, 8, 0.94);
+  box-shadow:
+    0 0 16px rgba(255, 102, 0, 0.30),
+    0 0 40px rgba(255, 102, 0, 0.12);
+  animation: tooltip-appear 0.18s ease-out both;
+}
+
+.cell-overflow-tooltip .tooltip-content {
+  padding: 0.6rem 0.8rem;
+  color: var(--txt);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@keyframes tooltip-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
