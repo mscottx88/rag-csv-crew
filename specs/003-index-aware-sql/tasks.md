@@ -170,9 +170,9 @@
 
 **Purpose**: Quality gates, validation, and cross-cutting improvements
 
-- [ ] T044 [P] Run quality gates: `ruff check backend/src backend/tests`, `ruff format backend/src backend/tests`, `mypy --strict backend/src backend/tests`, `pylint backend/src backend/tests` — fix all violations
-- [ ] T045 [P] Run `python scripts/check_local_var_types.py backend/src/**/*.py backend/tests/**/*.py` — fix all missing local variable type annotations
-- [ ] T046 Run full test suite `pytest tests/ -v` — verify all tests pass (unit, integration, contract)
+- [x] T044 [P] Run quality gates: `ruff check backend/src backend/tests`, `ruff format backend/src backend/tests`, `mypy --strict backend/src backend/tests`, `pylint backend/src backend/tests` — fix all violations
+- [x] T045 [P] Run `python scripts/check_local_var_types.py backend/src/**/*.py backend/tests/**/*.py` — fix all missing local variable type annotations
+- [x] T046 Run full test suite `pytest tests/ -v` — verify all tests pass (unit, integration, contract)
 - [ ] T047 Validate quickstart.md scenarios — upload a CSV, verify indexes via SQL queries shown in quickstart.md, verify FTS query generates correct SQL
 
 ---
