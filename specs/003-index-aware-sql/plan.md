@@ -57,7 +57,7 @@ backend/
 │   │   ├── dataset.py         # Existing — add IndexMetadata Pydantic model
 │   │   └── index_metadata.py  # NEW — IndexMetadataEntry, DataColumnIndexProfile models
 │   ├── services/
-│   │   ├── ingestion.py       # MODIFY — add index creation after bulk data load
+│   │   ├── ingestion.py       # Existing — not modified (orchestration in api/datasets.py)
 │   │   ├── index_manager.py   # NEW — IndexManagerService for index creation + metadata
 │   │   └── vector_search.py   # MODIFY — add batch embedding generation for data values
 │   ├── db/

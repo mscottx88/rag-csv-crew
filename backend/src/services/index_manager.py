@@ -98,6 +98,8 @@ _HNSW_CREATE_SQL: str = (
     " WITH (m = 16, ef_construction = 64)"
 )
 
+_BTREE_MAX_VALUE_BYTES: int = 2704
+
 _EMBEDDING_BATCH_SIZE: int = 500
 _EMBEDDING_MAX_RETRIES: int = 3
 _EMBEDDING_MIN_SUCCESS_RATE: float = 0.9
@@ -264,6 +266,35 @@ def _create_btree_indexes(
 
     for col in columns:
         col_name: str = col["name"]
+        col_type: str = col.get("type", "").upper()
+
+        # Skip B-tree for TEXT columns whose values exceed PostgreSQL's
+        # 2704-byte key limit.  These columns use FTS/vector instead.
+        if col_type == "TEXT":
+            with params.conn.cursor() as cur:
+                cur.execute(
+                    sql.SQL("SELECT MAX(OCTET_LENGTH({col}))" " FROM {schema}.{table}").format(
+                        col=sql.Identifier(col_name),
+                        schema=sql.Identifier(params.schema_name),
+                        table=sql.Identifier(params.table_name),
+                    )
+                )
+                max_row: tuple[Any, ...] | None = cur.fetchone()
+            max_bytes: int = int(max_row[0]) if max_row and max_row[0] else 0
+            if max_bytes > _BTREE_MAX_VALUE_BYTES:
+                log_event(
+                    logger=logger,
+                    level="info",
+                    event="btree_skipped_large_values",
+                    user=params.username,
+                    extra={
+                        "column_name": col_name,
+                        "max_value_bytes": max_bytes,
+                        "btree_limit": _BTREE_MAX_VALUE_BYTES,
+                    },
+                )
+                continue
+
         index_name: str = generate_index_name(params.table_name, col_name, "btree")
 
         entry: IndexMetadataEntry = IndexMetadataEntry(
@@ -307,6 +338,7 @@ def _create_btree_indexes(
             )
 
         except Exception as exc:
+            params.conn.rollback()
             entry = entry.model_copy(update={"status": IndexStatus.FAILED})
             _insert_metadata_entry(params.conn, params.schema_name, entry)
             params.conn.commit()
@@ -401,6 +433,7 @@ def _create_fts_indexes(
         except IndexCreationError:
             raise
         except Exception as exc:
+            params.conn.rollback()
             gin_entry = gin_entry.model_copy(update={"status": IndexStatus.FAILED})
             _insert_metadata_entry(params.conn, params.schema_name, gin_entry)
             params.conn.commit()
@@ -841,6 +874,41 @@ def _batch_update_embeddings(
                 cur.execute(update_sql, (embedding, row_id))
 
 
+def _log_embedding_result(
+    username: str,
+    col_name: str,
+    total_rows: int,
+    success_count: int,
+    *,
+    success_rate: float,
+    start_time: float,
+) -> None:
+    """Log embedding generation metrics per FR-023.
+
+    Computes and logs throughput (rows/second), API error count,
+    and elapsed time alongside standard success metrics.
+    """
+    emb_elapsed: float = time.monotonic() - start_time
+    log_event(
+        logger=logger,
+        level="info",
+        event="embeddings_generated",
+        user=username,
+        extra={
+            "column_name": col_name,
+            "total_rows": total_rows,
+            "success_count": success_count,
+            "success_rate": round(success_rate, 3),
+            "api_error_count": total_rows - success_count,
+            "embedding_throughput_rows_per_sec": round(
+                total_rows / max(emb_elapsed, 0.001),
+                2,
+            ),
+            "elapsed_seconds": round(emb_elapsed, 3),
+        },
+    )
+
+
 # pylint: disable=too-many-locals
 # JUSTIFICATION: Embedding index creation requires many local variables for
 # DDL execution (schema, table, column, index names), row processing (text
@@ -953,11 +1021,11 @@ def create_embedding_indexes(
             total_rows: int = len(embeddable_rows)
 
             if total_rows > 0:
-                embedding_results: list[tuple[Any, list[float] | None]]
+                emb_start_time: float = time.monotonic()
                 with ThreadPoolExecutor(
                     max_workers=_EMBEDDING_MAX_WORKERS,
                 ) as executor:
-                    embedding_results = list(
+                    embedding_results: list[tuple[Any, list[float] | None]] = list(
                         executor.map(
                             lambda r: _generate_embedding_with_retry(
                                 vs_service,
@@ -968,7 +1036,6 @@ def create_embedding_indexes(
                             embeddable_rows,
                         )
                     )
-
                 # Filter successful embeddings
                 successful: list[tuple[list[float], Any]] = [
                     (emb, rid) for rid, emb in embedding_results if emb is not None
@@ -993,17 +1060,13 @@ def create_embedding_indexes(
                         failed_index=hnsw_index_name,
                     )
 
-                log_event(
-                    logger=logger,
-                    level="info",
-                    event="embeddings_generated",
-                    user=username,
-                    extra={
-                        "column_name": col_name,
-                        "total_rows": total_rows,
-                        "success_count": success_count,
-                        "success_rate": round(success_rate, 3),
-                    },
+                _log_embedding_result(
+                    username,
+                    col_name,
+                    total_rows,
+                    success_count,
+                    success_rate=success_rate,
+                    start_time=emb_start_time,
                 )
 
                 # Step 4: Batch UPDATE embeddings (FR-022)

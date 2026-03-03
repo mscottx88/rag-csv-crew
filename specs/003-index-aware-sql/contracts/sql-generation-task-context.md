@@ -98,14 +98,14 @@ The existing requirements list in the task description gains two new items:
 
 ```text
 Requirements:
-...existing requirements...
-15. PREFER full-text search operators (@@, ts_rank, plainto_tsquery) over ILIKE for text searches when a full-text search index is available on the column. See INDEX CAPABILITIES section.
-16. For semantic or meaning-based searches, use vector cosine distance (<=> operator) when vector indexes are available. See INDEX CAPABILITIES section.
+...existing requirements 1-10...
+11. PREFER full-text search operators (@@, ts_rank, plainto_tsquery) over ILIKE for text searches when a full-text search index is available on the column. See INDEX CAPABILITIES section.
+12. For semantic or meaning-based searches, use vector cosine distance (<=> operator) when vector indexes are available. See INDEX CAPABILITIES section.
 ```
 
 ## Caller Changes
 
-### Modified: Query Processing Flow (api/queries.py)
+### Modified: Query Processing Flow (services/text_to_sql.py)
 
 The query orchestration code must:
 

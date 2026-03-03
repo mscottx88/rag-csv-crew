@@ -2,6 +2,7 @@
 
 T025 [US1]: Tests create_sql_generation_task() with index_context parameter.
 Verifies context injection into task description and graceful None handling.
+Also tests value_context + index_context interaction (FTS over ILIKE).
 
 Constitutional Requirements:
 - Thread-based operations only (no async/await)
@@ -179,3 +180,69 @@ class TestSqlGenerationTaskIndexContext:
         description: str = call_kwargs["description"]
         assert "parameterized" in description.lower()
         assert "SQL" in description
+
+    @patch("backend.src.crew.tasks.Task")
+    def test_value_context_uses_fts_when_index_context_present(
+        self,
+        mock_task_cls: MagicMock,
+    ) -> None:
+        """Test value match instructions reference FTS when index context available."""
+        mock_task_cls.return_value = MagicMock()
+        agent: MagicMock = MagicMock()
+        index_ctx: str = "INDEX CAPABILITIES\nTable: products_data\n"
+        search_results: dict[str, Any] = {
+            "fused_results": [
+                {
+                    "source": "data_values",
+                    "column_name": "name",
+                    "match_count": 5,
+                    "sample_values": ["Widget A"],
+                },
+            ],
+        }
+
+        create_sql_generation_task(
+            agent=agent,
+            query_text="Find Widget",
+            dataset_ids=[uuid4()],
+            search_results=search_results,
+            index_context=index_ctx,
+        )
+
+        call_kwargs: dict[str, Any] = mock_task_cls.call_args.kwargs
+        description: str = call_kwargs["description"]
+        # FTS instructions present in value-based query section
+        assert "full-text search" in description.lower()
+        assert "plainto_tsquery" in description
+        # No standalone ILIKE example directive (ILIKE only as fallback mention)
+        assert "Generate a WHERE clause using ILIKE" not in description
+
+    @patch("backend.src.crew.tasks.Task")
+    def test_value_context_uses_ilike_without_index_context(
+        self,
+        mock_task_cls: MagicMock,
+    ) -> None:
+        """Test value match instructions use ILIKE when no index context."""
+        mock_task_cls.return_value = MagicMock()
+        agent: MagicMock = MagicMock()
+        search_results: dict[str, Any] = {
+            "fused_results": [
+                {
+                    "source": "data_values",
+                    "column_name": "name",
+                    "match_count": 5,
+                    "sample_values": ["Widget A"],
+                },
+            ],
+        }
+
+        create_sql_generation_task(
+            agent=agent,
+            query_text="Find Widget",
+            dataset_ids=[uuid4()],
+            search_results=search_results,
+        )
+
+        call_kwargs: dict[str, Any] = mock_task_cls.call_args.kwargs
+        description: str = call_kwargs["description"]
+        assert "ILIKE" in description

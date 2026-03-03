@@ -88,11 +88,21 @@ def create_sql_generation_task(
                     samples: str = ", ".join([f"'{v}'" for v in match["sample_values"][:2]])
                     value_context += f"  Sample values: {samples}\n"
 
-            value_context += (
-                "\nThis is a VALUE-BASED QUERY. Generate a WHERE clause using ILIKE "
-                "to search for the query term within these columns.\n"
-                f"Example: WHERE column_name ILIKE '%{query_text}%'\n"
-            )
+            if index_context:
+                value_context += (
+                    "\nThis is a VALUE-BASED QUERY. Use full-text search operators"
+                    " (plainto_tsquery, ts_rank) to find matching rows when the"
+                    " column has a full-text search index — see INDEX CAPABILITIES"
+                    " section for the correct _ts_ column names."
+                    " Fall back to ILIKE only for columns without full-text indexes"
+                    " or when substring matching is required.\n"
+                )
+            else:
+                value_context += (
+                    "\nThis is a VALUE-BASED QUERY. Generate a WHERE clause using"
+                    " ILIKE to search for the query term within these columns.\n"
+                    f"Example: WHERE column_name ILIKE '%{query_text}%'\n"
+                )
 
     # Include explicit schema context if provided
     schema_info: str = schema_context if schema_context else ""

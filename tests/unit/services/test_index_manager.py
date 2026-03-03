@@ -268,6 +268,70 @@ class TestCreateBtreeIndexes:
         btree_entry: IndexMetadataEntry = results[0]
         assert btree_entry.generated_column_name is None
 
+    def test_btree_skipped_for_text_column_exceeding_size_limit(self) -> None:
+        """Test B-tree skipped for TEXT columns with values > 2704 bytes."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+
+        # fetchone returns max OCTET_LENGTH of 3000 (exceeds 2704 limit)
+        mock_cursor.fetchone.return_value = (3000,)
+
+        columns: list[dict[str, str]] = [
+            {"name": "analysis", "type": "TEXT"},
+        ]
+
+        with patch(
+            "backend.src.services.index_manager._is_identifier_column",
+            return_value=False,
+        ):
+            results: list[IndexMetadataEntry] = create_indexes_for_dataset(
+                mock_conn,
+                _TEST_USERNAME,
+                _TEST_DATASET_ID,
+                _TEST_TABLE,
+                columns,
+            )
+
+        # Should have GIN (FTS) but no B-tree for 'analysis'
+        btree_entries: list[IndexMetadataEntry] = [
+            e for e in results if e.index_type == IndexType.BTREE
+        ]
+        gin_entries: list[IndexMetadataEntry] = [
+            e for e in results if e.index_type == IndexType.GIN
+        ]
+        assert len(btree_entries) == 0
+        assert len(gin_entries) >= 1
+
+    def test_btree_created_for_short_text_column(self) -> None:
+        """Test B-tree IS created for TEXT columns within size limit."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+
+        # fetchone returns max OCTET_LENGTH of 50 (within 2704 limit)
+        mock_cursor.fetchone.return_value = (50,)
+
+        columns: list[dict[str, str]] = [
+            {"name": "category", "type": "TEXT"},
+        ]
+
+        with patch(
+            "backend.src.services.index_manager._is_identifier_column",
+            return_value=False,
+        ):
+            results: list[IndexMetadataEntry] = create_indexes_for_dataset(
+                mock_conn,
+                _TEST_USERNAME,
+                _TEST_DATASET_ID,
+                _TEST_TABLE,
+                columns,
+            )
+
+        btree_entries: list[IndexMetadataEntry] = [
+            e for e in results if e.index_type == IndexType.BTREE
+        ]
+        assert len(btree_entries) == 1
+        assert btree_entries[0].column_name == "category"
+
 
 @pytest.mark.unit
 class TestCreateFtsIndexes:
@@ -478,10 +542,10 @@ class TestCreateIndexesErrorHandling:
         def _side_effect(*_args: object, **_kwargs: object) -> None:
             nonlocal call_count
             call_count += 1
-            # First call succeeds (B-tree for 'name')
-            if call_count == 1:
+            # Calls 1-2 succeed (OCTET_LENGTH check + B-tree for 'name')
+            if call_count <= 2:
                 return
-            # Second call fails (ALTER TABLE for tsvector)
+            # Third call fails (ALTER TABLE for tsvector)
             raise RuntimeError("ALTER TABLE failed")
 
         mock_cursor.execute.side_effect = _side_effect

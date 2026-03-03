@@ -50,14 +50,14 @@
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
 - [x] T007 [P] [US2] Write unit tests for `create_indexes_for_dataset()` B-tree index creation (all column types, correct SQL generation, naming conventions) in tests/unit/services/test_index_manager.py
-- [x] T008 [P] [US2] Write unit tests for `create_indexes_for_dataset()` tsvector column + GIN index creation (TEXT columns only, correct ALTER TABLE and CREATE INDEX SQL, naming conventions) in tests/unit/services/test_index_manager.py
+- [x] T008 [P] [US2] Write unit tests for `create_indexes_for_dataset()` tsvector column + GIN index creation (TEXT columns only, FR-002 identifier heuristic skips high-cardinality short-text columns, correct ALTER TABLE and CREATE INDEX SQL, naming conventions) in tests/unit/services/test_index_manager.py
 - [x] T009 [P] [US2] Write unit tests for index creation error handling (IndexCreationError raised on failure, partial_results populated, failed_index identified) in tests/unit/services/test_index_manager.py
 - [x] T010 [P] [US2] Write integration test for index creation on a real PostgreSQL table (upload CSV, verify B-tree indexes exist on all columns via pg_indexes, verify GIN indexes on text columns, verify tsvector generated columns exist) in tests/integration/test_index_creation.py
 
 ### Implementation for User Story 2
 
 - [x] T011 [US2] Implement B-tree index creation logic in `create_indexes_for_dataset()` in backend/src/services/index_manager.py — for each column: generate index name, execute CREATE INDEX IF NOT EXISTS, handle errors per FR-001, FR-007
-- [x] T012 [US2] Implement tsvector generated column + GIN index creation in `create_indexes_for_dataset()` in backend/src/services/index_manager.py — for each TEXT column: ALTER TABLE ADD COLUMN _ts_{col} TSVECTOR GENERATED ALWAYS, CREATE INDEX USING GIN, handle errors per FR-002
+- [x] T012 [US2] Implement tsvector generated column + GIN index creation in `create_indexes_for_dataset()` in backend/src/services/index_manager.py — for each TEXT column that passes FR-002 identifier heuristic (skip if cardinality ratio > 0.95 AND avg length < 50): ALTER TABLE ADD COLUMN _ts_{col} TSVECTOR GENERATED ALWAYS, CREATE INDEX USING GIN, handle errors per FR-002
 - [x] T013 [US2] Implement error handling and cleanup in `create_indexes_for_dataset()` in backend/src/services/index_manager.py — on any failure: record status='failed' metadata entries, raise IndexCreationError with partial_results per FR-012, FR-013
 - [x] T014 [US2] Integrate `create_indexes_for_dataset()` into ingestion pipeline in backend/src/api/datasets.py — call after `ingest_csv_data()` and row count update, pass connection, username, dataset_id, table_name, columns
 - [x] T015 [US2] Add error handling in backend/src/api/datasets.py upload endpoint — catch IndexCreationError, drop data table, delete dataset metadata, return HTTP 500 with error details per FR-016

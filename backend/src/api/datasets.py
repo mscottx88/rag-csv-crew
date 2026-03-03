@@ -481,7 +481,10 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
                 },
             )
             # Cleanup: drop data table and delete dataset metadata
+            # Rollback first — PostgreSQL aborts all commands after a failed
+            # statement until the transaction is rolled back.
             try:
+                conn.rollback()
                 with conn.cursor() as cur:
                     cur.execute(f"DROP TABLE IF EXISTS" f" {username}_schema.{table_name} CASCADE")
                     cur.execute(
@@ -509,6 +512,7 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
             )
             # Cleanup: drop data table and delete dataset metadata
             try:
+                conn.rollback()
                 with conn.cursor() as cur:
                     cur.execute(f"DROP TABLE IF EXISTS" f" {username}_schema.{table_name} CASCADE")
                     cur.execute(
