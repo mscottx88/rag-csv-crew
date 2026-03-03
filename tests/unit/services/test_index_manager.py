@@ -3,6 +3,7 @@
 Tests index name generation utility with 63-character identifier truncation
 and MD5 hash suffix per data-model.md Identifier Length Handling.
 Tests create_indexes_for_dataset() B-tree, FTS, and error handling.
+Tests get_index_profiles() and build_index_context() for metadata tracking.
 
 Constitutional Requirements:
 - Thread-based operations only (no async/await)
@@ -10,12 +11,15 @@ Constitutional Requirements:
 - All functions have return type annotations
 """
 
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
+from uuid import UUID, uuid4
 
 from psycopg import sql
 import pytest
 
 from backend.src.models.index_metadata import (
+    DataColumnIndexProfile,
     IndexCapability,
     IndexMetadataEntry,
     IndexStatus,
@@ -23,8 +27,10 @@ from backend.src.models.index_metadata import (
 )
 from backend.src.services.index_manager import (
     IndexCreationError,
+    build_index_context,
     create_indexes_for_dataset,
     generate_index_name,
+    get_index_profiles,
 )
 
 
@@ -591,3 +597,523 @@ class TestCreateIndexesErrorHandling:
             )
 
         mock_conn.commit.assert_called_once()
+
+
+# --- Phase 4: US3 Metadata Tracking Tests ---
+
+
+def _make_entry(
+    column_name: str,
+    index_type: IndexType,
+    capability: IndexCapability,
+    dataset_id: UUID | None = None,
+    generated_column_name: str | None = None,
+    index_status: IndexStatus = IndexStatus.CREATED,
+) -> IndexMetadataEntry:
+    """Helper to create an IndexMetadataEntry for tests."""
+    ds_id: UUID = dataset_id if dataset_id is not None else UUID(_TEST_DATASET_ID)
+    idx_name: str = f"idx_{_TEST_TABLE}_{column_name}_{index_type.value}"
+    return IndexMetadataEntry(
+        id=uuid4(),
+        dataset_id=ds_id,
+        column_name=column_name,
+        index_name=idx_name,
+        index_type=index_type,
+        capability=capability,
+        generated_column_name=generated_column_name,
+        status=index_status,
+        created_at=datetime.now(UTC),
+    )
+
+
+def _make_profile(
+    column_name: str,
+    entries: list[IndexMetadataEntry],
+    dataset_id: UUID | None = None,
+) -> DataColumnIndexProfile:
+    """Helper to create a DataColumnIndexProfile for tests."""
+    ds_id: UUID = dataset_id if dataset_id is not None else UUID(_TEST_DATASET_ID)
+    return DataColumnIndexProfile(
+        column_name=column_name,
+        dataset_id=ds_id,
+        indexes=entries,
+    )
+
+
+@pytest.mark.unit
+class TestMetadataInsertion:
+    """T017: Test index metadata insertion correctness."""
+
+    def test_btree_metadata_entries_correct(self) -> None:
+        """Test B-tree indexes produce correct metadata entries."""
+        mock_conn: MagicMock = _make_mock_conn()
+        columns: list[dict[str, str]] = [
+            {"name": "price", "type": "NUMERIC"},
+            {"name": "name", "type": "TEXT"},
+        ]
+
+        with patch(
+            "backend.src.services.index_manager._is_identifier_column",
+            return_value=False,
+        ):
+            results: list[IndexMetadataEntry] = create_indexes_for_dataset(
+                mock_conn,
+                _TEST_USERNAME,
+                _TEST_DATASET_ID,
+                _TEST_TABLE,
+                columns,
+            )
+
+        btree_entries: list[IndexMetadataEntry] = [
+            e for e in results if e.index_type == IndexType.BTREE
+        ]
+        assert len(btree_entries) == 2
+        for entry in btree_entries:
+            assert entry.status == IndexStatus.CREATED
+            assert entry.capability == IndexCapability.FILTERING
+            assert entry.dataset_id == UUID(_TEST_DATASET_ID)
+
+    def test_gin_metadata_entries_correct(self) -> None:
+        """Test GIN indexes produce correct metadata entries."""
+        mock_conn: MagicMock = _make_mock_conn()
+        columns: list[dict[str, str]] = [
+            {"name": "name", "type": "TEXT"},
+        ]
+
+        with patch(
+            "backend.src.services.index_manager._is_identifier_column",
+            return_value=False,
+        ):
+            results: list[IndexMetadataEntry] = create_indexes_for_dataset(
+                mock_conn,
+                _TEST_USERNAME,
+                _TEST_DATASET_ID,
+                _TEST_TABLE,
+                columns,
+            )
+
+        gin_entries: list[IndexMetadataEntry] = [
+            e for e in results if e.index_type == IndexType.GIN
+        ]
+        assert len(gin_entries) == 1
+        assert gin_entries[0].capability == IndexCapability.FULL_TEXT_SEARCH
+        assert gin_entries[0].generated_column_name == "_ts_name"
+        assert gin_entries[0].status == IndexStatus.CREATED
+
+    def test_metadata_insert_sql_called(self) -> None:
+        """Test _insert_metadata_entry called for each index."""
+        mock_conn: MagicMock = _make_mock_conn()
+        columns: list[dict[str, str]] = [
+            {"name": "price", "type": "NUMERIC"},
+        ]
+
+        with (
+            patch(
+                "backend.src.services.index_manager._is_identifier_column",
+                return_value=False,
+            ),
+            patch(
+                "backend.src.services.index_manager._insert_metadata_entry",
+            ) as mock_insert,
+        ):
+            create_indexes_for_dataset(
+                mock_conn,
+                _TEST_USERNAME,
+                _TEST_DATASET_ID,
+                _TEST_TABLE,
+                columns,
+            )
+
+        # 1 B-tree entry for price
+        assert mock_insert.call_count == 1
+
+    def test_unique_constraint_on_dataset_column_type(self) -> None:
+        """Test that each entry has unique (dataset_id, column_name, index_type)."""
+        mock_conn: MagicMock = _make_mock_conn()
+        columns: list[dict[str, str]] = [
+            {"name": "name", "type": "TEXT"},
+        ]
+
+        with patch(
+            "backend.src.services.index_manager._is_identifier_column",
+            return_value=False,
+        ):
+            results: list[IndexMetadataEntry] = create_indexes_for_dataset(
+                mock_conn,
+                _TEST_USERNAME,
+                _TEST_DATASET_ID,
+                _TEST_TABLE,
+                columns,
+            )
+
+        # name gets both btree and gin = 2 entries, unique combo
+        keys: set[tuple[UUID, str, IndexType]] = set()
+        for entry in results:
+            key: tuple[UUID, str, IndexType] = (
+                entry.dataset_id,
+                entry.column_name,
+                entry.index_type,
+            )
+            assert key not in keys, f"Duplicate key: {key}"
+            keys.add(key)
+
+
+@pytest.mark.unit
+class TestGetIndexProfiles:
+    """T018: Test get_index_profiles() grouping and profile creation."""
+
+    def test_returns_empty_dict_for_no_datasets(self) -> None:
+        """Test empty list returns empty dict."""
+        mock_conn: MagicMock = _make_mock_conn()
+        result: dict[str, list[DataColumnIndexProfile]] = get_index_profiles(
+            mock_conn,
+            _TEST_USERNAME,
+            [],
+        )
+        assert result == {}
+
+    def test_groups_by_dataset_and_column(self) -> None:
+        """Test entries grouped into DataColumnIndexProfile objects."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+
+        ds_id: str = _TEST_DATASET_ID
+        now: datetime = datetime.now(UTC)
+        entry_id_1: UUID = uuid4()
+        entry_id_2: UUID = uuid4()
+
+        # Simulate two rows: name btree and name gin
+        mock_cursor.fetchall.return_value = [
+            (
+                entry_id_1,
+                UUID(ds_id),
+                "name",
+                "idx_t_name_btree",
+                "btree",
+                "filtering",
+                None,
+                "created",
+                now,
+            ),
+            (
+                entry_id_2,
+                UUID(ds_id),
+                "name",
+                "idx_t_name_gin",
+                "gin",
+                "full_text_search",
+                "_ts_name",
+                "created",
+                now,
+            ),
+        ]
+
+        result: dict[str, list[DataColumnIndexProfile]] = get_index_profiles(
+            mock_conn,
+            _TEST_USERNAME,
+            [ds_id],
+        )
+
+        assert ds_id in result
+        profiles: list[DataColumnIndexProfile] = result[ds_id]
+        assert len(profiles) == 1
+        assert profiles[0].column_name == "name"
+        assert len(profiles[0].indexes) == 2
+
+    def test_multiple_columns_create_separate_profiles(self) -> None:
+        """Test different columns produce separate profiles."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+
+        ds_id: str = _TEST_DATASET_ID
+        now: datetime = datetime.now(UTC)
+
+        mock_cursor.fetchall.return_value = [
+            (
+                uuid4(),
+                UUID(ds_id),
+                "name",
+                "idx_t_name_btree",
+                "btree",
+                "filtering",
+                None,
+                "created",
+                now,
+            ),
+            (
+                uuid4(),
+                UUID(ds_id),
+                "price",
+                "idx_t_price_btree",
+                "btree",
+                "filtering",
+                None,
+                "created",
+                now,
+            ),
+        ]
+
+        result: dict[str, list[DataColumnIndexProfile]] = get_index_profiles(
+            mock_conn,
+            _TEST_USERNAME,
+            [ds_id],
+        )
+
+        profiles: list[DataColumnIndexProfile] = result[ds_id]
+        assert len(profiles) == 2
+        col_names: set[str] = {p.column_name for p in profiles}
+        assert col_names == {"name", "price"}
+
+    def test_multiple_datasets_separated(self) -> None:
+        """Test entries from different datasets are in separate keys."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+
+        ds_id_1: str = _TEST_DATASET_ID
+        ds_id_2: str = str(uuid4())
+        now: datetime = datetime.now(UTC)
+
+        mock_cursor.fetchall.return_value = [
+            (
+                uuid4(),
+                UUID(ds_id_1),
+                "name",
+                "idx_t1_name_btree",
+                "btree",
+                "filtering",
+                None,
+                "created",
+                now,
+            ),
+            (
+                uuid4(),
+                UUID(ds_id_2),
+                "price",
+                "idx_t2_price_btree",
+                "btree",
+                "filtering",
+                None,
+                "created",
+                now,
+            ),
+        ]
+
+        result: dict[str, list[DataColumnIndexProfile]] = get_index_profiles(
+            mock_conn,
+            _TEST_USERNAME,
+            [ds_id_1, ds_id_2],
+        )
+
+        assert ds_id_1 in result
+        assert ds_id_2 in result
+        assert result[ds_id_1][0].column_name == "name"
+        assert result[ds_id_2][0].column_name == "price"
+
+    def test_profile_has_fulltext_property(self) -> None:
+        """Test DataColumnIndexProfile.has_fulltext with FTS index."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+
+        ds_id: str = _TEST_DATASET_ID
+        now: datetime = datetime.now(UTC)
+
+        mock_cursor.fetchall.return_value = [
+            (
+                uuid4(),
+                UUID(ds_id),
+                "name",
+                "idx_t_name_btree",
+                "btree",
+                "filtering",
+                None,
+                "created",
+                now,
+            ),
+            (
+                uuid4(),
+                UUID(ds_id),
+                "name",
+                "idx_t_name_gin",
+                "gin",
+                "full_text_search",
+                "_ts_name",
+                "created",
+                now,
+            ),
+        ]
+
+        result: dict[str, list[DataColumnIndexProfile]] = get_index_profiles(
+            mock_conn,
+            _TEST_USERNAME,
+            [ds_id],
+        )
+
+        profile: DataColumnIndexProfile = result[ds_id][0]
+        assert profile.has_fulltext is True
+        assert profile.fulltext_column == "_ts_name"
+        assert profile.has_vector is False
+
+
+@pytest.mark.unit
+class TestBuildIndexContext:
+    """T019: Test build_index_context() formatting and rules."""
+
+    def test_empty_profiles_returns_empty_string(self) -> None:
+        """Test empty profiles produces empty string."""
+        result: str = build_index_context({}, {})
+        assert result == ""
+
+    def test_btree_only_column(self) -> None:
+        """Test B-tree only column shows correct capabilities."""
+        btree_entry: IndexMetadataEntry = _make_entry(
+            "price",
+            IndexType.BTREE,
+            IndexCapability.FILTERING,
+        )
+        profile: DataColumnIndexProfile = _make_profile(
+            "price",
+            [btree_entry],
+        )
+        profiles: dict[str, list[DataColumnIndexProfile]] = {
+            _TEST_DATASET_ID: [profile],
+        }
+        table_names: dict[str, str] = {_TEST_DATASET_ID: _TEST_TABLE}
+
+        result: str = build_index_context(profiles, table_names)
+
+        assert "Table: products_data" in result
+        assert "Column: price" in result
+        assert "B-tree: supports" in result
+        assert "Full-text search" not in result
+        assert "Vector similarity" not in result
+
+    def test_fts_column_includes_search_pattern(self) -> None:
+        """Test TEXT column with FTS includes tsvector query pattern."""
+        btree_entry: IndexMetadataEntry = _make_entry(
+            "name",
+            IndexType.BTREE,
+            IndexCapability.FILTERING,
+        )
+        gin_entry: IndexMetadataEntry = _make_entry(
+            "name",
+            IndexType.GIN,
+            IndexCapability.FULL_TEXT_SEARCH,
+            generated_column_name="_ts_name",
+        )
+        profile: DataColumnIndexProfile = _make_profile(
+            "name",
+            [btree_entry, gin_entry],
+        )
+        profiles: dict[str, list[DataColumnIndexProfile]] = {
+            _TEST_DATASET_ID: [profile],
+        }
+        table_names: dict[str, str] = {_TEST_DATASET_ID: _TEST_TABLE}
+
+        result: str = build_index_context(profiles, table_names)
+
+        assert "Full-text search via '_ts_name'" in result
+        assert "plainto_tsquery" in result
+        assert "ts_rank" in result
+        assert "PREFER full-text search" in result
+
+    def test_context_includes_rules_section(self) -> None:
+        """Test context includes RULES section at the end."""
+        btree_entry: IndexMetadataEntry = _make_entry(
+            "price",
+            IndexType.BTREE,
+            IndexCapability.FILTERING,
+        )
+        profile: DataColumnIndexProfile = _make_profile(
+            "price",
+            [btree_entry],
+        )
+        profiles: dict[str, list[DataColumnIndexProfile]] = {
+            _TEST_DATASET_ID: [profile],
+        }
+        table_names: dict[str, str] = {_TEST_DATASET_ID: _TEST_TABLE}
+
+        result: str = build_index_context(profiles, table_names)
+
+        assert "RULES:" in result
+        assert "ALWAYS use full-text search" in result
+        assert "B-tree indexes are always available" in result
+
+    def test_context_includes_header(self) -> None:
+        """Test context starts with INDEX CAPABILITIES header."""
+        btree_entry: IndexMetadataEntry = _make_entry(
+            "price",
+            IndexType.BTREE,
+            IndexCapability.FILTERING,
+        )
+        profile: DataColumnIndexProfile = _make_profile(
+            "price",
+            [btree_entry],
+        )
+        profiles: dict[str, list[DataColumnIndexProfile]] = {
+            _TEST_DATASET_ID: [profile],
+        }
+        table_names: dict[str, str] = {_TEST_DATASET_ID: _TEST_TABLE}
+
+        result: str = build_index_context(profiles, table_names)
+
+        assert result.startswith("INDEX CAPABILITIES")
+
+    def test_4000_char_cap(self) -> None:
+        """Test context truncated at 4000 characters per FR-018."""
+        entries: list[IndexMetadataEntry] = []
+        profiles_list: list[DataColumnIndexProfile] = []
+        # Create many columns to exceed 4000 chars
+        for i in range(50):
+            col_name: str = f"column_{i:03d}_with_a_long_name"
+            btree: IndexMetadataEntry = _make_entry(
+                col_name,
+                IndexType.BTREE,
+                IndexCapability.FILTERING,
+            )
+            gin: IndexMetadataEntry = _make_entry(
+                col_name,
+                IndexType.GIN,
+                IndexCapability.FULL_TEXT_SEARCH,
+                generated_column_name=f"_ts_{col_name}",
+            )
+            entries.extend([btree, gin])
+            profiles_list.append(
+                _make_profile(col_name, [btree, gin]),
+            )
+
+        profiles: dict[str, list[DataColumnIndexProfile]] = {
+            _TEST_DATASET_ID: profiles_list,
+        }
+        table_names: dict[str, str] = {_TEST_DATASET_ID: _TEST_TABLE}
+
+        result: str = build_index_context(profiles, table_names)
+
+        assert len(result) <= 4000
+        assert result.endswith("...")
+
+    def test_text_column_type_annotation(self) -> None:
+        """Test TEXT columns labeled correctly in output."""
+        btree_entry: IndexMetadataEntry = _make_entry(
+            "description",
+            IndexType.BTREE,
+            IndexCapability.FILTERING,
+        )
+        gin_entry: IndexMetadataEntry = _make_entry(
+            "description",
+            IndexType.GIN,
+            IndexCapability.FULL_TEXT_SEARCH,
+            generated_column_name="_ts_description",
+        )
+        profile: DataColumnIndexProfile = _make_profile(
+            "description",
+            [btree_entry, gin_entry],
+        )
+        profiles: dict[str, list[DataColumnIndexProfile]] = {
+            _TEST_DATASET_ID: [profile],
+        }
+        table_names: dict[str, str] = {_TEST_DATASET_ID: _TEST_TABLE}
+
+        result: str = build_index_context(profiles, table_names)
+
+        assert "Column: description (TEXT)" in result
+        assert "LIKE 'prefix%'" in result

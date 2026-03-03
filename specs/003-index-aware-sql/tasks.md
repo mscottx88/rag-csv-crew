@@ -77,17 +77,17 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T017 [P] [US3] Write unit tests for index metadata insertion (correct entries for B-tree, GIN indexes; status tracking; unique constraint on dataset_id+column_name+index_type) in tests/unit/services/test_index_manager.py
-- [ ] T018 [P] [US3] Write unit tests for `get_index_profiles()` (groups by dataset_id and column_name, returns DataColumnIndexProfile objects, handles multiple datasets) in tests/unit/services/test_index_manager.py
-- [ ] T019 [P] [US3] Write unit tests for `build_index_context()` (correct format per sql-generation-task-context contract; B-tree only columns; FTS columns with tsvector patterns; 4000 char cap per FR-018; empty profiles return empty string) in tests/unit/services/test_index_manager.py
-- [ ] T020 [P] [US3] Write integration test for metadata tracking end-to-end (upload CSV → query index_metadata table → verify entries match pg_indexes catalog → verify ON DELETE CASCADE cleanup) in tests/integration/test_index_creation.py
+- [x] T017 [P] [US3] Write unit tests for index metadata insertion (correct entries for B-tree, GIN indexes; status tracking; unique constraint on dataset_id+column_name+index_type) in tests/unit/services/test_index_manager.py
+- [x] T018 [P] [US3] Write unit tests for `get_index_profiles()` (groups by dataset_id and column_name, returns DataColumnIndexProfile objects, handles multiple datasets) in tests/unit/services/test_index_manager.py
+- [x] T019 [P] [US3] Write unit tests for `build_index_context()` (correct format per sql-generation-task-context contract; B-tree only columns; FTS columns with tsvector patterns; 4000 char cap per FR-018; empty profiles return empty string) in tests/unit/services/test_index_manager.py
+- [x] T020 [P] [US3] Write integration test for metadata tracking end-to-end (upload CSV → query index_metadata table → verify entries match pg_indexes catalog → verify ON DELETE CASCADE cleanup) in tests/integration/test_index_creation.py
 
 ### Implementation for User Story 3
 
-- [ ] T021 [US3] Implement metadata insertion in `create_indexes_for_dataset()` in backend/src/services/index_manager.py — INSERT into index_metadata after each successful index creation, with correct index_type, capability, generated_column_name, and status per FR-003, FR-004
-- [ ] T022 [US3] Implement `get_index_profiles()` in backend/src/services/index_manager.py — query index_metadata for given dataset_ids, group by (dataset_id, column_name), return dict[str, list[DataColumnIndexProfile]] per contract
-- [ ] T023 [US3] Implement `build_index_context()` in backend/src/services/index_manager.py — format INDEX CAPABILITIES text block per sql-generation-task-context contract format, include B-tree/FTS patterns, enforce 4000-char cap with summarization per FR-018
-- [ ] T024 [US3] Verify dataset deletion cleanup — confirm ON DELETE CASCADE removes index_metadata rows when dataset deleted, no additional code needed in backend/src/api/datasets.py per FR-009 (add assertion test in tests/integration/test_index_creation.py)
+- [x] T021 [US3] Implement metadata insertion in `create_indexes_for_dataset()` in backend/src/services/index_manager.py — INSERT into index_metadata after each successful index creation, with correct index_type, capability, generated_column_name, and status per FR-003, FR-004
+- [x] T022 [US3] Implement `get_index_profiles()` in backend/src/services/index_manager.py — query index_metadata for given dataset_ids, group by (dataset_id, column_name), return dict[str, list[DataColumnIndexProfile]] per contract
+- [x] T023 [US3] Implement `build_index_context()` in backend/src/services/index_manager.py — format INDEX CAPABILITIES text block per sql-generation-task-context contract format, include B-tree/FTS patterns, enforce 4000-char cap with summarization per FR-018
+- [x] T024 [US3] Verify dataset deletion cleanup — confirm ON DELETE CASCADE removes index_metadata rows when dataset deleted, no additional code needed in backend/src/api/datasets.py per FR-009 (assertion test added in tests/integration/test_index_creation.py)
 
 **Checkpoint**: Index metadata accurately reflects all created indexes, `build_index_context()` produces correctly formatted context string, deletion cleans up metadata
 
