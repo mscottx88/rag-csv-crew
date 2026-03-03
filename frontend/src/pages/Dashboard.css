@@ -3,62 +3,53 @@
  * The four action cards divide the available content area into equal quadrants.
  */
 
-/* ── Page container — fills app-content entirely ── */
+/* ── Page container — 2rem padding matches all destination pages ── */
 .dashboard-page {
   height: 100%;
   display: flex;
   flex-direction: column;
+  padding: 2rem;
   overflow: hidden;
-  padding: 0;
 }
 
-/* ── Compact welcome header strip ── */
-.welcome-section {
-  flex-shrink: 0;
-  display: flex;
-  align-items: baseline;
-  gap: 1.25rem;
-  padding: 0.5rem 1.5rem;
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--pink);
-  box-shadow: 0 2px 16px var(--pink-dim);
-  /* no border-radius — spans full width */
-}
-
-.welcome-section h1 {
-  margin: 0;
+/* ── Welcome header — mirrors destination-page h1 + .page-description layout ── */
+.dashboard-page h1 {
+  margin: 0 0 0.5rem 0;
   color: var(--pink);
-  font-size: 0.95rem;
+  font-size: clamp(1.5rem, 3vw, 2rem);
   font-family: 'Courier New', Courier, monospace;
   letter-spacing: 0.04em;
-  text-shadow: 0 0 8px var(--pink-dim);
-  white-space: nowrap;
+  text-shadow: 0 0 10px var(--pink-dim);
 }
 
-.welcome-section p {
-  margin: 0;
+.dashboard-page > .page-description {
+  margin: 0 0 1.5rem 0;
   color: var(--txt-muted);
-  font-size: 0.78rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
   font-family: 'Courier New', Courier, monospace;
 }
 
-/* ── Quadrant grid — fills remaining height ── */
+/* ── Quadrant grid — fills the bordered-box area of destination pages ── */
 .quick-actions {
   flex: 1;
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
   gap: 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--pink);
+  border-radius: 4px;
+  box-shadow: 0 0 16px var(--pink-dim);
   padding: 1rem;
-  background: transparent;
   min-height: 0;
 }
 
 /* ── Action cards — fill their quadrant ── */
 .action-card {
   background: var(--bg-card);
-  padding: 3rem 4rem;
-  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  border-radius: 4px;
   cursor: pointer;
   transition: background 0.25s;
   text-align: center;
@@ -67,6 +58,15 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── 3D canvas container ── */
+.action-card-canvas {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
 }
 
 /* Query card → cyan */
@@ -129,86 +129,6 @@
   text-shadow: 0 0 8px var(--gold-dim);
 }
 
-/* ── Wireframe SVG icons ── */
-.action-icon-svg {
-  width: 72px;
-  height: 72px;
-  display: block;
-  margin: 0 auto 1.5rem;
-  transition: filter 0.3s, transform 0.3s;
-  transform-origin: center center;
-}
-
-.action-icon-svg * {
-  stroke: currentColor;
-}
-
-/* ── Per-icon idle styles + hover animations ── */
-
-/* Cyan — magnifying glass: scanning sweep */
-.action-icon-cyan {
-  color: var(--cyan);
-  filter: drop-shadow(0 0 4px var(--cyan)) drop-shadow(0 0 10px var(--cyan-dim));
-}
-
-.action-card:nth-child(1):hover .action-icon-cyan {
-  filter: drop-shadow(0 0 8px var(--cyan)) drop-shadow(0 0 20px var(--cyan-glow));
-  animation: icon-scan 1.2s ease-in-out infinite;
-}
-
-@keyframes icon-scan {
-  0%, 100% { transform: translateX(0) scale(1.1); }
-  50%      { transform: translateX(4px) scale(1.1); }
-}
-
-/* Green — upload arrow: floating up */
-.action-icon-green {
-  color: var(--green);
-  filter: drop-shadow(0 0 4px var(--green)) drop-shadow(0 0 10px var(--green-dim));
-}
-
-.action-card:nth-child(2):hover .action-icon-green {
-  filter: drop-shadow(0 0 8px var(--green)) drop-shadow(0 0 20px var(--green-glow));
-  animation: icon-float 1.5s ease-in-out infinite;
-}
-
-@keyframes icon-float {
-  0%, 100% { transform: translateY(0) scale(1.1); }
-  50%      { transform: translateY(-5px) scale(1.1); }
-}
-
-/* Orange — data grid: pulsing scale */
-.action-icon-orange {
-  color: var(--orange);
-  filter: drop-shadow(0 0 4px var(--orange)) drop-shadow(0 0 10px var(--orange-dim));
-}
-
-.action-card:nth-child(3):hover .action-icon-orange {
-  filter: drop-shadow(0 0 8px var(--orange)) drop-shadow(0 0 20px var(--orange-glow));
-  animation: icon-pulse 1.4s ease-in-out infinite;
-}
-
-@keyframes icon-pulse {
-  0%, 100% { transform: scale(1.08); }
-  50%      { transform: scale(1.18); }
-}
-
-/* Gold — clock: pendulum swing */
-.action-icon-gold {
-  color: var(--gold);
-  filter: drop-shadow(0 0 4px var(--gold)) drop-shadow(0 0 10px var(--gold-dim));
-}
-
-.action-card:nth-child(4):hover .action-icon-gold {
-  filter: drop-shadow(0 0 8px var(--gold)) drop-shadow(0 0 20px var(--gold-glow));
-  animation: icon-pendulum 1.6s ease-in-out infinite;
-}
-
-@keyframes icon-pendulum {
-  0%, 100% { transform: rotate(-4deg) scale(1.1); }
-  50%      { transform: rotate(4deg) scale(1.1); }
-}
-
 /* ── Shared hover: glow pulse on card border ── */
 @keyframes border-glow-cyan {
   0%, 100% { box-shadow: inset 0 0 40px rgba(0, 238, 255, 0.03), 0 0 28px var(--cyan-glow); }
@@ -261,4 +181,78 @@
 
 .action-card:hover p {
   color: var(--txt);
+}
+
+
+/* ── Header transition overlay — scramble/rewrite text effect ── */
+
+.header-transition-overlay {
+  position: fixed;
+  z-index: 101;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.header-transition-overlay h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: var(--pink);
+  text-shadow: 0 0 10px var(--pink-dim);
+  transition: color 0.3s ease-out, text-shadow 0.3s ease-out;
+}
+
+.header-transition-overlay p {
+  margin: 0;
+  color: var(--txt-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+/* Bright flash on individual scramble glyphs — lightning strikes */
+.header-transition-overlay .glyph-flash {
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow:
+    0 0 6px rgba(255, 255, 255, 0.8),
+    0 0 14px rgba(255, 255, 255, 0.4);
+}
+
+/* Rapid glow pulse during active scramble — lightning flicker */
+@keyframes scramble-glow {
+  0%, 100% { text-shadow: 0 0 4px currentColor; }
+  50%      { text-shadow: 0 0 16px currentColor, 0 0 32px currentColor; }
+}
+
+.header-transition-overlay.scrambling h1 {
+  animation: scramble-glow 0.1s ease-in-out infinite;
+}
+
+/* Color targets — h1 transitions from pink to card color */
+.header-transition-overlay.color-cyan h1 {
+  color: var(--cyan);
+  text-shadow: 0 0 10px var(--cyan-dim);
+}
+
+.header-transition-overlay.color-green h1 {
+  color: var(--green);
+  text-shadow: 0 0 10px var(--green-dim);
+}
+
+.header-transition-overlay.color-orange h1 {
+  color: var(--orange);
+  text-shadow: 0 0 10px var(--orange-dim);
+}
+
+.header-transition-overlay.color-gold h1 {
+  color: var(--gold);
+  text-shadow: 0 0 10px var(--gold-dim);
+}
+
+/* Fade out simultaneously with card overlay */
+.header-transition-overlay.fade-out {
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
 }

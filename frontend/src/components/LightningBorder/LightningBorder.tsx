@@ -38,6 +38,7 @@ const HOVER_SELECTORS: string = [
   '.dataset-item',
   '.console-header',
   '.console-expand-indicator',
+  '.cell-overflow-tooltip',
   'input:not(:disabled)',
   'textarea:not(:disabled)',
   'select:not(:disabled)',

@@ -20,6 +20,7 @@ import { CursorSnake } from './components/CursorSnake/CursorSnake';
 import { LightningBorder } from './components/LightningBorder/LightningBorder';
 import { CircuitBoard } from './components/CircuitBoard/CircuitBoard';
 import './App.css';
+import './utils/pageTransition.css';
 
 const App: React.FC = () => {
   const [isDatasetsEmpty, setIsDatasetsEmpty] = useState<boolean>(false);

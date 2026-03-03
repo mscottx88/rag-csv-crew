@@ -1,10 +1,11 @@
 /**
  * Sidebar Component
- * Navigation menu for the application
+ * Navigation menu with animated page transitions.
  */
 
-import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import React, { useCallback } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { animatePageTransition, isTransitioning } from '../../utils/pageTransition';
 import './Sidebar.css';
 
 interface SidebarProps {
@@ -13,7 +14,19 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isDatasetsEmpty = false }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const showUploadPulse: boolean = isDatasetsEmpty && location.pathname === '/datasets';
+
+  const handleNavClick = useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>, to: string): void => {
+      // Don't animate if already on this page or a transition is running
+      if (location.pathname === to || isTransitioning()) return;
+
+      e.preventDefault();
+      animatePageTransition(to, navigate);
+    },
+    [location.pathname, navigate],
+  );
 
   return (
     <aside className="sidebar">
@@ -23,6 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isDatasetsEmpty = false }) => 
           data-route=""
           className={({ isActive }): string => `nav-link ${isActive ? 'active' : ''}`}
           end
+          onClick={(e): void => handleNavClick(e, '/')}
         >
           <svg className="nav-icon-svg nav-icon-pink" viewBox="0 0 48 48" fill="none">
             <polygon points="24,4 44,16 44,36 24,44 4,36 4,16" strokeWidth="2" />
@@ -37,6 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isDatasetsEmpty = false }) => 
           to="/query"
           data-route="query"
           className={({ isActive }): string => `nav-link ${isActive ? 'active' : ''}`}
+          onClick={(e): void => handleNavClick(e, '/query')}
         >
           <svg className="nav-icon-svg nav-icon-cyan" viewBox="0 0 48 48" fill="none">
             <circle cx="20" cy="20" r="12" strokeWidth="2" />
@@ -53,6 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isDatasetsEmpty = false }) => 
           className={({ isActive }): string =>
             `nav-link ${isActive ? 'active' : ''} ${!isActive && showUploadPulse ? 'pulse-hint' : ''}`.trim()
           }
+          onClick={(e): void => handleNavClick(e, '/upload')}
         >
           <svg className="nav-icon-svg nav-icon-green" viewBox="0 0 48 48" fill="none">
             <rect x="8" y="20" width="32" height="24" rx="2" strokeWidth="2" />
@@ -68,6 +84,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isDatasetsEmpty = false }) => 
           to="/datasets"
           data-route="datasets"
           className={({ isActive }): string => `nav-link ${isActive ? 'active' : ''}`}
+          onClick={(e): void => handleNavClick(e, '/datasets')}
         >
           <svg className="nav-icon-svg nav-icon-orange" viewBox="0 0 48 48" fill="none">
             <rect x="4" y="4" width="40" height="40" rx="2" strokeWidth="2" />
@@ -83,6 +100,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isDatasetsEmpty = false }) => 
           to="/history"
           data-route="history"
           className={({ isActive }): string => `nav-link ${isActive ? 'active' : ''}`}
+          onClick={(e): void => handleNavClick(e, '/history')}
         >
           <svg className="nav-icon-svg nav-icon-gold" viewBox="0 0 48 48" fill="none">
             <circle cx="24" cy="24" r="18" strokeWidth="2" />

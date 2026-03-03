@@ -98,6 +98,8 @@ button {
   background: rgba(255, 255, 255, 0.3);
 }
 
+/* Page-fade-in removed — transitions handled by pageTransition utility */
+
 /*
  * Lightning hover glow — subtle base glow via CSS.
  * The animated bolt tracing is handled by the LightningBorder canvas component.

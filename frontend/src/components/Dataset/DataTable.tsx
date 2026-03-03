@@ -271,6 +271,18 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
 
+  // ── Overflow tooltip state ──────────────────────────────────────────────
+  const [tooltip, setTooltip] = useState<{
+    text: string;
+    top: number;
+    left: number;
+    flipped: boolean;
+  } | null>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tooltipCellRef = useRef<HTMLElement | null>(null);
+  const tooltipLockedRef = useRef<boolean>(false);
+
   const totalPages: number = totalRowCount > 0 ? Math.ceil(totalRowCount / pageSize) : 1;
 
   // ── Full page load — resets allRows to a single page ─────────────────────
@@ -725,6 +737,101 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
     setDropIndex(null);
   };
 
+  // ── Overflow tooltip ──────────────────────────────────────────────────────
+
+  const clearHideTimeout = (): void => {
+    if (hideTimeoutRef.current !== null) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+  };
+
+  const scheduleHide = (): void => {
+    clearHideTimeout();
+    hideTimeoutRef.current = setTimeout((): void => {
+      setTooltip(null);
+      tooltipCellRef.current = null;
+      hideTimeoutRef.current = null;
+    }, 150);
+  };
+
+  const handleTableMouseOver = useCallback((e: React.MouseEvent<HTMLTableElement>): void => {
+    // If tooltip is locked (mouse is in tooltip zone), ignore table events
+    if (tooltipLockedRef.current) return;
+
+    const target = e.target as HTMLElement;
+    const cell: HTMLElement | null =
+      target.closest<HTMLElement>('td') ??
+      target.closest<HTMLElement>('.col-name');
+
+    // Hovering the same cell that spawned the tooltip — keep it
+    if (cell && cell === tooltipCellRef.current) {
+      clearHideTimeout();
+      return;
+    }
+
+    // Non-overflowing or no cell — schedule hide
+    if (!cell || cell.classList.contains('row-num') || cell.scrollWidth <= cell.clientWidth) {
+      if (tooltipCellRef.current) scheduleHide();
+      return;
+    }
+
+    const text: string = cell.textContent ?? '';
+    if (!text) {
+      if (tooltipCellRef.current) scheduleHide();
+      return;
+    }
+
+    // New overflowing cell — show tooltip
+    clearHideTimeout();
+    tooltipCellRef.current = cell;
+    const rect: DOMRect = cell.getBoundingClientRect();
+    const spaceBelow: number = window.innerHeight - rect.bottom;
+    const flipped: boolean = spaceBelow <= 320;
+    const top: number = flipped ? rect.top + 8 : rect.bottom - 8;
+    setTooltip({ text, top, left: rect.left - 8, flipped });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleTableMouseLeave = useCallback((): void => {
+    if (!tooltipLockedRef.current) {
+      scheduleHide();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleTooltipMouseEnter = useCallback((): void => {
+    clearHideTimeout();
+    tooltipLockedRef.current = true;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleTooltipMouseLeave = useCallback((): void => {
+    tooltipLockedRef.current = false;
+    tooltipCellRef.current = null;
+    scheduleHide();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Dismiss tooltip on scroll
+  useEffect(() => {
+    const container: HTMLDivElement | null = scrollContainerRef.current;
+    if (!container || !tooltip) return;
+    const dismiss = (): void => {
+      setTooltip(null);
+      tooltipCellRef.current = null;
+      tooltipLockedRef.current = false;
+    };
+    container.addEventListener('scroll', dismiss, { passive: true });
+    return (): void => { container.removeEventListener('scroll', dismiss); };
+  }, [tooltip]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return (): void => { clearHideTimeout(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Render states ─────────────────────────────────────────────────────────
 
   // True initial load — no data has ever been fetched yet
@@ -800,6 +907,8 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
           style={colWidths.length > 0
             ? { width: colWidths.reduce((s: number, w: number) => s + w, 0) }
             : undefined}
+          onMouseOver={handleTableMouseOver}
+          onMouseLeave={handleTableMouseLeave}
         >
           {colWidths.length > 0 && (
             <colgroup>
@@ -895,6 +1004,33 @@ export const DataTable: React.FC<DataTableProps> = ({ datasetId, totalRowCount }
         loading={loading}
         onPage={handlePageChange}
       />
+
+      {/* Overflow tooltip — zone provides invisible bridge between cell and popup */}
+      {tooltip && (
+        <div
+          className="cell-overflow-tooltip-zone"
+          style={{
+            top: tooltip.top,
+            left: tooltip.left,
+            paddingTop: tooltip.flipped ? 0 : 8,
+            paddingBottom: tooltip.flipped ? 8 : 0,
+            paddingLeft: 8,
+            paddingRight: 8,
+            transform: tooltip.flipped ? 'translateY(-100%)' : undefined,
+          }}
+          onMouseEnter={handleTooltipMouseEnter}
+          onMouseLeave={handleTooltipMouseLeave}
+        >
+          <div ref={tooltipRef} className="cell-overflow-tooltip">
+            <NeonScrollbar
+              color="orange"
+              style={{ maxHeight: 280 }}
+            >
+              <div className="tooltip-content">{tooltip.text}</div>
+            </NeonScrollbar>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
