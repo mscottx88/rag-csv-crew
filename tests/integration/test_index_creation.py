@@ -101,6 +101,7 @@ class TestIndexCreationIntegration:
         with connection_pool.connection() as conn:
             ensure_user_schema_exists(conn, _TEST_USERNAME)
 
+        _create_dataset_row(connection_pool, dataset_id, "test_btree")
         _create_test_table(connection_pool, table_name, columns, rows)
 
         try:
@@ -132,6 +133,7 @@ class TestIndexCreationIntegration:
             assert f"idx_{table_name}_quantity_btree" in btree_names
         finally:
             _cleanup_test_table(connection_pool, table_name)
+            _delete_dataset_row(connection_pool, dataset_id)
 
     def test_gin_indexes_on_text_columns(
         self,
@@ -144,14 +146,24 @@ class TestIndexCreationIntegration:
             {"name": "price", "type": "NUMERIC"},
             {"name": "description", "type": "TEXT"},
         ]
+        # Use long text (avg >= 50 chars) to bypass identifier heuristic
         rows: list[list[Any]] = [
-            [9.99, "A long enough description for testing"],
-            [19.99, "Another description that is not too short"],
+            [
+                9.99,
+                "A long enough product description for testing FTS indexing"
+                " and full-text search capabilities",
+            ],
+            [
+                19.99,
+                "Another detailed description that is long enough to avoid"
+                " being classified as an identifier column",
+            ],
         ]
 
         with connection_pool.connection() as conn:
             ensure_user_schema_exists(conn, _TEST_USERNAME)
 
+        _create_dataset_row(connection_pool, dataset_id, "test_gin")
         _create_test_table(connection_pool, table_name, columns, rows)
 
         try:
@@ -195,6 +207,7 @@ class TestIndexCreationIntegration:
                 assert ts_col is not None
         finally:
             _cleanup_test_table(connection_pool, table_name)
+            _delete_dataset_row(connection_pool, dataset_id)
 
     def test_index_metadata_recorded(
         self,
@@ -204,17 +217,27 @@ class TestIndexCreationIntegration:
         table_name: str = "test_meta_idx"
         dataset_id: str = str(uuid4())
         columns: list[dict[str, str]] = [
-            {"name": "name", "type": "TEXT"},
+            {"name": "description", "type": "TEXT"},
             {"name": "price", "type": "NUMERIC"},
         ]
+        # Use long text (avg >= 50 chars) to bypass identifier heuristic
         rows: list[list[Any]] = [
-            ["Widget", 9.99],
-            ["Gadget", 19.99],
+            [
+                "A detailed product description that is long enough for"
+                " full-text search indexing to be useful",
+                9.99,
+            ],
+            [
+                "Another comprehensive description with sufficient length"
+                " to pass the identifier heuristic check",
+                19.99,
+            ],
         ]
 
         with connection_pool.connection() as conn:
             ensure_user_schema_exists(conn, _TEST_USERNAME)
 
+        _create_dataset_row(connection_pool, dataset_id, "test_meta")
         _create_test_table(connection_pool, table_name, columns, rows)
 
         try:
@@ -240,13 +263,13 @@ class TestIndexCreationIntegration:
                     )
                     meta_rows: list[tuple[str, ...]] = cur.fetchall()
 
-            # Should have: name btree, name gin, price btree
+            # Should have: description btree, description gin, price btree
             assert len(meta_rows) == 3
 
             # Verify each entry
             col_type_pairs: list[tuple[str, str]] = [(r[0], r[1]) for r in meta_rows]
-            assert ("name", "btree") in col_type_pairs
-            assert ("name", "gin") in col_type_pairs
+            assert ("description", "btree") in col_type_pairs
+            assert ("description", "gin") in col_type_pairs
             assert ("price", "btree") in col_type_pairs
 
             # All should be 'created' status
@@ -254,6 +277,7 @@ class TestIndexCreationIntegration:
                 assert row[3] == "created"
         finally:
             _cleanup_test_table(connection_pool, table_name)
+            _delete_dataset_row(connection_pool, dataset_id)
 
     def test_no_numeric_gin_indexes(
         self,
@@ -274,6 +298,7 @@ class TestIndexCreationIntegration:
         with connection_pool.connection() as conn:
             ensure_user_schema_exists(conn, _TEST_USERNAME)
 
+        _create_dataset_row(connection_pool, dataset_id, "test_numeric")
         _create_test_table(connection_pool, table_name, columns, rows)
 
         try:
@@ -300,6 +325,7 @@ class TestIndexCreationIntegration:
             assert len(gin_indexes) == 0
         finally:
             _cleanup_test_table(connection_pool, table_name)
+            _delete_dataset_row(connection_pool, dataset_id)
 
 
 def _create_dataset_row(
@@ -366,12 +392,21 @@ class TestMetadataTrackingIntegration:
         table_name: str = "test_profiles_idx"
         dataset_id: str = str(uuid4())
         columns: list[dict[str, str]] = [
-            {"name": "name", "type": "TEXT"},
+            {"name": "description", "type": "TEXT"},
             {"name": "price", "type": "NUMERIC"},
         ]
+        # Use long text (avg >= 50 chars) to bypass identifier heuristic
         rows: list[list[Any]] = [
-            ["Widget", 9.99],
-            ["Gadget", 19.99],
+            [
+                "A detailed product description that is long enough for"
+                " full-text search indexing to be useful in queries",
+                9.99,
+            ],
+            [
+                "Another comprehensive description with sufficient length"
+                " to pass the identifier heuristic check easily",
+                19.99,
+            ],
         ]
 
         with connection_pool.connection() as conn:
@@ -400,15 +435,15 @@ class TestMetadataTrackingIntegration:
             assert dataset_id in profiles
             profile_list: list[DataColumnIndexProfile] = profiles[dataset_id]
             col_names: set[str] = {p.column_name for p in profile_list}
-            assert "name" in col_names
+            assert "description" in col_names
             assert "price" in col_names
 
-            # name should have FTS
-            name_profile: DataColumnIndexProfile = next(
-                p for p in profile_list if p.column_name == "name"
+            # description should have FTS
+            desc_profile: DataColumnIndexProfile = next(
+                p for p in profile_list if p.column_name == "description"
             )
-            assert name_profile.has_fulltext is True
-            assert name_profile.fulltext_column == "_ts_name"
+            assert desc_profile.has_fulltext is True
+            assert desc_profile.fulltext_column == "_ts_description"
 
             # price should NOT have FTS
             price_profile: DataColumnIndexProfile = next(
@@ -427,11 +462,18 @@ class TestMetadataTrackingIntegration:
         table_name: str = "test_cascade_idx"
         dataset_id: str = str(uuid4())
         columns: list[dict[str, str]] = [
-            {"name": "name", "type": "TEXT"},
+            {"name": "description", "type": "TEXT"},
         ]
+        # Use long text (avg >= 50 chars) to bypass identifier heuristic
         rows: list[list[Any]] = [
-            ["Widget"],
-            ["Gadget"],
+            [
+                "A detailed product description that is long enough for"
+                " full-text search indexing to be useful",
+            ],
+            [
+                "Another comprehensive description with sufficient length"
+                " to pass the identifier heuristic check",
+            ],
         ]
 
         with connection_pool.connection() as conn:
@@ -483,12 +525,21 @@ class TestMetadataTrackingIntegration:
         table_name: str = "test_match_idx"
         dataset_id: str = str(uuid4())
         columns: list[dict[str, str]] = [
-            {"name": "name", "type": "TEXT"},
+            {"name": "description", "type": "TEXT"},
             {"name": "price", "type": "NUMERIC"},
         ]
+        # Use long text (avg >= 50 chars) to bypass identifier heuristic
         rows: list[list[Any]] = [
-            ["Widget", 9.99],
-            ["Gadget", 19.99],
+            [
+                "A detailed product description that is long enough for"
+                " full-text search indexing to be useful in queries",
+                9.99,
+            ],
+            [
+                "Another comprehensive description with sufficient length"
+                " to pass the identifier heuristic check easily",
+                19.99,
+            ],
         ]
 
         with connection_pool.connection() as conn:
