@@ -204,7 +204,7 @@ function snapshotBox(el: HTMLElement): HTMLDivElement {
     width: `${rect.width}px`,
     height: `${rect.height}px`,
     willChange: 'opacity',
-    transition: 'opacity 0.35s ease-out',
+    transition: 'opacity 0.3s ease-out',
   });
 
   return clone;
