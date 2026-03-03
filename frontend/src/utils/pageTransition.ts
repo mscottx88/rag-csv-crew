@@ -316,11 +316,12 @@ export function animatePageTransition(
     document.body.classList.add('has-card-overlay');
     navigateFn(destPath);
 
-    // Wait one frame for destination page to mount, then dissolve:
-    // just fade out the old box snapshot — the new page renders at full
-    // opacity underneath, so the dissolve happens naturally as the
-    // snapshot becomes transparent.
+    // Wait one frame for destination page to mount, then crossfade:
+    // remove has-card-overlay so .app-content fades in (0.3s) while
+    // the box snapshot fades out (0.3s) — synchronized crossfade.
     requestAnimationFrame(() => {
+      document.body.classList.remove('has-card-overlay');
+
       if (state.boxOverlay) {
         state.boxOverlay.style.opacity = '0';
       }
@@ -337,7 +338,6 @@ export function animatePageTransition(
         }
         state.headerOverlay = null;
         state.scrambleCancels = [];
-        document.body.classList.remove('has-card-overlay');
         state.isAnimating = false;
       };
 

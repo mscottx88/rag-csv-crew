@@ -50,7 +50,12 @@
   transition: opacity 0.3s ease-out;
 }
 
-/* Suppress destination page fade-in when overlay active */
-body.has-card-overlay .dashboard-page {
-  animation: none;
+/* Hide real content while overlays are active; reveal with crossfade */
+.app-content {
+  transition: opacity 0.3s ease-out;
+}
+
+body.has-card-overlay .app-content {
+  opacity: 0;
+  transition: none;
 }
