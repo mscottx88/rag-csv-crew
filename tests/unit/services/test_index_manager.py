@@ -2,6 +2,7 @@
 
 Tests index name generation utility with 63-character identifier truncation
 and MD5 hash suffix per data-model.md Identifier Length Handling.
+Tests create_indexes_for_dataset() B-tree, FTS, and error handling.
 
 Constitutional Requirements:
 - Thread-based operations only (no async/await)
@@ -9,9 +10,22 @@ Constitutional Requirements:
 - All functions have return type annotations
 """
 
+from unittest.mock import MagicMock, patch
+
+from psycopg import sql
 import pytest
 
-from backend.src.services.index_manager import generate_index_name
+from backend.src.models.index_metadata import (
+    IndexCapability,
+    IndexMetadataEntry,
+    IndexStatus,
+    IndexType,
+)
+from backend.src.services.index_manager import (
+    IndexCreationError,
+    create_indexes_for_dataset,
+    generate_index_name,
+)
 
 
 @pytest.mark.unit
@@ -97,3 +111,483 @@ class TestGenerateIndexName:
         name1: str = generate_index_name("products_data", "name", "gin")
         name2: str = generate_index_name("products_data", "name", "gin")
         assert name1 == name2
+
+
+def _make_mock_conn() -> MagicMock:
+    """Create a mock psycopg Connection with cursor context manager."""
+    mock_conn: MagicMock = MagicMock()
+    mock_cursor: MagicMock = MagicMock()
+    mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
+    mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+    return mock_conn
+
+
+def _get_mock_cursor(mock_conn: MagicMock) -> MagicMock:
+    """Get the mock cursor from a mock connection."""
+    cursor: MagicMock = mock_conn.cursor.return_value.__enter__.return_value
+    return cursor
+
+
+_TEST_DATASET_ID: str = "12345678-1234-1234-1234-123456789abc"
+_TEST_USERNAME: str = "testuser"
+_TEST_TABLE: str = "products_data"
+
+
+@pytest.mark.unit
+class TestCreateBtreeIndexes:
+    """T007: Test B-tree index creation in create_indexes_for_dataset()."""
+
+    def test_btree_index_created_for_each_column(self) -> None:
+        """Test that B-tree indexes are created for all columns."""
+        mock_conn: MagicMock = _make_mock_conn()
+        columns: list[dict[str, str]] = [
+            {"name": "price", "type": "NUMERIC"},
+            {"name": "name", "type": "TEXT"},
+            {"name": "quantity", "type": "INTEGER"},
+        ]
+
+        # Mock _is_identifier_column to always return False
+        with patch(
+            "backend.src.services.index_manager._is_identifier_column",
+            return_value=False,
+        ):
+            results: list[IndexMetadataEntry] = create_indexes_for_dataset(
+                mock_conn,
+                _TEST_USERNAME,
+                _TEST_DATASET_ID,
+                _TEST_TABLE,
+                columns,
+            )
+
+        # Should have B-tree for all 3 + GIN for 1 TEXT column
+        btree_entries: list[IndexMetadataEntry] = [
+            e for e in results if e.index_type == IndexType.BTREE
+        ]
+        assert len(btree_entries) == 3
+
+    def test_btree_index_names_follow_convention(self) -> None:
+        """Test B-tree index names follow idx_{table}_{col}_btree."""
+        mock_conn: MagicMock = _make_mock_conn()
+        columns: list[dict[str, str]] = [
+            {"name": "price", "type": "NUMERIC"},
+        ]
+
+        with patch(
+            "backend.src.services.index_manager._is_identifier_column",
+            return_value=False,
+        ):
+            results: list[IndexMetadataEntry] = create_indexes_for_dataset(
+                mock_conn,
+                _TEST_USERNAME,
+                _TEST_DATASET_ID,
+                _TEST_TABLE,
+                columns,
+            )
+
+        btree_entry: IndexMetadataEntry = results[0]
+        assert btree_entry.index_name == "idx_products_data_price_btree"
+        assert btree_entry.index_type == IndexType.BTREE
+        assert btree_entry.capability == IndexCapability.FILTERING
+
+    def test_btree_uses_create_index_sql(self) -> None:
+        """Test that CREATE INDEX IF NOT EXISTS SQL is executed."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+        columns: list[dict[str, str]] = [
+            {"name": "price", "type": "NUMERIC"},
+        ]
+
+        with patch(
+            "backend.src.services.index_manager._is_identifier_column",
+            return_value=False,
+        ):
+            create_indexes_for_dataset(
+                mock_conn,
+                _TEST_USERNAME,
+                _TEST_DATASET_ID,
+                _TEST_TABLE,
+                columns,
+            )
+
+        # Verify cursor.execute was called (B-tree CREATE INDEX)
+        assert mock_cursor.execute.call_count >= 1
+        first_call_arg: object = mock_cursor.execute.call_args_list[0][0][0]
+        assert isinstance(first_call_arg, sql.Composed)
+
+    def test_btree_entries_have_status_created(self) -> None:
+        """Test that successful B-tree entries have CREATED status."""
+        mock_conn: MagicMock = _make_mock_conn()
+        columns: list[dict[str, str]] = [
+            {"name": "price", "type": "NUMERIC"},
+            {"name": "quantity", "type": "INTEGER"},
+        ]
+
+        with patch(
+            "backend.src.services.index_manager._is_identifier_column",
+            return_value=False,
+        ):
+            results: list[IndexMetadataEntry] = create_indexes_for_dataset(
+                mock_conn,
+                _TEST_USERNAME,
+                _TEST_DATASET_ID,
+                _TEST_TABLE,
+                columns,
+            )
+
+        for entry in results:
+            if entry.index_type == IndexType.BTREE:
+                assert entry.status == IndexStatus.CREATED
+
+    def test_btree_generated_column_is_none(self) -> None:
+        """Test B-tree indexes don't have a generated column name."""
+        mock_conn: MagicMock = _make_mock_conn()
+        columns: list[dict[str, str]] = [
+            {"name": "price", "type": "NUMERIC"},
+        ]
+
+        with patch(
+            "backend.src.services.index_manager._is_identifier_column",
+            return_value=False,
+        ):
+            results: list[IndexMetadataEntry] = create_indexes_for_dataset(
+                mock_conn,
+                _TEST_USERNAME,
+                _TEST_DATASET_ID,
+                _TEST_TABLE,
+                columns,
+            )
+
+        btree_entry: IndexMetadataEntry = results[0]
+        assert btree_entry.generated_column_name is None
+
+
+@pytest.mark.unit
+class TestCreateFtsIndexes:
+    """T008: Test tsvector + GIN index creation for TEXT columns."""
+
+    def test_gin_index_created_for_text_columns(self) -> None:
+        """Test GIN index created only for TEXT columns."""
+        mock_conn: MagicMock = _make_mock_conn()
+        columns: list[dict[str, str]] = [
+            {"name": "price", "type": "NUMERIC"},
+            {"name": "name", "type": "TEXT"},
+            {"name": "description", "type": "TEXT"},
+        ]
+
+        with patch(
+            "backend.src.services.index_manager._is_identifier_column",
+            return_value=False,
+        ):
+            results: list[IndexMetadataEntry] = create_indexes_for_dataset(
+                mock_conn,
+                _TEST_USERNAME,
+                _TEST_DATASET_ID,
+                _TEST_TABLE,
+                columns,
+            )
+
+        gin_entries: list[IndexMetadataEntry] = [
+            e for e in results if e.index_type == IndexType.GIN
+        ]
+        assert len(gin_entries) == 2
+
+    def test_gin_index_has_generated_tsvector_column(self) -> None:
+        """Test GIN entries include _ts_ generated column name."""
+        mock_conn: MagicMock = _make_mock_conn()
+        columns: list[dict[str, str]] = [
+            {"name": "name", "type": "TEXT"},
+        ]
+
+        with patch(
+            "backend.src.services.index_manager._is_identifier_column",
+            return_value=False,
+        ):
+            results: list[IndexMetadataEntry] = create_indexes_for_dataset(
+                mock_conn,
+                _TEST_USERNAME,
+                _TEST_DATASET_ID,
+                _TEST_TABLE,
+                columns,
+            )
+
+        gin_entries: list[IndexMetadataEntry] = [
+            e for e in results if e.index_type == IndexType.GIN
+        ]
+        assert len(gin_entries) == 1
+        assert gin_entries[0].generated_column_name == "_ts_name"
+        assert gin_entries[0].capability == IndexCapability.FULL_TEXT_SEARCH
+
+    def test_gin_index_naming_convention(self) -> None:
+        """Test GIN index names follow idx_{table}_{col}_gin."""
+        mock_conn: MagicMock = _make_mock_conn()
+        columns: list[dict[str, str]] = [
+            {"name": "description", "type": "TEXT"},
+        ]
+
+        with patch(
+            "backend.src.services.index_manager._is_identifier_column",
+            return_value=False,
+        ):
+            results: list[IndexMetadataEntry] = create_indexes_for_dataset(
+                mock_conn,
+                _TEST_USERNAME,
+                _TEST_DATASET_ID,
+                _TEST_TABLE,
+                columns,
+            )
+
+        gin_entries: list[IndexMetadataEntry] = [
+            e for e in results if e.index_type == IndexType.GIN
+        ]
+        assert gin_entries[0].index_name == ("idx_products_data_description_gin")
+
+    def test_identifier_columns_skipped_for_fts(self) -> None:
+        """Test FR-002: identifier-like TEXT columns skip FTS."""
+        mock_conn: MagicMock = _make_mock_conn()
+        columns: list[dict[str, str]] = [
+            {"name": "sku", "type": "TEXT"},
+            {"name": "description", "type": "TEXT"},
+        ]
+
+        def _mock_is_identifier(
+            _conn: object,
+            _schema: str,
+            _table: str,
+            col_name: str,
+        ) -> bool:
+            return col_name == "sku"
+
+        with patch(
+            "backend.src.services.index_manager._is_identifier_column",
+            side_effect=_mock_is_identifier,
+        ):
+            results: list[IndexMetadataEntry] = create_indexes_for_dataset(
+                mock_conn,
+                _TEST_USERNAME,
+                _TEST_DATASET_ID,
+                _TEST_TABLE,
+                columns,
+            )
+
+        gin_entries: list[IndexMetadataEntry] = [
+            e for e in results if e.index_type == IndexType.GIN
+        ]
+        # Only description should get GIN, not sku
+        assert len(gin_entries) == 1
+        assert gin_entries[0].column_name == "description"
+
+    def test_fts_executes_alter_table_and_create_index(self) -> None:
+        """Test FTS creates tsvector column and GIN index via SQL."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+        columns: list[dict[str, str]] = [
+            {"name": "name", "type": "TEXT"},
+        ]
+
+        with patch(
+            "backend.src.services.index_manager._is_identifier_column",
+            return_value=False,
+        ):
+            create_indexes_for_dataset(
+                mock_conn,
+                _TEST_USERNAME,
+                _TEST_DATASET_ID,
+                _TEST_TABLE,
+                columns,
+            )
+
+        # Should have: B-tree CREATE INDEX + ALTER TABLE + GIN CREATE
+        # Plus metadata inserts
+        assert mock_cursor.execute.call_count >= 3
+
+    def test_no_gin_for_non_text_columns(self) -> None:
+        """Test only TEXT columns get GIN indexes."""
+        mock_conn: MagicMock = _make_mock_conn()
+        columns: list[dict[str, str]] = [
+            {"name": "price", "type": "NUMERIC"},
+            {"name": "quantity", "type": "INTEGER"},
+        ]
+
+        with patch(
+            "backend.src.services.index_manager._is_identifier_column",
+            return_value=False,
+        ):
+            results: list[IndexMetadataEntry] = create_indexes_for_dataset(
+                mock_conn,
+                _TEST_USERNAME,
+                _TEST_DATASET_ID,
+                _TEST_TABLE,
+                columns,
+            )
+
+        gin_entries: list[IndexMetadataEntry] = [
+            e for e in results if e.index_type == IndexType.GIN
+        ]
+        assert len(gin_entries) == 0
+
+
+@pytest.mark.unit
+class TestCreateIndexesErrorHandling:
+    """T009: Test error handling in create_indexes_for_dataset()."""
+
+    @patch("backend.src.services.index_manager._insert_metadata_entry")
+    def test_btree_failure_raises_index_creation_error(
+        self,
+        _mock_insert: MagicMock,
+    ) -> None:
+        """Test IndexCreationError raised on B-tree creation failure."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+        mock_cursor.execute.side_effect = RuntimeError("DB error")
+
+        columns: list[dict[str, str]] = [
+            {"name": "price", "type": "NUMERIC"},
+        ]
+
+        with pytest.raises(IndexCreationError) as exc_info:
+            create_indexes_for_dataset(
+                mock_conn,
+                _TEST_USERNAME,
+                _TEST_DATASET_ID,
+                _TEST_TABLE,
+                columns,
+            )
+
+        assert "B-tree" in str(exc_info.value)
+        assert exc_info.value.failed_index == ("idx_products_data_price_btree")
+
+    @patch("backend.src.services.index_manager._insert_metadata_entry")
+    def test_fts_failure_raises_index_creation_error(
+        self,
+        _mock_insert: MagicMock,
+    ) -> None:
+        """Test IndexCreationError raised on FTS creation failure."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+
+        call_count: int = 0
+
+        def _side_effect(*_args: object, **_kwargs: object) -> None:
+            nonlocal call_count
+            call_count += 1
+            # First call succeeds (B-tree for 'name')
+            if call_count == 1:
+                return
+            # Second call fails (ALTER TABLE for tsvector)
+            raise RuntimeError("ALTER TABLE failed")
+
+        mock_cursor.execute.side_effect = _side_effect
+
+        columns: list[dict[str, str]] = [
+            {"name": "name", "type": "TEXT"},
+        ]
+
+        with patch(
+            "backend.src.services.index_manager._is_identifier_column",
+            return_value=False,
+        ):
+            with pytest.raises(IndexCreationError) as exc_info:
+                create_indexes_for_dataset(
+                    mock_conn,
+                    _TEST_USERNAME,
+                    _TEST_DATASET_ID,
+                    _TEST_TABLE,
+                    columns,
+                )
+
+        assert "FTS" in str(exc_info.value)
+
+    @patch("backend.src.services.index_manager._insert_metadata_entry")
+    def test_partial_results_populated_on_failure(
+        self,
+        _mock_insert: MagicMock,
+    ) -> None:
+        """Test partial_results contains successful entries."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+
+        call_count: int = 0
+
+        def _side_effect(*_args: object, **_kwargs: object) -> None:
+            nonlocal call_count
+            call_count += 1
+            # First 2 B-tree calls succeed, 3rd fails
+            if call_count <= 2:
+                return
+            raise RuntimeError("Third index failed")
+
+        mock_cursor.execute.side_effect = _side_effect
+
+        columns: list[dict[str, str]] = [
+            {"name": "col_a", "type": "NUMERIC"},
+            {"name": "col_b", "type": "NUMERIC"},
+            {"name": "col_c", "type": "NUMERIC"},
+        ]
+
+        with pytest.raises(IndexCreationError) as exc_info:
+            create_indexes_for_dataset(
+                mock_conn,
+                _TEST_USERNAME,
+                _TEST_DATASET_ID,
+                _TEST_TABLE,
+                columns,
+            )
+
+        # First 2 succeeded before failure
+        assert len(exc_info.value.partial_results) == 2
+        assert exc_info.value.partial_results[0].column_name == "col_a"
+        assert exc_info.value.partial_results[1].column_name == "col_b"
+
+    def test_failed_entry_metadata_inserted(self) -> None:
+        """Test that failed index gets metadata recorded."""
+        mock_conn: MagicMock = _make_mock_conn()
+        mock_cursor: MagicMock = _get_mock_cursor(mock_conn)
+
+        call_count: int = 0
+
+        def _side_effect(*_args: object, **_kwargs: object) -> None:
+            nonlocal call_count
+            call_count += 1
+            # First call (CREATE INDEX) fails
+            if call_count == 1:
+                raise RuntimeError("DB error")
+            # Subsequent calls (metadata insert) succeed
+
+        mock_cursor.execute.side_effect = _side_effect
+
+        columns: list[dict[str, str]] = [
+            {"name": "price", "type": "NUMERIC"},
+        ]
+
+        with pytest.raises(IndexCreationError):
+            create_indexes_for_dataset(
+                mock_conn,
+                _TEST_USERNAME,
+                _TEST_DATASET_ID,
+                _TEST_TABLE,
+                columns,
+            )
+
+        # Should have called commit after recording failure
+        mock_conn.commit.assert_called()
+
+    def test_metadata_committed_on_success(self) -> None:
+        """Test conn.commit() called after successful index creation."""
+        mock_conn: MagicMock = _make_mock_conn()
+        columns: list[dict[str, str]] = [
+            {"name": "price", "type": "NUMERIC"},
+        ]
+
+        with patch(
+            "backend.src.services.index_manager._is_identifier_column",
+            return_value=False,
+        ):
+            create_indexes_for_dataset(
+                mock_conn,
+                _TEST_USERNAME,
+                _TEST_DATASET_ID,
+                _TEST_TABLE,
+                columns,
+            )
+
+        mock_conn.commit.assert_called_once()
