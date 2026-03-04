@@ -1,0 +1,28 @@
+.assembly-line-container {
+  flex: 1;
+  min-height: 150px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.assembly-line-container canvas {
+  flex: 1;
+  min-height: 150px;
+  width: 100% !important;
+  display: block;
+}
+
+.assembly-line-label {
+  text-align: center;
+  color: #39ff14;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.5rem 0;
+  text-shadow: 0 0 8px rgba(57, 255, 20, 0.5);
+  flex-shrink: 0;
+}
