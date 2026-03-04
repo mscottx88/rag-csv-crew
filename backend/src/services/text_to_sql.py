@@ -820,7 +820,7 @@ class TextToSQLService:
         strategy_dispatch: StrategyDispatchPlan,
         *,
         progress_callback: Callable[[str], None] | None = None,
-    ) -> list[StrategySQL]:
+    ) -> tuple[list[StrategySQL], str]:
         """Generate SQL for multiple query strategies in a single LLM call.
 
         Args:
@@ -832,8 +832,10 @@ class TextToSQLService:
             progress_callback: Optional progress reporting callback.
 
         Returns:
-            List of StrategySQL objects, one per generated strategy.
-            Falls back to single-strategy on total parse failure.
+            Tuple of (strategy_sqls, agent_logs).  strategy_sqls is a list of
+            StrategySQL objects, one per generated strategy, falling back to
+            single-strategy on total parse failure.  agent_logs is the captured
+            CrewAI stdout/stderr output for display in the UI.
         """
         if progress_callback:
             progress_callback("Generating multi-strategy SQL...")
@@ -913,8 +915,8 @@ class TextToSQLService:
         ]
 
         result: Any
-        _agent_logs: str
-        result, _agent_logs = _execute_crew_with_progress(
+        agent_logs: str
+        result, agent_logs = _execute_crew_with_progress(
             crew=crew,
             progress_callback=progress_callback,
             progress_messages=progress_messages,
@@ -940,12 +942,15 @@ class TextToSQLService:
             if progress_callback:
                 progress_callback("Retrying multi-strategy SQL generation...")
 
-            result, _retry_logs = _execute_crew_with_progress(
+            retry_result: Any
+            retry_logs: str
+            retry_result, retry_logs = _execute_crew_with_progress(
                 crew=Crew(agents=[sql_agent], tasks=[task], verbose=False),
                 progress_callback=progress_callback,
                 progress_messages=progress_messages,
             )
-            raw_output = str(result.raw) if hasattr(result, "raw") else str(result)
+            agent_logs += "\n" + retry_logs
+            raw_output = str(retry_result.raw) if hasattr(retry_result, "raw") else str(retry_result)
             strategy_sqls = parse_multi_strategy_sql(raw_output, query_text)
 
         # Fallback to single-strategy on double failure (FR-016)
@@ -967,6 +972,7 @@ class TextToSQLService:
                 use_schema_inspection=True,
                 progress_callback=progress_callback,
             )
+            agent_logs = fallback_result["agent_logs"]
             strategy_sqls = [
                 StrategySQL(
                     strategy_type=StrategyType.STRUCTURED,
@@ -975,7 +981,7 @@ class TextToSQLService:
                 )
             ]
 
-        return strategy_sqls
+        return strategy_sqls, agent_logs
 
     # pylint: enable=too-many-locals,too-many-branches,too-many-statements
 

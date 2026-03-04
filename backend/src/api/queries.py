@@ -337,7 +337,9 @@ def _execute_multi_strategy_path(
         """Progress callback for multi-strategy SQL generation."""
         tracker.update(message)
 
-    strategy_sqls: list[Any] = sql_service.generate_multi_strategy_sql(
+    strategy_sqls: list[Any]
+    agent_logs: str
+    strategy_sqls, agent_logs = sql_service.generate_multi_strategy_sql(
         query_text=query_text,
         username=username,
         dataset_ids=dataset_ids,
@@ -423,6 +425,7 @@ def _execute_multi_strategy_path(
         result_count=fused_result.total_row_count,
         execution_time_ms=execution_time_ms,
         progress_message="Completed successfully",
+        agent_logs=agent_logs,
         progress_timeline=tracker.get_timeline_json(),
     )
 
