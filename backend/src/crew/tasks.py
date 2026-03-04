@@ -10,13 +10,19 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
-from typing import Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from crewai import Agent, Task
 
+if TYPE_CHECKING:
+    from backend.src.models.fusion import StrategyDispatchPlan
 
-def create_sql_generation_task(
+
+def create_sql_generation_task(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    # TODO(pylint-refactor): Refactor to use config object or keyword-only args
     agent: Agent,
     query_text: str,
     dataset_ids: list[UUID] | None,
@@ -24,6 +30,7 @@ def create_sql_generation_task(
     search_results: dict[str, Any] | None = None,
     schema_context: str | None = None,
     index_context: str | None = None,
+    strategy_dispatch: StrategyDispatchPlan | None = None,
 ) -> Task:
     """Create task for generating SQL from natural language query.
 
@@ -38,6 +45,9 @@ def create_sql_generation_task(
             When provided, appended after schema_context and new FTS/vector
             requirements are added. When None, agent falls back to current
             behavior per FR-017.
+        strategy_dispatch: Optional strategy dispatch plan for multi-strategy
+            SQL generation. When provided, the prompt includes labeled block
+            delimiters and per-strategy guidelines.
 
     Returns:
         Task configured for SQL generation
@@ -47,6 +57,10 @@ def create_sql_generation_task(
     - Query should be safe from SQL injection
     - Query should target specified datasets or all datasets
     - Query should use JOINs when cross-references are available
+
+    When strategy_dispatch is provided with multiple strategies, the
+    task description includes multi-strategy SQL generation instructions
+    with labeled block delimiters per FR-016.
     """
     dataset_info: str = (
         f"specific datasets: {dataset_ids}" if dataset_ids else "all available datasets"
@@ -143,6 +157,42 @@ Requirements:
 10. Ensure the query is efficient and readable{index_requirements}
 
 Output only the SQL query text, nothing else."""
+
+    # Multi-strategy prompt injection (FR-016)
+    multi_strategy_section: str = ""
+    if strategy_dispatch is not None and len(strategy_dispatch.strategies) > 1:
+        strategy_names: list[str] = [s.value for s in strategy_dispatch.strategies]
+        block_examples: str = "\n\n".join(
+            f"---STRATEGY: {name}---\n<your {name} SQL here>\n---END STRATEGY---"
+            for name in strategy_names
+        )
+        multi_strategy_section = f"""
+
+MULTI-STRATEGY SQL GENERATION
+{'=' * 80}
+Generate SEPARATE SQL queries for each of the following strategies.
+Each query MUST include 'ctid' as the first column in the SELECT list.
+Each query MUST end with LIMIT 50.
+
+Wrap each query in the following delimiters:
+
+{block_examples}
+
+STRATEGY GUIDELINES:
+- structured: Use standard WHERE, JOIN, GROUP BY, ORDER BY with B-tree indexes.
+  Always include ctid as the first SELECT column.
+- fulltext: Use plainto_tsquery, @@, ts_rank operators on _ts_ columns.
+  Always include ctid as the first SELECT column.
+  The search terms should reflect the user's query intent.
+- vector: Use <=> cosine distance operator on _emb_ columns with %s::vector placeholder.
+  Always include ctid as the first SELECT column.
+  The query concept for embedding should reflect the user's semantic intent.
+
+If the user's question is an AGGREGATION (COUNT, SUM, AVG, MIN, MAX, GROUP BY),
+generate ONLY the structured strategy. Do NOT generate fulltext or vector strategies
+for aggregation queries.
+{'=' * 80}"""
+        description = description + multi_strategy_section
 
     expected_output: str = "A valid PostgreSQL SQL query string with parameterized placeholders"
 

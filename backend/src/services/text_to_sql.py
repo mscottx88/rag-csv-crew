@@ -42,6 +42,7 @@ from backend.src.crew.tools import (
     list_datasets_tool,
     set_schema_inspector_context,
 )
+from backend.src.models.fusion import StrategyDispatchPlan, StrategySQL, StrategyType
 from backend.src.models.index_metadata import DataColumnIndexProfile
 from backend.src.services.index_manager import build_index_context, get_index_profiles
 from backend.src.services.schema_inspector import SchemaInspectorService
@@ -51,6 +52,12 @@ from backend.src.utils.logging import get_structured_logger, log_event
 logger = get_structured_logger(__name__)
 
 _VECTOR_PLACEHOLDER_PATTERN: re.Pattern[str] = re.compile(r"%s::vector")
+
+# Multi-strategy SQL block delimiter pattern (FR-016)
+_STRATEGY_BLOCK_PATTERN: re.Pattern[str] = re.compile(
+    r"---STRATEGY:\s*(\w+)\s*---\s*\n(.*?)\n\s*---END STRATEGY---",
+    re.DOTALL,
+)
 
 
 def _detect_vector_placeholders(generated_sql: str) -> bool:
@@ -104,6 +111,79 @@ def _resolve_vector_params(
     vector_params: list[list[float]] = [query_embedding] * match_count
 
     return (resolved_sql, vector_params)
+
+
+def parse_multi_strategy_sql(
+    raw_output: str,
+    query_text: str,
+) -> list[StrategySQL]:
+    """Parse labeled SQL blocks from LLM multi-strategy output.
+
+    Extracts blocks delimited by ---STRATEGY: name--- / ---END STRATEGY---
+    and creates StrategySQL objects. Invalid blocks are skipped (FR-020).
+
+    Args:
+        raw_output: Raw LLM output containing labeled SQL blocks.
+        query_text: Original query text for parameter extraction.
+
+    Returns:
+        List of parsed StrategySQL objects. May be fewer than
+        requested if blocks are malformed or have invalid names.
+    """
+    valid_strategy_names: set[str] = {s.value for s in StrategyType}
+    matches: list[tuple[str, str]] = _STRATEGY_BLOCK_PATTERN.findall(raw_output)
+
+    strategies: list[StrategySQL] = []
+    for strategy_name, sql_block in matches:
+        name_lower: str = strategy_name.strip().lower()
+
+        # Skip invalid strategy names (FR-020)
+        if name_lower not in valid_strategy_names:
+            logger.warning("Skipping invalid strategy name: %s", strategy_name)
+            continue
+
+        # Clean the SQL block
+        cleaned_sql: str = _clean_sql_block(sql_block.strip())
+
+        # Skip empty SQL blocks (FR-020)
+        if not cleaned_sql:
+            logger.warning("Skipping empty SQL for strategy: %s", name_lower)
+            continue
+
+        # Count %s placeholders for parameters
+        placeholder_count: int = cleaned_sql.count("%s")
+        params: list[str] = []
+        if placeholder_count > 0:
+            # Use query text as parameter value for all placeholders
+            params = [f"%{query_text}%"] * placeholder_count
+
+        strategies.append(
+            StrategySQL(
+                strategy_type=StrategyType(name_lower),
+                sql=cleaned_sql,
+                parameters=params,
+            )
+        )
+
+    return strategies
+
+
+def _clean_sql_block(sql_text: str) -> str:
+    """Clean a SQL block from LLM output.
+
+    Removes markdown code fences and extra whitespace.
+
+    Args:
+        sql_text: Raw SQL text from LLM output.
+
+    Returns:
+        Cleaned SQL string.
+    """
+    # Remove markdown code block markers
+    cleaned: str = re.sub(r"```(?:sql)?\s*", "", sql_text)
+    cleaned = re.sub(r"```\s*$", "", cleaned)
+    # Strip whitespace
+    return cleaned.strip()
 
 
 def _execute_crew_with_progress(
@@ -724,6 +804,180 @@ class TextToSQLService:
             "errors": errors,
             "corrections": corrections,
         }
+
+    # pylint: disable=too-many-locals,too-many-branches,too-many-statements
+    # JUSTIFICATION: Orchestration method coordinates schema context retrieval,
+    # index context building, CrewAI crew assembly, multi-strategy output
+    # parsing, retry on zero blocks, and fallback to single-strategy.
+    # Splitting would fragment the linear flow without meaningful benefit.
+    def generate_multi_strategy_sql(  # pylint: disable=too-many-positional-arguments
+        # TODO(pylint-refactor): Refactor to use config object or keyword-only args
+        self,
+        query_text: str,
+        username: str,
+        dataset_ids: list[UUID] | None,
+        search_results: dict[str, Any],
+        strategy_dispatch: StrategyDispatchPlan,
+        *,
+        progress_callback: Callable[[str], None] | None = None,
+    ) -> list[StrategySQL]:
+        """Generate SQL for multiple query strategies in a single LLM call.
+
+        Args:
+            query_text: The user's natural language query.
+            username: For schema isolation.
+            dataset_ids: Target datasets (None = all user datasets).
+            search_results: Column discovery results from hybrid search.
+            strategy_dispatch: Which strategies to generate SQL for.
+            progress_callback: Optional progress reporting callback.
+
+        Returns:
+            List of StrategySQL objects, one per generated strategy.
+            Falls back to single-strategy on total parse failure.
+        """
+        if progress_callback:
+            progress_callback("Generating multi-strategy SQL...")
+
+        # Build schema context
+        schema_context: dict[str, Any] = self.get_schema_context(username, dataset_ids)
+        schema_description: str = "\n\nAVAILABLE SCHEMA (YOU MUST USE EXACTLY THESE NAMES):\n"
+        schema_description += "=" * 80 + "\n"
+        for table_name in schema_context["tables"]:
+            columns: list[str] = schema_context["columns"].get(table_name, [])
+            schema_description += f"\nTable: {table_name}\n"
+            schema_description += f"Columns: {', '.join(columns)}\n"
+        schema_description += "\n" + "=" * 80 + "\n"
+
+        # Build index context
+        index_context: str = ""
+        if self.pool is not None:
+            try:
+                table_names_map: dict[str, str] = {}
+                with (
+                    self.pool.connection() as idx_conn,
+                    idx_conn.cursor() as cur,
+                ):
+                    idx_schema: str = f"{username}_schema"
+                    cur.execute(
+                        sql.SQL("SET search_path TO {}, public").format(sql.Identifier(idx_schema))
+                    )
+                    if dataset_ids:
+                        ds_strs: list[str] = [str(d) for d in dataset_ids]
+                        cur.execute(
+                            "SELECT id::text, table_name FROM datasets WHERE id = ANY(%s)",
+                            (ds_strs,),
+                        )
+                    else:
+                        cur.execute("SELECT id::text, table_name FROM datasets")
+                    ds_rows: list[tuple[str, ...]] = cur.fetchall()
+                    for ds_row in ds_rows:
+                        table_names_map[str(ds_row[0])] = str(ds_row[1])
+
+                resolved_ids: list[str] = list(table_names_map.keys())
+                if resolved_ids:
+                    with self.pool.connection() as idx_conn_2:
+                        index_profiles: dict[str, list[DataColumnIndexProfile]] = (
+                            get_index_profiles(idx_conn_2, username, resolved_ids)
+                        )
+                    if index_profiles:
+                        index_context = build_index_context(index_profiles, table_names_map)
+            except Exception as idx_err:  # pylint: disable=broad-exception-caught
+                # JUSTIFICATION: Index context is enhancement, not critical.
+                log_event(
+                    logger=logger,
+                    level="warning",
+                    event="index_context_retrieval_failed",
+                    user=username,
+                    extra={"error": str(idx_err)},
+                )
+
+        # Create SQL generation task with multi-strategy dispatch
+        sql_agent: Any = create_sql_generator_agent()
+        task: Any = create_sql_generation_task(
+            agent=sql_agent,
+            query_text=query_text,
+            dataset_ids=dataset_ids,
+            search_results=search_results,
+            schema_context=schema_description,
+            index_context=index_context if index_context else None,
+            strategy_dispatch=strategy_dispatch,
+        )
+
+        crew: Crew = Crew(agents=[sql_agent], tasks=[task], verbose=False)
+
+        progress_messages: list[str] = [
+            "SQL Generator creating multi-strategy SQL...",
+            "Generating structured query strategy...",
+            "Generating search strategy variants...",
+            "Finalizing multi-strategy SQL blocks...",
+        ]
+
+        result: Any
+        _agent_logs: str
+        result, _agent_logs = _execute_crew_with_progress(
+            crew=crew,
+            progress_callback=progress_callback,
+            progress_messages=progress_messages,
+        )
+
+        raw_output: str = str(result.raw) if hasattr(result, "raw") else str(result)
+
+        if progress_callback:
+            progress_callback("Parsing multi-strategy SQL output...")
+
+        # Parse multi-strategy output (attempt 1)
+        strategy_sqls: list[StrategySQL] = parse_multi_strategy_sql(raw_output, query_text)
+
+        # Retry once on zero valid blocks (FR-016)
+        if not strategy_sqls:
+            log_event(
+                logger=logger,
+                level="warning",
+                event="multi_strategy_parse_failed_retry",
+                user=username,
+                extra={"attempt": 1},
+            )
+            if progress_callback:
+                progress_callback("Retrying multi-strategy SQL generation...")
+
+            result, _retry_logs = _execute_crew_with_progress(
+                crew=Crew(agents=[sql_agent], tasks=[task], verbose=False),
+                progress_callback=progress_callback,
+                progress_messages=progress_messages,
+            )
+            raw_output = str(result.raw) if hasattr(result, "raw") else str(result)
+            strategy_sqls = parse_multi_strategy_sql(raw_output, query_text)
+
+        # Fallback to single-strategy on double failure (FR-016)
+        if not strategy_sqls:
+            log_event(
+                logger=logger,
+                level="warning",
+                event="multi_strategy_fallback_single",
+                user=username,
+                extra={"reason": "zero_blocks_after_retry"},
+            )
+            if progress_callback:
+                progress_callback("Falling back to single-strategy SQL...")
+            fallback_result: dict[str, Any] = self.generate_sql(
+                query_text=query_text,
+                dataset_ids=dataset_ids,
+                username=username,
+                search_results=search_results,
+                use_schema_inspection=True,
+                progress_callback=progress_callback,
+            )
+            strategy_sqls = [
+                StrategySQL(
+                    strategy_type=StrategyType.STRUCTURED,
+                    sql=fallback_result["sql"],
+                    parameters=fallback_result["params"],
+                )
+            ]
+
+        return strategy_sqls
+
+    # pylint: enable=too-many-locals,too-many-branches,too-many-statements
 
     def generate_sql(
         self,

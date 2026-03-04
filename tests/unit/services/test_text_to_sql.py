@@ -3,6 +3,7 @@
 Tests the text-to-SQL service that converts natural language queries to SQL
 using CrewAI SQL Generator agent and executes them against the database.
 Tests index context retrieval in query processing flow (T026).
+Tests multi-strategy SQL parsing from LLM output (T007).
 
 Constitutional Requirements:
 - Thread-based operations only (no async/await)
@@ -18,6 +19,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from backend.src.models.fusion import StrategySQL, StrategyType
 from backend.src.models.index_metadata import (
     DataColumnIndexProfile,
     IndexCapability,
@@ -29,6 +31,7 @@ from backend.src.services.index_manager import (
     build_index_context,
     get_index_profiles,
 )
+from backend.src.services.text_to_sql import parse_multi_strategy_sql
 
 
 @pytest.mark.unit
@@ -322,7 +325,7 @@ class TestIndexContextRetrieval:
             index_context=context,
         )
 
-        call_kwargs: dict[str, Any] = mock_task_cls.call_args.kwargs
+        call_kwargs: Any = mock_task_cls.call_args.kwargs
         description: str = call_kwargs["description"]
         assert "INDEX CAPABILITIES" in description
 
@@ -457,3 +460,167 @@ class TestRuntimeEmbeddingDetection:
 
         assert resolved_sql == sql
         assert params == []
+
+
+# ---------------------------------------------------------------------------
+# T007: Multi-strategy SQL parsing tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestMultiStrategySqlParsing:
+    """T007: Test parse_multi_strategy_sql from LLM output.
+
+    Verifies parsing of labeled SQL blocks delimited by
+    ---STRATEGY: <name>--- / ---END STRATEGY--- markers
+    from raw LLM output text.
+    """
+
+    def test_valid_three_strategy_output(self) -> None:
+        """Test valid 3-strategy output returns 3 StrategySQL objects."""
+        raw: str = (
+            "Here are the SQL queries:\n\n"
+            "---STRATEGY: structured---\n"
+            "SELECT ctid, * FROM products_data"
+            " WHERE price > %s LIMIT 50\n"
+            "---END STRATEGY---\n\n"
+            "---STRATEGY: fulltext---\n"
+            "SELECT ctid, * FROM products_data"
+            " WHERE _ts_name @@ plainto_tsquery(%s)"
+            " LIMIT 50\n"
+            "---END STRATEGY---\n\n"
+            "---STRATEGY: vector---\n"
+            "SELECT ctid, * FROM products_data"
+            " ORDER BY _emb_desc <=> %s::vector"
+            " LIMIT 50\n"
+            "---END STRATEGY---\n"
+        )
+        results: list[StrategySQL] = parse_multi_strategy_sql(raw, "find products")
+
+        assert len(results) == 3
+        types: list[StrategyType] = [r.strategy_type for r in results]
+        assert StrategyType.STRUCTURED in types
+        assert StrategyType.FULLTEXT in types
+        assert StrategyType.VECTOR in types
+
+    def test_valid_single_strategy_output(self) -> None:
+        """Test valid 1-strategy output returns 1 StrategySQL."""
+        raw: str = (
+            "---STRATEGY: structured---\n"
+            "SELECT ctid, * FROM products_data LIMIT 50\n"
+            "---END STRATEGY---\n"
+        )
+        results: list[StrategySQL] = parse_multi_strategy_sql(raw, "show products")
+
+        assert len(results) == 1
+        assert results[0].strategy_type == StrategyType.STRUCTURED
+
+    def test_malformed_block_missing_end_delimiter(self) -> None:
+        """Missing END delimiter causes greedy capture to next END.
+
+        When fulltext block lacks ---END STRATEGY---, the non-greedy
+        regex matches from fulltext's start to vector's END, absorbing
+        the vector block content. Result: structured + fulltext parsed,
+        vector lost (consumed by fulltext's greedy match).
+        """
+        raw: str = (
+            "---STRATEGY: structured---\n"
+            "SELECT ctid, * FROM t WHERE id = %s LIMIT 50\n"
+            "---END STRATEGY---\n\n"
+            "---STRATEGY: fulltext---\n"
+            "SELECT ctid, * FROM t WHERE _ts @@ %s LIMIT 50\n"
+            "THIS BLOCK HAS NO END DELIMITER\n\n"
+            "---STRATEGY: vector---\n"
+            "SELECT ctid, * FROM t ORDER BY e <=> %s::vector"
+            " LIMIT 50\n"
+            "---END STRATEGY---\n"
+        )
+        results: list[StrategySQL] = parse_multi_strategy_sql(raw, "test query")
+
+        # Structured and fulltext both match; vector is consumed by
+        # fulltext's non-greedy capture extending to vector's END
+        types: list[StrategyType] = [r.strategy_type for r in results]
+        assert StrategyType.STRUCTURED in types
+        assert StrategyType.FULLTEXT in types
+        # vector block was consumed by fulltext's extended match
+        assert StrategyType.VECTOR not in types
+
+    def test_invalid_strategy_name_skipped(self) -> None:
+        """Test invalid strategy name (e.g., 'unknown') is skipped."""
+        raw: str = (
+            "---STRATEGY: structured---\n"
+            "SELECT ctid, * FROM t LIMIT 50\n"
+            "---END STRATEGY---\n\n"
+            "---STRATEGY: unknown---\n"
+            "SELECT ctid, * FROM t LIMIT 50\n"
+            "---END STRATEGY---\n"
+        )
+        results: list[StrategySQL] = parse_multi_strategy_sql(raw, "test query")
+
+        assert len(results) == 1
+        assert results[0].strategy_type == StrategyType.STRUCTURED
+
+    def test_empty_sql_in_block_skipped(self) -> None:
+        """Test empty SQL in block causes that block to be skipped."""
+        raw: str = (
+            "---STRATEGY: structured---\n"
+            "SELECT ctid, * FROM t LIMIT 50\n"
+            "---END STRATEGY---\n\n"
+            "---STRATEGY: fulltext---\n"
+            "   \n"
+            "---END STRATEGY---\n"
+        )
+        results: list[StrategySQL] = parse_multi_strategy_sql(raw, "test query")
+
+        assert len(results) == 1
+        assert results[0].strategy_type == StrategyType.STRUCTURED
+
+    def test_zero_valid_blocks_returns_empty(self) -> None:
+        """Test zero valid blocks returns empty list."""
+        raw: str = "Here is some text with no valid strategy blocks.\n" "No delimiters at all.\n"
+        results: list[StrategySQL] = parse_multi_strategy_sql(raw, "test query")
+
+        assert results == []
+
+    def test_extra_text_between_blocks_only_delimited_extracted(
+        self,
+    ) -> None:
+        """Test extra text between blocks is ignored."""
+        raw: str = (
+            "Some preamble text explaining the approach.\n\n"
+            "---STRATEGY: structured---\n"
+            "SELECT ctid, name FROM t WHERE id = %s LIMIT 50\n"
+            "---END STRATEGY---\n\n"
+            "Now let me explain the fulltext approach...\n"
+            "This uses tsvector for matching.\n\n"
+            "---STRATEGY: fulltext---\n"
+            "SELECT ctid, name FROM t"
+            " WHERE _ts @@ plainto_tsquery(%s) LIMIT 50\n"
+            "---END STRATEGY---\n\n"
+            "Final thoughts on the query strategy.\n"
+        )
+        results: list[StrategySQL] = parse_multi_strategy_sql(raw, "find items")
+
+        assert len(results) == 2
+        types: list[StrategyType] = [r.strategy_type for r in results]
+        assert StrategyType.STRUCTURED in types
+        assert StrategyType.FULLTEXT in types
+
+    def test_parameter_extraction_counts_placeholders(self) -> None:
+        """Test %s placeholders are counted correctly in parameters."""
+        raw: str = (
+            "---STRATEGY: structured---\n"
+            "SELECT ctid, * FROM t"
+            " WHERE name = %s AND price > %s AND active = %s"
+            " LIMIT 50\n"
+            "---END STRATEGY---\n"
+        )
+        results: list[StrategySQL] = parse_multi_strategy_sql(raw, "find active products")
+
+        assert len(results) == 1
+        # Parameters list should have entries for each %s placeholder
+        param_count: int = len(results[0].parameters)
+        sql_text: str = results[0].sql
+        placeholder_count: int = sql_text.count("%s")
+        assert placeholder_count == 3
+        assert param_count == placeholder_count
