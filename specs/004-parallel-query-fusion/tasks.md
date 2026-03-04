@@ -23,7 +23,7 @@
 
 **Purpose**: Verify prerequisites and understand existing interfaces that will be modified
 
-- [ ] T001 Review existing interfaces in backend/src/services/text_to_sql.py, backend/src/services/query_execution.py, backend/src/services/response_generator.py, backend/src/crew/tasks.py, and backend/src/api/queries.py to understand current signatures and patterns
+- [X] T001 Review existing interfaces in backend/src/services/text_to_sql.py, backend/src/services/query_execution.py, backend/src/services/response_generator.py, backend/src/crew/tasks.py, and backend/src/api/queries.py to understand current signatures and patterns
 
 ---
 
@@ -35,12 +35,12 @@
 
 ### Tests (write first, verify they fail)
 
-- [ ] T002 Write unit tests for all fusion Pydantic models (StrategyType enum, StrategySQL, StrategyResult, StrategyAttribution, FusedRow, FusedResult, StrategyDispatchPlan) validating constraints, defaults, frozen configs, and model validators in tests/unit/models/test_fusion_models.py
+- [X] T002 Write unit tests for all fusion Pydantic models (StrategyType enum, StrategySQL, StrategyResult, StrategyAttribution, FusedRow, FusedResult, StrategyDispatchPlan) validating constraints, defaults, frozen configs, and model validators in tests/unit/models/test_fusion_models.py
 
 ### Implementation
 
-- [ ] T003 Implement all Pydantic models (StrategyType, StrategySQL, StrategyResult, StrategyAttribution, FusedRow, FusedResult, StrategyDispatchPlan) per data-model.md in backend/src/models/fusion.py
-- [ ] T004 Verify fusion model tests pass and run quality checks (ruff, mypy --strict, pylint) on new files
+- [X] T003 Implement all Pydantic models (StrategyType, StrategySQL, StrategyResult, StrategyAttribution, FusedRow, FusedResult, StrategyDispatchPlan) per data-model.md in backend/src/models/fusion.py
+- [X] T004 Verify fusion model tests pass and run quality checks (ruff, mypy --strict, pylint) on new files
 
 **Checkpoint**: Foundation ready — user story implementation can now begin
 
@@ -56,18 +56,18 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T005 [P] [US1] Write unit tests for StrategyDispatcherService.plan_strategies — test index_metadata queries returning applicable strategies, dataset_ids=None handling (FR-017), structured-always-first validation — in tests/unit/services/test_strategy_dispatcher.py
-- [ ] T006 [P] [US1] Write unit tests for multi-strategy SQL prompt generation — test create_sql_generation_task with strategy_dispatch parameter, labeled block format, per-strategy guidelines, ctid inclusion — in tests/unit/crew/test_sql_generation_task.py
-- [ ] T007 [P] [US1] Write unit tests for parse_multi_strategy_sql — test regex extraction of strategy blocks, malformed output handling (FR-020), retry on zero blocks (FR-016), fallback to single-strategy, parameter extraction — in tests/unit/services/test_text_to_sql.py
-- [ ] T008 [P] [US1] Write unit tests for execute_strategies_parallel — test parallel execution of multiple strategies, per-strategy timeout (NFR-002), graceful degradation on failure (FR-012), cancel_event propagation (FR-006), vector parameter resolution, server-side row limit enforcement to 50 rows (FR-011), StrategyResult construction — in tests/unit/services/test_query_execution.py
+- [X] T005 [P] [US1] Write unit tests for StrategyDispatcherService.plan_strategies — test index_metadata queries returning applicable strategies, dataset_ids=None handling (FR-017), structured-always-first validation — in tests/unit/services/test_strategy_dispatcher.py
+- [X] T006 [P] [US1] Write unit tests for multi-strategy SQL prompt generation — test create_sql_generation_task with strategy_dispatch parameter, labeled block format, per-strategy guidelines, ctid inclusion — in tests/unit/crew/test_sql_generation_task.py
+- [X] T007 [P] [US1] Write unit tests for parse_multi_strategy_sql — test regex extraction of strategy blocks, malformed output handling (FR-020), retry on zero blocks (FR-016), fallback to single-strategy, parameter extraction — in tests/unit/services/test_text_to_sql.py
+- [X] T008 [P] [US1] Write unit tests for execute_strategies_parallel — test parallel execution of multiple strategies, per-strategy timeout (NFR-002), graceful degradation on failure (FR-012), cancel_event propagation (FR-006), vector parameter resolution, server-side row limit enforcement to 50 rows (FR-011), StrategyResult construction — in tests/unit/services/test_query_execution.py
 
 ### Implementation for User Story 1
 
-- [ ] T009 [P] [US1] Implement StrategyDispatcherService with plan_strategies method — query index_metadata for dataset capabilities (filtering, full_text_search, vector_similarity), build StrategyDispatchPlan with applicable strategies, handle dataset_ids=None (FR-005, FR-017) — in backend/src/services/strategy_dispatcher.py
-- [ ] T010 [P] [US1] Modify create_sql_generation_task to accept strategy_dispatch parameter — add multi-strategy prompt section with labeled block delimiters (---STRATEGY: name--- / ---END STRATEGY---), per-strategy guidelines for structured/fulltext/vector, ctid as first SELECT column, LIMIT 50 per strategy (FR-016) — in backend/src/crew/tasks.py
-- [ ] T011 [P] [US1] Implement parse_multi_strategy_sql (regex parser for labeled blocks), generate_multi_strategy_sql (orchestrates CrewAI call, parses output, retries once on zero blocks, falls back to single-strategy on double failure) — in backend/src/services/text_to_sql.py
-- [ ] T012 [P] [US1] Implement execute_strategies_parallel (ThreadPoolExecutor dispatch) and _execute_single_strategy (connection acquisition, search_path, SQL execution, vector embedding resolution for %s::vector, timeout, server-side row limit enforcement truncating results to 50 rows regardless of LLM LIMIT clause per FR-011, StrategyResult construction) — in backend/src/services/query_execution.py
-- [ ] T013 [US1] Verify all US1 unit tests pass and run quality checks (ruff, mypy --strict, pylint)
+- [X] T009 [P] [US1] Implement StrategyDispatcherService with plan_strategies method — query index_metadata for dataset capabilities (filtering, full_text_search, vector_similarity), build StrategyDispatchPlan with applicable strategies, handle dataset_ids=None (FR-005, FR-017) — in backend/src/services/strategy_dispatcher.py
+- [X] T010 [P] [US1] Modify create_sql_generation_task to accept strategy_dispatch parameter — add multi-strategy prompt section with labeled block delimiters (---STRATEGY: name--- / ---END STRATEGY---), per-strategy guidelines for structured/fulltext/vector, ctid as first SELECT column, LIMIT 50 per strategy (FR-016) — in backend/src/crew/tasks.py
+- [X] T011 [P] [US1] Implement parse_multi_strategy_sql (regex parser for labeled blocks), generate_multi_strategy_sql (orchestrates CrewAI call, parses output, retries once on zero blocks, falls back to single-strategy on double failure) — in backend/src/services/text_to_sql.py
+- [X] T012 [P] [US1] Implement execute_strategies_parallel (ThreadPoolExecutor dispatch) and _execute_single_strategy (connection acquisition, search_path, SQL execution, vector embedding resolution for %s::vector, timeout, server-side row limit enforcement truncating results to 50 rows regardless of LLM LIMIT clause per FR-011, StrategyResult construction) — in backend/src/services/query_execution.py
+- [X] T013 [US1] Verify all US1 unit tests pass and run quality checks (ruff, mypy --strict, pylint)
 
 **Checkpoint**: Parallel multi-strategy query execution works. Strategies are selected, SQL is generated, queries run in parallel, and individual results are collected.
 
@@ -83,12 +83,12 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T014 [P] [US2] Write unit tests for ResultFusionService — test compute_rrf_scores (k=60 formula, single strategy, multi-strategy, tie-breaking per FR-009), deduplicate_rows (ctid matching, data from first strategy in priority order, source_strategies accumulation), fuse (end-to-end: filter failed strategies, score, dedup, sort, build attributions), system column exclusion (ctid, _ts_*, _emb_*, rank, similarity per FR-007), edge cases (all strategies fail, one returns empty, missing ctid column, single strategy pass-through) — in tests/unit/services/test_result_fusion.py
+- [X] T014 [P] [US2] Write unit tests for ResultFusionService — test compute_rrf_scores (k=60 formula, single strategy, multi-strategy, tie-breaking per FR-009), deduplicate_rows (ctid matching, data from first strategy in priority order, source_strategies accumulation), fuse (end-to-end: filter failed strategies, score, dedup, sort, build attributions), system column exclusion (ctid, _ts_*, _emb_*, rank, similarity per FR-007), edge cases (all strategies fail, one returns empty, missing ctid column, single strategy pass-through) — in tests/unit/services/test_result_fusion.py
 
 ### Implementation for User Story 2
 
-- [ ] T015 [US2] Implement ResultFusionService with fuse(), compute_rrf_scores(), and deduplicate_rows() methods — RRF scoring with k=60 (FR-009), ctid-based dedup keeping first strategy's data in priority order structured>fulltext>vector (FR-008), system column filtering (FR-007), StrategyAttribution construction, FusedResult assembly with sorted rows (FR-010) — in backend/src/services/result_fusion.py
-- [ ] T016 [US2] Verify all US2 unit tests pass and run quality checks (ruff, mypy --strict, pylint)
+- [X] T015 [US2] Implement ResultFusionService with fuse(), compute_rrf_scores(), and deduplicate_rows() methods — RRF scoring with k=60 (FR-009), ctid-based dedup keeping first strategy's data in priority order structured>fulltext>vector (FR-008), system column filtering (FR-007), StrategyAttribution construction, FusedResult assembly with sorted rows (FR-010) — in backend/src/services/result_fusion.py
+- [X] T016 [US2] Verify all US2 unit tests pass and run quality checks (ruff, mypy --strict, pylint)
 
 **Checkpoint**: US1 + US2 together form the core MVP. Strategies execute in parallel and results are fused into a single deduplicated, scored result set.
 
@@ -104,12 +104,12 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T017 [P] [US3] Write unit tests for modified generate_html_response — test fused_result parameter acceptance, multi-strategy attribution inclusion (FR-014: "Results from structured query (N rows), full-text search (N rows), and semantic search (N rows)"), single-strategy attribution omission (FR-015), zero-results handling, ctid exclusion from output (FR-013), backwards compatibility when fused_result=None — in tests/unit/services/test_response_generator.py
+- [X] T017 [P] [US3] Write unit tests for modified generate_html_response — test fused_result parameter acceptance, multi-strategy attribution inclusion (FR-014: "Results from structured query (N rows), full-text search (N rows), and semantic search (N rows)"), single-strategy attribution omission (FR-015), zero-results handling, ctid exclusion from output (FR-013), backwards compatibility when fused_result=None — in tests/unit/services/test_response_generator.py
 
 ### Implementation for User Story 3
 
-- [ ] T018 [US3] Modify ResponseGenerator.generate_html_response to add keyword-only fused_result: FusedResult | None = None parameter (preserving existing params: query_text, query_results, _query_id, confidence_threshold) — when fused_result provided and is_multi_strategy, add attribution summary to CrewAI prompt with human-readable strategy names (structured→"structured query", fulltext→"full-text search", vector→"semantic search"), when single-strategy or None, preserve existing behavior (FR-014, FR-015) — in backend/src/services/response_generator.py
-- [ ] T019 [US3] Verify all US3 unit tests pass and run quality checks (ruff, mypy --strict, pylint)
+- [X] T018 [US3] Modify ResponseGenerator.generate_html_response to add keyword-only fused_result: FusedResult | None = None parameter (preserving existing params: query_text, query_results, _query_id, confidence_threshold) — when fused_result provided and is_multi_strategy, add attribution summary to CrewAI prompt with human-readable strategy names (structured→"structured query", fulltext→"full-text search", vector→"semantic search"), when single-strategy or None, preserve existing behavior (FR-014, FR-015) — in backend/src/services/response_generator.py
+- [X] T019 [US3] Verify all US3 unit tests pass and run quality checks (ruff, mypy --strict, pylint)
 
 **Checkpoint**: Multi-strategy responses include attribution. Single-strategy responses are unchanged.
 
@@ -125,13 +125,13 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T020 [P] [US4] Write unit tests for detect_aggregation_intent — test keyword matching (count, sum, average, avg, total, minimum, min, maximum, max, "how many", "what is the total/average/sum"), case insensitivity, false positive acceptance (FR-019), non-aggregation queries — in tests/unit/services/test_strategy_dispatcher.py
-- [ ] T021 [US4] Write unit tests for aggregation-aware plan_strategies — test is_aggregation=True returns only structured (FR-019), cross-dataset queries with different index profiles (US4 AS3), single-strategy bypass detection (FR-021) — in tests/unit/services/test_strategy_dispatcher.py
+- [X] T020 [P] [US4] Write unit tests for detect_aggregation_intent — test keyword matching (count, sum, average, avg, total, minimum, min, maximum, max, "how many", "what is the total/average/sum"), case insensitivity, false positive acceptance (FR-019), non-aggregation queries — in tests/unit/services/test_strategy_dispatcher.py
+- [X] T021 [US4] Write unit tests for aggregation-aware plan_strategies — test is_aggregation=True returns only structured (FR-019), cross-dataset queries with different index profiles (US4 AS3), single-strategy bypass detection (FR-021) — in tests/unit/services/test_strategy_dispatcher.py
 
 ### Implementation for User Story 4
 
-- [ ] T022 [US4] Implement detect_aggregation_intent static method with case-insensitive keyword matching in backend/src/services/strategy_dispatcher.py
-- [ ] T023 [US4] Verify all US4 unit tests pass and run quality checks (ruff, mypy --strict, pylint)
+- [X] T022 [US4] Implement detect_aggregation_intent static method with case-insensitive keyword matching in backend/src/services/strategy_dispatcher.py
+- [X] T023 [US4] Verify all US4 unit tests pass and run quality checks (ruff, mypy --strict, pylint)
 
 **Checkpoint**: Strategy selection is now intelligent — aggregation queries use structured only, and strategy dispatch respects per-dataset index profiles.
 

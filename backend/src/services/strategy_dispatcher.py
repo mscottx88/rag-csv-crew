@@ -161,7 +161,7 @@ class StrategyDispatcherService:
                     sql.SQL(
                         "SELECT DISTINCT capability "
                         "FROM {schema}.index_metadata "
-                        "WHERE dataset_id = ANY(%s) "
+                        "WHERE dataset_id::text = ANY(%s) "
                         "AND status = 'created'"
                     ).format(schema=sql.Identifier(user_schema)),
                     (dataset_id_strs,),
@@ -204,8 +204,8 @@ class StrategyDispatcherService:
                         "array_agg(DISTINCT im.capability) "
                         "FROM {schema}.index_metadata im "
                         "JOIN {schema}.datasets d "
-                        "ON im.dataset_id = d.id::text "
-                        "WHERE im.dataset_id = ANY(%s) "
+                        "ON im.dataset_id::text = d.id::text "
+                        "WHERE im.dataset_id::text = ANY(%s) "
                         "AND im.status = 'created' "
                         "GROUP BY d.table_name"
                     ).format(schema=sql.Identifier(user_schema)),
@@ -218,7 +218,7 @@ class StrategyDispatcherService:
                         "array_agg(DISTINCT im.capability) "
                         "FROM {schema}.index_metadata im "
                         "JOIN {schema}.datasets d "
-                        "ON im.dataset_id = d.id::text "
+                        "ON im.dataset_id::text = d.id::text "
                         "WHERE im.status = 'created' "
                         "GROUP BY d.table_name"
                     ).format(schema=sql.Identifier(user_schema)),

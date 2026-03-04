@@ -273,11 +273,12 @@ class QueryExecutionService:
                 # Extract query text from first param if available
                 query_text: str = str(params[0]).strip("%") if params else ""
                 embedding: list[float] = vs_service.generate_embedding(query_text)
-                # Replace %s::vector with %s
+                # Keep %s::vector in SQL — psycopg converts to $N::vector
+                # and PostgreSQL casts the string to vector type.
                 vector_count: int = len(_VECTOR_PLACEHOLDER_RE.findall(query_sql))
-                query_sql = _VECTOR_PLACEHOLDER_RE.sub("%s", query_sql)
-                # Replace string params with embeddings for vector slots
-                vector_params: list[list[float]] = [embedding] * vector_count
+                # Convert embedding to pgvector string format
+                embedding_str: str = "[" + ",".join(str(f) for f in embedding) + "]"
+                vector_params: list[str] = [embedding_str] * vector_count
                 params = vector_params
 
             # Escape literal % characters
@@ -296,8 +297,7 @@ class QueryExecutionService:
                     ).format(schema=sql.Identifier(user_schema))
                     cur.execute(set_path_sql)
                     cur.execute(
-                        "SET statement_timeout = %s",
-                        (timeout_ms,),
+                        sql.SQL("SET statement_timeout = {}").format(sql.Literal(timeout_ms))
                     )
 
                 if cancel_event and cancel_event.is_set():
