@@ -1,170 +1,304 @@
 /**
- * ExecuteProgress Component
- * Wireframe database cylinder — data "beams" (particles) stream in from the
- * left through the cylinder and emerge as result rows on the right.
- * Represents the "executing SQL query" phase.
+ * ExecuteProgress — 3D disk pack drive for "Executing query..." phase.
+ * Inspired by the IBM 2311/2314 Disk Storage Drive.
+ *
+ * Features: tall tower cabinet, glass viewing window showing 5 stacked
+ * spinning disk platters, access arm that sweeps radially between platters,
+ * operator panel with activity LED row, and ventilation slots on sides.
+ * Data transfer indicator pulses with each platter revolution.
+ *
  * Color: cyan (#00eeff)
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useMemo } from 'react';
+import { useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
+import { QueryScene } from './QueryScene';
 import './ExecuteProgress.css';
 
 interface ExecuteProgressProps {
   label?: string;
 }
 
-interface Beam {
-  id: number;
-  y: number;       // vertical position within cylinder (top=22, bot=78)
-  x: number;       // horizontal progress: 0=left edge → 1=right edge
-  speed: number;
-  color: string;
-  opacity: number;
-}
+const CYAN = '#00eeff';
 
-const COLOR: string = '#00eeff';
-const COLOR2: string = '#00ffcc';
+/* ── Cabinet dimensions ── */
+const CW = 1.4;
+const CH = 2.3;
+const CD = 0.95;
 
-// Cylinder geometry
-const CYL_LEFT: number = 20;
-const CYL_RIGHT: number = 80;
-const CYL_TOP_Y: number = 30;
-const CYL_BOT_Y: number = 75;
-const CYL_RX: number = 30;   // ellipse x-radius
-const CYL_RY: number = 7;    // ellipse y-radius
-const CYL_MID_Y: number = (CYL_TOP_Y + CYL_BOT_Y) / 2;
+const PLATTER_COUNT = 5;
+const PLATTER_R = 0.42;
+const PLATTER_GAP = 0.22;
 
-const BEAM_COLORS: readonly string[] = [COLOR, COLOR2, '#00ccff'];
-const MAX_BEAMS: number = 14;
+/* ── IBM 2311 Disk Pack Drive 3D object ── */
+function DiskPackDrive(): React.JSX.Element {
+  const groupRef = useRef<THREE.Group>(null);
+  const plattersRef = useRef<THREE.Group>(null);
+  const armRef = useRef<THREE.Group>(null);
+  const ledsRef = useRef<THREE.Group>(null);
+  const timeRef = useRef(0);
 
-function makeBeam(id: number): Beam {
-  return {
-    id,
-    y: CYL_TOP_Y + 3 + Math.random() * (CYL_BOT_Y - CYL_TOP_Y - 6),
-    x: Math.random(),
-    speed: 0.008 + Math.random() * 0.008,
-    color: BEAM_COLORS[Math.floor(Math.random() * BEAM_COLORS.length)] ?? COLOR,
-    opacity: 0.6 + Math.random() * 0.4,
-  };
-}
+  /* ── Precomputed geometries ── */
 
-export const ExecuteProgress: React.FC<ExecuteProgressProps> = ({ label = 'Executing...' }) => {
-  const beamsRef = useRef<Beam[]>(
-    Array.from({ length: MAX_BEAMS }, (_: unknown, i: number): Beam => makeBeam(i))
+  const cabinetEdges = useMemo(
+    () => new THREE.EdgesGeometry(new THREE.BoxGeometry(CW, CH, CD)),
+    [],
   );
-  const rafRef = useRef<number>(0);
-  const [, tick] = useState<number>(0);
 
-  useEffect(() => {
-    const loop = (): void => {
-      beamsRef.current = beamsRef.current.map((b: Beam): Beam => {
-        const newX: number = b.x + b.speed;
-        return newX > 1.1 ? makeBeam(b.id) : { ...b, x: newX };
-      });
-      tick((n: number) => n + 1);
-      rafRef.current = requestAnimationFrame(loop);
-    };
-    rafRef.current = requestAnimationFrame(loop);
-    return (): void => { cancelAnimationFrame(rafRef.current); };
+  /* Viewing window frame */
+  const windowGeo = useMemo(() => {
+    const verts: number[] = [];
+    const fz = CD / 2 + 0.01;
+    const hw = PLATTER_R + 0.1;
+    const totalH = PLATTER_COUNT * PLATTER_GAP;
+    const cy = totalH / 2 - 0.22;
+    const hh = totalH / 2 + 0.05;
+    verts.push(-hw, cy - hh, fz, hw, cy - hh, fz);
+    verts.push(hw, cy - hh, fz, hw, cy + hh, fz);
+    verts.push(hw, cy + hh, fz, -hw, cy + hh, fz);
+    verts.push(-hw, cy + hh, fz, -hw, cy - hh, fz);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    return geo;
   }, []);
 
-  const beams: Beam[] = beamsRef.current;
+  /* Individual platter — thin cylinder */
+  const platterEdges = useMemo(
+    () => new THREE.EdgesGeometry(new THREE.CylinderGeometry(PLATTER_R, PLATTER_R, 0.04, 36)),
+    [],
+  );
 
-  // Cylinder clip path: rectangle body + top and bottom ellipses
-  const cylW: number = CYL_RIGHT - CYL_LEFT;
+  /* Platter track rings (surface detail) */
+  const platterTrackGeo = useMemo(() => {
+    const verts: number[] = [];
+    [0.15, 0.25, 0.34].forEach(r => {
+      const segs = 32;
+      for (let i = 0; i < segs; i++) {
+        const a0 = (i / segs) * Math.PI * 2;
+        const a1 = ((i + 1) / segs) * Math.PI * 2;
+        verts.push(r * Math.cos(a0), 0.022, r * Math.sin(a0));
+        verts.push(r * Math.cos(a1), 0.022, r * Math.sin(a1));
+      }
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    return geo;
+  }, []);
+
+  /* Platter hub */
+  const hubEdges = useMemo(
+    () => new THREE.EdgesGeometry(new THREE.CylinderGeometry(0.07, 0.07, 0.12, 10)),
+    [],
+  );
+
+  /* Access arm */
+  const armEdges = useMemo(
+    () => new THREE.EdgesGeometry(new THREE.BoxGeometry(0.06, 0.06, PLATTER_R * 1.1)),
+    [],
+  );
+
+  /* Arm read head tip */
+  const headEdges = useMemo(
+    () => new THREE.EdgesGeometry(new THREE.BoxGeometry(0.12, 0.06, 0.04)),
+    [],
+  );
+
+  /* Operator panel bottom section */
+  const panelGeo = useMemo(() => {
+    const verts: number[] = [];
+    const fz = CD / 2 + 0.01;
+    const panelY = -CH / 2 + 0.25;
+    const hw = CW / 2 - 0.1;
+    const hh = 0.2;
+    verts.push(-hw, panelY - hh, fz, hw, panelY - hh, fz);
+    verts.push(hw, panelY - hh, fz, hw, panelY + hh, fz);
+    verts.push(hw, panelY + hh, fz, -hw, panelY + hh, fz);
+    verts.push(-hw, panelY + hh, fz, -hw, panelY - hh, fz);
+    /* Horizontal divider */
+    verts.push(-hw, panelY, fz, hw, panelY, fz);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    return geo;
+  }, []);
+
+  /* Ventilation lines (side panels) */
+  const ventGeo = useMemo(() => {
+    const verts: number[] = [];
+    const sx = CW / 2 + 0.01;
+    const halfD = CD / 2 - 0.1;
+    for (let i = 0; i < 7; i++) {
+      const y = -0.5 + i * 0.28;
+      verts.push(sx, y, -halfD, sx, y, halfD);
+      verts.push(-sx, y, -halfD, -sx, y, halfD);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    return geo;
+  }, []);
+
+  /* Base plate */
+  const baseEdges = useMemo(
+    () => new THREE.EdgesGeometry(new THREE.BoxGeometry(CW + 0.18, 0.08, CD + 0.12)),
+    [],
+  );
+
+  /* LED geometry (shared) */
+  const ledGeo = useMemo(() => new THREE.SphereGeometry(0.022, 6, 6), []);
+
+  /* ── Animation loop ── */
+  useFrame((_, delta) => {
+    timeRef.current += delta;
+    const t = timeRef.current;
+
+    /* Float */
+    if (groupRef.current) {
+      groupRef.current.position.y = Math.sin(t * 0.7) * 0.04;
+      groupRef.current.rotation.y = Math.sin(t * 0.16) * 0.2;
+    }
+
+    /* Platters spin (all together) */
+    if (plattersRef.current) {
+      plattersRef.current.rotation.y += delta * 2.8;
+    }
+
+    /* Access arm sweeps radially — sinusoidal from inner to outer */
+    if (armRef.current) {
+      const sweep = Math.sin(t * 0.55) * 0.5;
+      armRef.current.position.z = CD / 2 + 0.02 + sweep * 0.12;
+      armRef.current.position.x = sweep * PLATTER_R * 0.4;
+    }
+
+    /* Activity LEDs — staggered blink */
+    if (ledsRef.current) {
+      ledsRef.current.children.forEach((child, i) => {
+        const phase = t * 2.5 + i * 0.7;
+        const active = Math.sin(phase) > 0.2;
+        const mat = (child as THREE.Mesh).material as THREE.MeshBasicMaterial;
+        mat.opacity = active ? 0.92 : 0.08;
+      });
+    }
+  });
+
+  const fz = CD / 2 + 0.01;
+  const platterBaseY = -((PLATTER_COUNT - 1) * PLATTER_GAP) / 2 + 0.15;
 
   return (
-    <div className="execute-progress-container">
-      <svg viewBox="0 0 100 115" className="execute-svg" role="img" aria-label="Executing query">
-        <defs>
-          <filter id="exec-bloom" x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="1.6" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          {/* Clip beams to the cylinder body */}
-          <clipPath id="exec-cyl-clip">
-            <rect x={CYL_LEFT} y={CYL_TOP_Y} width={cylW} height={CYL_BOT_Y - CYL_TOP_Y} />
-          </clipPath>
-        </defs>
+    <group ref={groupRef}>
 
-        <rect x="0" y="0" width="100" height="115" fill="#000" />
+      {/* ── Base plate ── */}
+      <group position={[0, -CH / 2 - 0.04, 0]}>
+        <mesh>
+          <boxGeometry args={[CW + 0.18, 0.08, CD + 0.12]} />
+          <meshBasicMaterial color={CYAN} transparent opacity={0.12} toneMapped={false} />
+        </mesh>
+        <lineSegments geometry={baseEdges}>
+          <lineBasicMaterial color={CYAN} transparent opacity={0.5} />
+        </lineSegments>
+      </group>
 
-        {/* ── Cylinder body background ── */}
-        <rect x={CYL_LEFT} y={CYL_TOP_Y} width={cylW} height={CYL_BOT_Y - CYL_TOP_Y} fill="#050505" />
+      {/* ── Cabinet ── */}
+      <mesh>
+        <boxGeometry args={[CW, CH, CD]} />
+        <meshBasicMaterial color={CYAN} transparent opacity={0.07} toneMapped={false} />
+      </mesh>
+      <lineSegments geometry={cabinetEdges}>
+        <lineBasicMaterial color={CYAN} transparent opacity={0.55} />
+      </lineSegments>
 
-        {/* ── Beam particles inside cylinder ── */}
-        <g clipPath="url(#exec-cyl-clip)" filter="url(#exec-bloom)">
-          {beams.map((b: Beam) => {
-            const bx: number = CYL_LEFT + b.x * cylW;
-            return (
-              <g key={b.id}>
-                {/* Trail */}
-                <line
-                  x1={Math.max(CYL_LEFT, bx - 8)} y1={b.y}
-                  x2={bx} y2={b.y}
-                  stroke={b.color} strokeWidth="1.2" opacity={b.opacity * 0.4}
-                  strokeLinecap="round"
-                />
-                {/* Head dot */}
-                <circle cx={bx} cy={b.y} r="1.6" fill={b.color} opacity={b.opacity} />
-              </g>
-            );
-          })}
-        </g>
+      {/* ── Viewing window frame ── */}
+      <lineSegments geometry={windowGeo}>
+        <lineBasicMaterial color={CYAN} transparent opacity={0.55} />
+      </lineSegments>
 
-        {/* ── Wireframe cylinder outline ── */}
-        <g filter="url(#exec-bloom)">
-          {/* Left wall */}
-          <line x1={CYL_LEFT} y1={CYL_TOP_Y} x2={CYL_LEFT} y2={CYL_BOT_Y} stroke={COLOR} strokeWidth="1.6" />
-          {/* Right wall */}
-          <line x1={CYL_RIGHT} y1={CYL_TOP_Y} x2={CYL_RIGHT} y2={CYL_BOT_Y} stroke={COLOR} strokeWidth="1.6" />
+      {/* ── Disk platters (spin together) ── */}
+      <group ref={plattersRef}>
+        {Array.from({ length: PLATTER_COUNT }, (_, i) => {
+          const y = platterBaseY + i * PLATTER_GAP;
+          return (
+            <group key={i} position={[0, y, 0]}>
+              <mesh>
+                <cylinderGeometry args={[PLATTER_R, PLATTER_R, 0.04, 36]} />
+                <meshBasicMaterial color={CYAN} transparent opacity={0.1} toneMapped={false} />
+              </mesh>
+              <lineSegments geometry={platterEdges}>
+                <lineBasicMaterial color={CYAN} transparent opacity={0.45} />
+              </lineSegments>
+              <lineSegments geometry={platterTrackGeo}>
+                <lineBasicMaterial color={CYAN} transparent opacity={0.2} />
+              </lineSegments>
+              {/* Hub */}
+              <mesh>
+                <cylinderGeometry args={[0.07, 0.07, 0.12, 10]} />
+                <meshBasicMaterial color={CYAN} transparent opacity={0.25} toneMapped={false} />
+              </mesh>
+              <lineSegments geometry={hubEdges}>
+                <lineBasicMaterial color={CYAN} transparent opacity={0.55} />
+              </lineSegments>
+            </group>
+          );
+        })}
+      </group>
 
-          {/* Top ellipse */}
-          <ellipse cx={CYL_MID_Y - 2.5} cy={CYL_TOP_Y} rx={CYL_RX} ry={CYL_RY}
-            fill="#000" stroke={COLOR} strokeWidth="1.6" />
-          {/* Mid divider ellipse (data layers) */}
-          <ellipse cx={CYL_MID_Y - 2.5} cy={CYL_MID_Y} rx={CYL_RX} ry={CYL_RY}
-            fill="none" stroke={COLOR} strokeWidth="0.7" opacity="0.35" />
-          {/* Bottom ellipse */}
-          <ellipse cx={CYL_MID_Y - 2.5} cy={CYL_BOT_Y} rx={CYL_RX} ry={CYL_RY}
-            fill="#000" stroke={COLOR} strokeWidth="1.6" />
-        </g>
+      {/* ── Access arm ── */}
+      <group ref={armRef} position={[0, platterBaseY + PLATTER_GAP, fz + 0.02]}>
+        <mesh>
+          <boxGeometry args={[0.06, 0.06, PLATTER_R * 1.1]} />
+          <meshBasicMaterial color={CYAN} transparent opacity={0.2} toneMapped={false} />
+        </mesh>
+        <lineSegments geometry={armEdges}>
+          <lineBasicMaterial color={CYAN} transparent opacity={0.65} />
+        </lineSegments>
+        {/* Read head */}
+        <group position={[0, 0, -PLATTER_R * 0.5]}>
+          <mesh>
+            <boxGeometry args={[0.12, 0.06, 0.04]} />
+            <meshBasicMaterial color={CYAN} transparent opacity={0.35} toneMapped={false} />
+          </mesh>
+          <lineSegments geometry={headEdges}>
+            <lineBasicMaterial color={CYAN} transparent opacity={0.8} />
+          </lineSegments>
+          {/* Read tip LED */}
+          <mesh position={[0, 0, -0.03]}>
+            <sphereGeometry args={[0.02, 6, 6]} />
+            <meshBasicMaterial color={CYAN} transparent opacity={0.9} toneMapped={false} />
+          </mesh>
+        </group>
+      </group>
 
-        {/* ── Input arrow (left side) ── */}
-        <g opacity="0.6">
-          <line x1="4" y1={CYL_MID_Y} x2={CYL_LEFT - 1} y2={CYL_MID_Y}
-            stroke={COLOR} strokeWidth="1" strokeDasharray="2 2" />
-          <polygon
-            points={`${CYL_LEFT - 1},${CYL_MID_Y - 2.5} ${CYL_LEFT + 4},${CYL_MID_Y} ${CYL_LEFT - 1},${CYL_MID_Y + 2.5}`}
-            fill={COLOR}
-          />
-          <text x="2" y={CYL_MID_Y - 4}
-            fontFamily="'Courier New', Courier, monospace" fontSize="3.5"
-            fill={COLOR} opacity="0.5">SQL</text>
-        </g>
+      {/* ── Operator panel ── */}
+      <lineSegments geometry={panelGeo}>
+        <lineBasicMaterial color={CYAN} transparent opacity={0.4} />
+      </lineSegments>
 
-        {/* ── Output arrow (right side) ── */}
-        <g opacity="0.6">
-          <line x1={CYL_RIGHT + 1} y1={CYL_MID_Y} x2="96" y2={CYL_MID_Y}
-            stroke={COLOR} strokeWidth="1" strokeDasharray="2 2" />
-          <polygon
-            points={`${CYL_RIGHT + 5},${CYL_MID_Y - 2.5} ${CYL_RIGHT + 10},${CYL_MID_Y} ${CYL_RIGHT + 5},${CYL_MID_Y + 2.5}`}
-            fill={COLOR}
-          />
-          <text x="82" y={CYL_MID_Y - 4}
-            fontFamily="'Courier New', Courier, monospace" fontSize="3.5"
-            fill={COLOR} opacity="0.5">ROWS</text>
-        </g>
+      {/* ── Activity LEDs ── */}
+      <group ref={ledsRef}>
+        {Array.from({ length: 6 }, (_, i) => (
+          <mesh
+            key={i}
+            geometry={ledGeo}
+            position={[-CW / 2 + 0.2 + i * 0.16, -CH / 2 + 0.18, fz + 0.01]}
+          >
+            <meshBasicMaterial color={CYAN} transparent opacity={0.5} toneMapped={false} />
+          </mesh>
+        ))}
+      </group>
 
-        {/* Label inside cylinder top (faint) */}
-        <text x="50" y={CYL_TOP_Y - 2}
-          fontFamily="'Courier New', Courier, monospace" fontSize="3.8"
-          fill={COLOR} textAnchor="middle" opacity="0.3">DATABASE</text>
-      </svg>
-      <div className="execute-progress-label">{label}</div>
-    </div>
+      {/* ── Side ventilation ── */}
+      <lineSegments geometry={ventGeo}>
+        <lineBasicMaterial color={CYAN} transparent opacity={0.2} />
+      </lineSegments>
+    </group>
   );
-};
+}
+
+export const ExecuteProgress: React.FC<ExecuteProgressProps> = ({ label = 'Executing...' }) => (
+  <div className="execute-progress-container">
+    <div className="qprog-canvas">
+      <QueryScene cameraZ={5.2} fov={46}>
+        <DiskPackDrive />
+      </QueryScene>
+    </div>
+    <div className="execute-progress-label">{label}</div>
+  </div>
+);

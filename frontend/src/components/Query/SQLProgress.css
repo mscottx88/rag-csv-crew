@@ -9,28 +9,14 @@
   width: 100%;
 }
 
-.sql-svg {
-  flex: 1;
-  min-height: 150px;
-  max-height: 480px;
-  width: auto;
-  max-width: 100%;
-  display: block;
-  overflow: visible;
-  filter:
-    drop-shadow(0 0 6px #00eeff)
-    drop-shadow(0 0 20px #00eeff66)
-    drop-shadow(0 0 40px #00eeff33);
-}
-
 .sql-progress-label {
   margin-top: 0.55rem;
   font-size: 1.2rem;
   font-weight: 700;
-  color: #00eeff;
+  color: #ffd700;
   letter-spacing: 0.07em;
   font-family: 'Courier New', Courier, monospace;
   text-shadow:
-    0 0 6px #00eeff,
-    0 0 16px #00eeff66;
+    0 0 6px #ffd700,
+    0 0 16px #ffd70066;
 }

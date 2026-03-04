@@ -25,6 +25,9 @@ type QueryStage = 'search' | 'analyze' | 'sql' | 'execute' | 'process' | 'html';
 /** Ordered pipeline stages — index determines forward-only progression. */
 const STAGE_ORDER: QueryStage[] = ['search', 'analyze', 'sql', 'execute', 'process', 'html'];
 
+/** Minimum time each animation stage is displayed, even if the backend moves faster. */
+const MIN_STAGE_MS = 1500;
+
 /**
  * Map a backend progress_message to a pipeline stage.
  *
@@ -96,9 +99,25 @@ function getStageLabel(stage: QueryStage): string {
 }
 
 export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, onCancel }) => {
-  /** High-water mark: once we reach stage N we never regress below it. */
+  /** High-water mark for stage pips — tracks displayStageIdx, never regresses. */
   const highWaterRef = useRef<number>(0);
+  /**
+   * True if this component instance ever observed a pending/processing status.
+   * Prevents the post-completion animation from firing when a completed query is
+   * expanded in history (where the component mounts directly into completed state).
+   */
+  const wasProcessingRef = useRef<boolean>(
+    query.status === 'pending' || query.status === 'processing',
+  );
   const [datasets, setDatasets] = useState<Dataset[]>([]);
+
+  /**
+   * displayStageIdx — the stage index currently shown in the animation.
+   * Advances toward detectedIndex one step at a time, with a minimum
+   * dwell of MIN_STAGE_MS per stage so every animation gets screen time.
+   */
+  const [displayStageIdx, setDisplayStageIdx] = useState<number>(0);
+  const displayStageStartRef = useRef<number>(Date.now());
 
   // Fetch datasets for name resolution
   useEffect(() => {
@@ -111,12 +130,58 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, onCancel })
     }
   }, [query.dataset_ids]);
 
-  // Reset the high-water mark when the query changes or finishes.
+  // Track whether this instance ever saw an active processing state.
   useEffect(() => {
-    if (query.status !== 'pending' && query.status !== 'processing') {
-      highWaterRef.current = 0;
+    if (query.status === 'pending' || query.status === 'processing') {
+      wasProcessingRef.current = true;
     }
-  }, [query.id, query.status]);
+  }, [query.status]);
+
+  // Reset display stage and high-water mark when a new query starts.
+  useEffect(() => {
+    setDisplayStageIdx(0);
+    displayStageStartRef.current = Date.now();
+    highWaterRef.current = 0;
+  }, [query.id]);
+
+  // Derive the target stage from the latest backend message.
+  const detectedStage: QueryStage = getQueryStage(query.progress_message || '');
+  const detectedIndex: number = STAGE_ORDER.indexOf(detectedStage);
+
+  /**
+   * When the backend reports completed (and this component witnessed processing),
+   * keep driving displayStageIdx all the way to the last stage so every animation
+   * (including 'html') gets its screen time.
+   * If the component mounted directly into completed (history view), skip animation.
+   */
+  const effectiveDetectedIndex: number =
+    query.status === 'completed' && wasProcessingRef.current
+      ? STAGE_ORDER.length - 1
+      : detectedIndex;
+
+  /**
+   * Step displayStageIdx toward effectiveDetectedIndex one stage at a time,
+   * waiting at least MIN_STAGE_MS before each advance.
+   * Continues running after status=completed only if wasProcessingRef is set.
+   */
+  useEffect(() => {
+    const shouldAdvance =
+      query.status === 'pending' ||
+      query.status === 'processing' ||
+      (query.status === 'completed' && wasProcessingRef.current && displayStageIdx < STAGE_ORDER.length - 1);
+    if (!shouldAdvance) return;
+    if (displayStageIdx >= effectiveDetectedIndex) return;
+
+    const elapsed: number = Date.now() - displayStageStartRef.current;
+    const delay: number = Math.max(0, MIN_STAGE_MS - elapsed);
+
+    const timer: ReturnType<typeof setTimeout> = setTimeout(() => {
+      displayStageStartRef.current = Date.now();
+      setDisplayStageIdx(prev => Math.min(prev + 1, STAGE_ORDER.length - 1));
+    }, delay);
+
+    return (): void => { clearTimeout(timer); };
+  }, [displayStageIdx, effectiveDetectedIndex, query.status]);
 
   const renderStatus = (): JSX.Element => {
     switch (query.status) {
@@ -209,34 +274,42 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, onCancel })
   };
 
   const renderContent = (): JSX.Element => {
-    if (query.status === 'pending' || query.status === 'processing') {
-      const message: string = query.progress_message || '';
-      const detectedStage: QueryStage = getQueryStage(message);
-      const detectedIndex: number = STAGE_ORDER.indexOf(detectedStage);
-      const label: string = getStageLabel(detectedStage);
+    // Show animation while processing, or while we're still playing remaining stages
+    // after the backend has completed (so html stage always gets its MIN_STAGE_MS).
+    const isShowingAnimation =
+      query.status === 'pending' ||
+      query.status === 'processing' ||
+      (query.status === 'completed' && wasProcessingRef.current && displayStageIdx < STAGE_ORDER.length - 1);
 
-      // High-water mark for the stage pips only (never regresses).
-      if (detectedIndex > highWaterRef.current) {
-        highWaterRef.current = detectedIndex;
+    if (isShowingAnimation) {
+      const message: string = query.progress_message || '';
+
+      /* displayStageIdx is the throttled index — drives both animation and pips. */
+      const displayStage: QueryStage = STAGE_ORDER[displayStageIdx] ?? 'search';
+      const label: string = getStageLabel(displayStage);
+
+      /* High-water mark tracks the display stage (stays in sync with animation). */
+      if (displayStageIdx > highWaterRef.current) {
+        highWaterRef.current = displayStageIdx;
       }
 
       return (
         <div className="result-processing">
           <div className="query-animation-wrap">
-            {/* Animation always matches the current progress message */}
-            {renderAnimation(detectedStage, label)}
+            {/* Animation matches the throttled display stage */}
+            {renderAnimation(displayStage, label)}
 
             {message && (
               <p className="query-progress-message">{message}</p>
             )}
 
-            {/* Stage indicator pips — use high-water mark so they only advance */}
+            {/* Stage indicator pips — advance with display stage */}
             <div className="query-stages">
               {STAGE_ORDER.map(
                 (s: QueryStage, i: number) => (
                   <div
                     key={s}
-                    className={`query-stage-pip ${detectedStage === s ? 'active' : ''} ${i <= highWaterRef.current ? 'reached' : ''}`}
+                    className={`query-stage-pip ${displayStage === s ? 'active' : ''} ${i <= highWaterRef.current ? 'reached' : ''}`}
                     title={getStageLabel(s)}
                   />
                 )

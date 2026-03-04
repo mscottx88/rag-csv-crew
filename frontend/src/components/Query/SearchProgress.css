@@ -1,3 +1,18 @@
+/* ── Shared canvas container — used by all 6 query progress phases ── */
+.qprog-canvas {
+  flex: 1;
+  min-height: 200px;
+  max-height: 440px;
+  width: 100%;
+}
+
+.qprog-canvas canvas {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ── SearchProgress ── */
 .search-progress-container {
   flex: 1;
   min-height: 0;
@@ -7,20 +22,6 @@
   padding: 0.75rem 0 0.25rem;
   margin-top: 0.5rem;
   width: 100%;
-}
-
-.search-svg {
-  flex: 1;
-  min-height: 150px;
-  max-height: 480px;
-  width: auto;
-  max-width: 100%;
-  display: block;
-  overflow: visible;
-  filter:
-    drop-shadow(0 0 8px #00eeff)
-    drop-shadow(0 0 24px #00eeff88)
-    drop-shadow(0 0 52px #00eeff44);
 }
 
 .search-progress-label {

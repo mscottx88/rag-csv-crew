@@ -1,142 +1,239 @@
 /**
- * SearchProgress Component
- * Wireframe magnifying glass with a rotating radar sweep inside the lens.
- * Small "blips" appear when the sweep detects data.
+ * SearchProgress — 3D sonar/radar console for "Searching columns..." phase.
+ * Inspired by AN/SQS naval sonar array displays.
+ *
+ * Features: flat parabolic dish on pedestal viewed from above at 45°,
+ * continuously rotating sweep arm with glow trail, fading blip particles
+ * that appear near the sweep as "hits" are detected.
+ *
  * Color: cyan (#00eeff)
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useMemo } from 'react';
+import { useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
+import { QueryScene } from './QueryScene';
 import './SearchProgress.css';
 
 interface SearchProgressProps {
   label?: string;
 }
 
-interface Blip {
-  angle: number; // radians
-  dist: number;  // distance from center (0–1)
-  life: number;  // 1=fresh 0=gone
-}
+const CYAN = '#00eeff';
+const DISK_R = 1.1;
+const BLIP_SLOTS = 10;
 
-const CX: number = 50;
-const CY: number = 50;
-const R: number = 27;
-const COLOR: string = '#00eeff';
-const MAX_BLIPS: number = 7;
+/* ── Sonar Console 3D object ── */
+function SonarConsole(): React.JSX.Element {
+  const groupRef = useRef<THREE.Group>(null);
+  const sweepGroupRef = useRef<THREE.Group>(null);
+  const blipsGroupRef = useRef<THREE.Group>(null);
+  const timeRef = useRef(0);
+  const sweepAngleRef = useRef(0);
 
-export const SearchProgress: React.FC<SearchProgressProps> = ({ label = 'Searching...' }) => {
-  const sweepRef = useRef<number>(0);
-  const blipsRef = useRef<Blip[]>([]);
-  const rafRef = useRef<number>(0);
-  const [, tick] = useState<number>(0);
+  /* Blip state — fixed-size pool so mesh count is stable */
+  const blipPool = useRef<{ x: number; z: number; life: number }[]>(
+    Array.from({ length: BLIP_SLOTS }, () => ({ x: 0, z: 0, life: 0 })),
+  );
 
-  useEffect(() => {
-    const loop = (): void => {
-      sweepRef.current = (sweepRef.current + 0.028) % (Math.PI * 2);
+  /* ── Precomputed geometries ── */
 
-      blipsRef.current = blipsRef.current
-        .map((b: Blip): Blip => ({ ...b, life: b.life - 0.012 }))
-        .filter((b: Blip): boolean => b.life > 0);
+  /* Disk platter */
+  const diskEdges = useMemo(
+    () => new THREE.EdgesGeometry(new THREE.CylinderGeometry(DISK_R, DISK_R, 0.16, 48)),
+    [],
+  );
 
-      if (Math.random() < 0.05 && blipsRef.current.length < MAX_BLIPS) {
-        blipsRef.current.push({
-          angle: sweepRef.current + Math.random() * 0.4,
-          dist: 0.25 + Math.random() * 0.65,
-          life: 1,
-        });
+  /* Concentric range rings + radial sectors on top face */
+  const diskSurfaceGeo = useMemo(() => {
+    const verts: number[] = [];
+    const Y = 0.09;
+
+    /* 4 range rings */
+    [0.27, 0.50, 0.73, 0.96].forEach(frac => {
+      const r = frac * DISK_R;
+      for (let i = 0; i < 48; i++) {
+        const a0 = (i / 48) * Math.PI * 2;
+        const a1 = ((i + 1) / 48) * Math.PI * 2;
+        verts.push(r * Math.cos(a0), Y, r * Math.sin(a0));
+        verts.push(r * Math.cos(a1), Y, r * Math.sin(a1));
       }
+    });
 
-      tick((n: number) => n + 1);
-      rafRef.current = requestAnimationFrame(loop);
-    };
-    rafRef.current = requestAnimationFrame(loop);
-    return (): void => { cancelAnimationFrame(rafRef.current); };
+    /* 12 radial sectors */
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      verts.push(0.23 * Math.cos(a), Y, 0.23 * Math.sin(a));
+      verts.push(DISK_R * 0.97 * Math.cos(a), Y, DISK_R * 0.97 * Math.sin(a));
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    return geo;
   }, []);
 
-  const sweep: number = sweepRef.current;
-  const blips: Blip[] = blipsRef.current;
+  /* Sweep arm — single line from origin to disk edge */
+  const sweepLineGeo = useMemo(() => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, DISK_R], 3),
+    );
+    return geo;
+  }, []);
 
-  // Sweep line endpoint
-  const sweepX: number = CX + R * Math.cos(sweep);
-  const sweepY: number = CY + R * Math.sin(sweep);
+  /* Sweep trail — 24 fanning lines behind the sweep arm */
+  const sweepTrailGeo = useMemo(() => {
+    const verts: number[] = [];
+    const TRAIL_ARC = Math.PI * 0.45;
+    const COUNT = 24;
+    for (let i = 1; i <= COUNT; i++) {
+      const a = -(i / COUNT) * TRAIL_ARC;
+      verts.push(0, 0, 0);
+      verts.push(DISK_R * Math.sin(a), 0, DISK_R * Math.cos(a));
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    return geo;
+  }, []);
 
-  // Sweep trail arc (last 80°)
-  const trailAngle: number = sweep - (Math.PI * 0.44);
-  const trailX: number = CX + R * Math.cos(trailAngle);
-  const trailY: number = CY + R * Math.sin(trailAngle);
-  const arcD: string = `M ${trailX.toFixed(2)} ${trailY.toFixed(2)} A ${R} ${R} 0 0 1 ${sweepX.toFixed(2)} ${sweepY.toFixed(2)}`;
+  /* Pedestal */
+  const pedestalEdges = useMemo(
+    () => new THREE.EdgesGeometry(new THREE.CylinderGeometry(0.11, 0.17, 0.52, 8)),
+    [],
+  );
 
-  // Handle goes from lens edge at ~45° down-right to outside
-  const handleAngle: number = Math.PI * 0.72;
-  const hx1: number = CX + R * Math.cos(handleAngle);
-  const hy1: number = CY + R * Math.sin(handleAngle);
-  const hx2: number = hx1 + 14;
-  const hy2: number = hy1 + 14;
+  /* Base plate */
+  const baseEdges = useMemo(
+    () => new THREE.EdgesGeometry(new THREE.BoxGeometry(0.78, 0.11, 0.78)),
+    [],
+  );
+
+  /* Shared blip geometry */
+  const blipGeo = useMemo(() => new THREE.SphereGeometry(0.045, 6, 6), []);
+
+  /* ── Animation loop ── */
+  useFrame((_, delta) => {
+    timeRef.current += delta;
+    const t = timeRef.current;
+
+    /* Float */
+    if (groupRef.current) {
+      groupRef.current.position.y = Math.sin(t * 0.65) * 0.04;
+    }
+
+    /* Sweep rotation (1.4 rad/s) */
+    sweepAngleRef.current += delta * 1.4;
+    if (sweepGroupRef.current) {
+      sweepGroupRef.current.rotation.y = sweepAngleRef.current;
+    }
+
+    /* Spawn blips */
+    if (Math.random() < 0.045) {
+      const slot = blipPool.current.findIndex(b => b.life <= 0);
+      if (slot >= 0) {
+        const a = sweepAngleRef.current + (Math.random() - 0.5) * 0.35;
+        const r = (0.28 + Math.random() * 0.62) * DISK_R;
+        blipPool.current[slot] = { x: r * Math.sin(a), z: r * Math.cos(a), life: 1.0 };
+      }
+    }
+
+    /* Age blips */
+    blipPool.current.forEach(b => { if (b.life > 0) b.life -= delta * 0.7; });
+
+    /* Sync blip meshes */
+    if (blipsGroupRef.current) {
+      blipsGroupRef.current.children.forEach((child, i) => {
+        const b = blipPool.current[i];
+        const mesh = child as THREE.Mesh;
+        const mat = mesh.material as THREE.MeshBasicMaterial;
+        if (b !== undefined && b.life > 0) {
+          mesh.position.set(b.x, 0.09, b.z);
+          mat.opacity = b.life * 0.92;
+        } else {
+          mat.opacity = 0;
+        }
+      });
+    }
+  });
 
   return (
-    <div className="search-progress-container">
-      <svg viewBox="0 0 100 115" className="search-svg" role="img" aria-label="Searching data">
-        <defs>
-          <filter id="srch-bloom" x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="1.6" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          <clipPath id="srch-clip">
-            <circle cx={CX} cy={CY} r={R} />
-          </clipPath>
-        </defs>
+    /* Tilt to show dish face — 50° toward viewer */
+    <group ref={groupRef} rotation={[-0.88, 0.25, 0]}>
 
-        {/* Black background */}
-        <rect x="0" y="0" width="100" height="115" fill="#000" />
+      {/* ── Base plate ── */}
+      <group position={[0, -0.98, 0]}>
+        <mesh>
+          <boxGeometry args={[0.78, 0.11, 0.78]} />
+          <meshBasicMaterial color={CYAN} transparent opacity={0.1} toneMapped={false} />
+        </mesh>
+        <lineSegments geometry={baseEdges}>
+          <lineBasicMaterial color={CYAN} transparent opacity={0.5} />
+        </lineSegments>
+      </group>
 
-        {/* Interior grid */}
-        <g clipPath="url(#srch-clip)" opacity="0.10">
-          {[-18, -9, 0, 9, 18].map((d: number) => (
-            <React.Fragment key={d}>
-              <line x1={CX + d} y1={CY - R} x2={CX + d} y2={CY + R} stroke={COLOR} strokeWidth="0.5" />
-              <line x1={CX - R} y1={CY + d} x2={CX + R} y2={CY + d} stroke={COLOR} strokeWidth="0.5" />
-            </React.Fragment>
+      {/* ── Pedestal ── */}
+      <group position={[0, -0.7, 0]}>
+        <mesh>
+          <cylinderGeometry args={[0.11, 0.17, 0.52, 8]} />
+          <meshBasicMaterial color={CYAN} transparent opacity={0.12} toneMapped={false} />
+        </mesh>
+        <lineSegments geometry={pedestalEdges}>
+          <lineBasicMaterial color={CYAN} transparent opacity={0.5} />
+        </lineSegments>
+      </group>
+
+      {/* ── Disk platter ── */}
+      <group position={[0, -0.38, 0]}>
+        <mesh>
+          <cylinderGeometry args={[DISK_R, DISK_R, 0.16, 48]} />
+          <meshBasicMaterial color={CYAN} transparent opacity={0.1} toneMapped={false} />
+        </mesh>
+        <lineSegments geometry={diskEdges}>
+          <lineBasicMaterial color={CYAN} transparent opacity={0.55} />
+        </lineSegments>
+
+        {/* Surface rings + sectors */}
+        <lineSegments geometry={diskSurfaceGeo}>
+          <lineBasicMaterial color={CYAN} transparent opacity={0.22} />
+        </lineSegments>
+
+        {/* Center hub */}
+        <mesh position={[0, 0.09, 0]}>
+          <sphereGeometry args={[0.07, 8, 8]} />
+          <meshBasicMaterial color={CYAN} transparent opacity={0.9} toneMapped={false} />
+        </mesh>
+
+        {/* Sweep group — rotates around Y */}
+        <group ref={sweepGroupRef} position={[0, 0.09, 0]}>
+          <lineSegments geometry={sweepLineGeo}>
+            <lineBasicMaterial color={CYAN} transparent opacity={0.95} />
+          </lineSegments>
+          <lineSegments geometry={sweepTrailGeo}>
+            <lineBasicMaterial color={CYAN} transparent opacity={0.28} />
+          </lineSegments>
+        </group>
+
+        {/* Blip pool */}
+        <group ref={blipsGroupRef}>
+          {Array.from({ length: BLIP_SLOTS }, (_, i) => (
+            <mesh key={i} geometry={blipGeo} position={[0, 0.09, 0]}>
+              <meshBasicMaterial color={CYAN} transparent opacity={0} toneMapped={false} />
+            </mesh>
           ))}
-        </g>
-
-        {/* Range rings (faint) */}
-        {[R * 0.35, R * 0.68].map((r: number, i: number) => (
-          <circle key={i} cx={CX} cy={CY} r={r} fill="none" stroke={COLOR} strokeWidth="0.4" opacity="0.18" />
-        ))}
-
-        {/* Sweep trail + sweep line + blips (clipped to lens) */}
-        <g clipPath="url(#srch-clip)" filter="url(#srch-bloom)">
-          {/* Sweep fill (fan-shaped glow) */}
-          <path d={arcD} fill="none" stroke={COLOR} strokeWidth="20" opacity="0.10" strokeLinecap="butt" />
-          {/* Sweep line */}
-          <line x1={CX} y1={CY} x2={sweepX} y2={sweepY} stroke={COLOR} strokeWidth="1.1" opacity="0.9" />
-          {/* Center dot */}
-          <circle cx={CX} cy={CY} r="1.8" fill={COLOR} opacity="0.85" />
-          {/* Blips */}
-          {blips.map((b: Blip, i: number) => {
-            const bx: number = CX + b.dist * R * Math.cos(b.angle);
-            const by: number = CY + b.dist * R * Math.sin(b.angle);
-            return (
-              <circle key={i} cx={bx} cy={by} r={2.8 * b.life} fill={COLOR} opacity={b.life * 0.85} />
-            );
-          })}
-        </g>
-
-        {/* Lens outline */}
-        <circle cx={CX} cy={CY} r={R} fill="none" stroke={COLOR} strokeWidth="2" filter="url(#srch-bloom)" />
-
-        {/* Crosshairs extending past lens */}
-        <line x1={CX - R - 5} y1={CY} x2={CX + R + 5} y2={CY} stroke={COLOR} strokeWidth="0.7" opacity="0.25" />
-        <line x1={CX} y1={CY - R - 5} x2={CX} y2={CY + R + 5} stroke={COLOR} strokeWidth="0.7" opacity="0.25" />
-
-        {/* Handle */}
-        <line x1={hx1} y1={hy1} x2={hx2} y2={hy2}
-          stroke={COLOR} strokeWidth="3.5" strokeLinecap="round" filter="url(#srch-bloom)" />
-      </svg>
-      <div className="search-progress-label">{label}</div>
-    </div>
+        </group>
+      </group>
+    </group>
   );
-};
+}
+
+export const SearchProgress: React.FC<SearchProgressProps> = ({ label = 'Searching...' }) => (
+  <div className="search-progress-container">
+    <div className="qprog-canvas">
+      <QueryScene cameraZ={4.8} cameraY={1.2} fov={48}>
+        <SonarConsole />
+      </QueryScene>
+    </div>
+    <div className="search-progress-label">{label}</div>
+  </div>
+);

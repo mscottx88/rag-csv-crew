@@ -9,20 +9,6 @@
   width: 100%;
 }
 
-.process-svg {
-  flex: 1;
-  min-height: 150px;
-  max-height: 480px;
-  width: auto;
-  max-width: 100%;
-  display: block;
-  overflow: visible;
-  filter:
-    drop-shadow(0 0 8px #00eeff)
-    drop-shadow(0 0 24px #00eeff88)
-    drop-shadow(0 0 52px #00eeff44);
-}
-
 .process-progress-label {
   margin-top: 0.55rem;
   font-size: 1.2rem;

@@ -1,198 +1,288 @@
 /**
- * ProcessProgress Component
- * A wireframe data table with rows filling in one by one — each cell receives
- * a random value as a "cursor" moves across the grid. Completed rows flash cyan.
- * Represents the "processing result rows" phase.
+ * ProcessProgress — 3D accounting tabulator for "Processing rows..." phase.
+ * Inspired by the IBM 407 Accounting Machine.
+ *
+ * Features: wide box chassis, 8 rotating counter drum wheels visible
+ * through front-panel cutouts (each drum spins at a different rate to
+ * simulate counting), paper feed rollers at the top, paper strip emerging
+ * upward, operator panel with cycle counter display, and activity LEDs.
+ *
  * Color: cyan (#00eeff)
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useMemo } from 'react';
+import { useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
+import { QueryScene } from './QueryScene';
 import './ProcessProgress.css';
 
 interface ProcessProgressProps {
   label?: string;
 }
 
-const COLOR: string = '#00eeff';
-const COLS: number = 4;
-const ROWS: number = 5;
+const CYAN = '#00eeff';
 
-// Table layout
-const TBL_LEFT: number = 8;
-const TBL_TOP: number = 12;
-const CELL_W: number = 21;
-const CELL_H: number = 16;
-const TBL_RIGHT: number = TBL_LEFT + COLS * CELL_W;
-const TBL_BOT: number = TBL_TOP + ROWS * CELL_H;
+/* ── Machine dimensions ── */
+const MW = 2.4;
+const MH = 1.6;
+const MD = 1.0;
 
-// Column header labels
-const HEADERS: readonly string[] = ['ID', 'NAME', 'VAL', 'SUM'];
+const DRUM_COUNT = 8;
+const DRUM_R = 0.11;
+const DRUM_H = 0.18;
 
-// Pool of random cell values
-const VALUES: readonly string[] = [
-  '147', 'ABC', '3.14', '988', 'XYZ', '0.72', '521',
-  'DEF', '12.5', '007', 'GHI', '8.01', '404', 'JKL',
-];
+/* ── IBM 407 Tabulator 3D object ── */
+function Tabulator(): React.JSX.Element {
+  const groupRef = useRef<THREE.Group>(null);
+  const drumsRef = useRef<THREE.Group>(null);
+  const paperRef = useRef<THREE.Mesh>(null);
+  const ledsRef = useRef<THREE.Group>(null);
+  const timeRef = useRef(0);
 
-function randVal(): string {
-  return VALUES[Math.floor(Math.random() * VALUES.length)] ?? '?';
-}
+  /* Individual drum speed multipliers (prime-ish to avoid sync) */
+  const drumSpeeds = useMemo(() => [1.0, 1.7, 2.3, 3.1, 1.4, 2.7, 1.9, 3.5], []);
 
-interface CellData {
-  value: string;
-  filled: boolean;
-  flash: number; // 1=just filled, fades to 0
-}
+  /* ── Precomputed geometries ── */
 
-export const ProcessProgress: React.FC<ProcessProgressProps> = ({ label = 'Processing...' }) => {
-  // Current cursor position (advances through cells row by row)
-  const cursorRef = useRef<number>(0); // 0 to COLS*ROWS-1
-  const cellsRef = useRef<CellData[]>(
-    Array.from({ length: COLS * ROWS }, (): CellData => ({ value: '', filled: false, flash: 0 }))
+  const bodyEdges = useMemo(
+    () => new THREE.EdgesGeometry(new THREE.BoxGeometry(MW, MH, MD)),
+    [],
   );
-  const tickCountRef = useRef<number>(0);
-  const rafRef = useRef<number>(0);
-  const [, tick] = useState<number>(0);
 
-  useEffect(() => {
-    const loop = (): void => {
-      tickCountRef.current += 1;
+  /* Drum wheel geometry */
+  const drumEdges = useMemo(
+    () => new THREE.EdgesGeometry(new THREE.CylinderGeometry(DRUM_R, DRUM_R, DRUM_H, 12)),
+    [],
+  );
 
-      // Decay flash values
-      cellsRef.current = cellsRef.current.map((c: CellData): CellData =>
-        c.flash > 0 ? { ...c, flash: c.flash - 0.035 } : c
-      );
-
-      // Advance cursor every ~18 frames
-      if (tickCountRef.current % 18 === 0) {
-        const idx: number = cursorRef.current;
-        const updated: CellData[] = [...cellsRef.current];
-        updated[idx] = { value: randVal(), filled: true, flash: 1 };
-        cellsRef.current = updated;
-        cursorRef.current = (idx + 1) % (COLS * ROWS);
-
-        // When we wrap around, reset all cells for a fresh pass
-        if (cursorRef.current === 0) {
-          cellsRef.current = Array.from(
-            { length: COLS * ROWS },
-            (): CellData => ({ value: '', filled: false, flash: 0 })
-          );
-        }
-      }
-
-      tick((n: number) => n + 1);
-      rafRef.current = requestAnimationFrame(loop);
-    };
-    rafRef.current = requestAnimationFrame(loop);
-    return (): void => { cancelAnimationFrame(rafRef.current); };
+  /* Digit lines on each drum face (10 marks = 10 digits) */
+  const drumFaceGeo = useMemo(() => {
+    const verts: number[] = [];
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      /* Short radial tick on top face */
+      const r0 = DRUM_R * 0.55;
+      const r1 = DRUM_R * 0.9;
+      verts.push(r0 * Math.cos(a), DRUM_H / 2, r0 * Math.sin(a));
+      verts.push(r1 * Math.cos(a), DRUM_H / 2, r1 * Math.sin(a));
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    return geo;
   }, []);
 
-  const cells: CellData[] = cellsRef.current;
-  const cursor: number = cursorRef.current;
+  /* Drum cutout frames on front panel */
+  const drumFramesGeo = useMemo(() => {
+    const verts: number[] = [];
+    const fz = MD / 2 + 0.01;
+    const drumSpacing = (MW - 0.4) / DRUM_COUNT;
+    const cy = 0.15;
+
+    for (let i = 0; i < DRUM_COUNT; i++) {
+      const cx = -MW / 2 + 0.2 + i * drumSpacing + drumSpacing / 2;
+      const hw = DRUM_R + 0.02;
+      const hh = DRUM_R + 0.02;
+      verts.push(cx - hw, cy - hh, fz, cx + hw, cy - hh, fz);
+      verts.push(cx + hw, cy - hh, fz, cx + hw, cy + hh, fz);
+      verts.push(cx + hw, cy + hh, fz, cx - hw, cy + hh, fz);
+      verts.push(cx - hw, cy + hh, fz, cx - hw, cy - hh, fz);
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    return geo;
+  }, []);
+
+  /* Paper feed roller (horizontal cylinder at top of machine) */
+  const rollerEdges = useMemo(
+    () => new THREE.EdgesGeometry(new THREE.CylinderGeometry(0.06, 0.06, MW - 0.3, 12, 1, false, 0, Math.PI * 2)),
+    [],
+  );
+
+  /* Operator panel display window (right side) */
+  const displayGeo = useMemo(() => {
+    const verts: number[] = [];
+    const fz = MD / 2 + 0.01;
+    const cx = MW / 2 - 0.3;
+    const cy = -0.3;
+    const hw = 0.22;
+    const hh = 0.12;
+    verts.push(cx - hw, cy - hh, fz, cx + hw, cy - hh, fz);
+    verts.push(cx + hw, cy - hh, fz, cx + hw, cy + hh, fz);
+    verts.push(cx + hw, cy + hh, fz, cx - hw, cy + hh, fz);
+    verts.push(cx - hw, cy + hh, fz, cx - hw, cy - hh, fz);
+    /* Divider lines inside (4 digit slots) */
+    for (let i = 1; i <= 3; i++) {
+      const x = cx - hw + i * (hw * 2 / 4);
+      verts.push(x, cy - hh, fz, x, cy + hh, fz);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    return geo;
+  }, []);
+
+  /* Side panel detail lines */
+  const sidePanelGeo = useMemo(() => {
+    const verts: number[] = [];
+    const sx = MW / 2 + 0.01;
+    const halfD = MD / 2 - 0.1;
+    for (let i = 0; i < 5; i++) {
+      const y = -0.6 + i * 0.3;
+      verts.push(sx, y, -halfD, sx, y, halfD);
+      verts.push(-sx, y, -halfD, -sx, y, halfD);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    return geo;
+  }, []);
+
+  /* Base plate */
+  const baseEdges = useMemo(
+    () => new THREE.EdgesGeometry(new THREE.BoxGeometry(MW + 0.22, 0.09, MD + 0.1)),
+    [],
+  );
+
+  /* LED geometry */
+  const ledGeo = useMemo(() => new THREE.SphereGeometry(0.024, 6, 6), []);
+
+  /* ── Animation loop ── */
+  useFrame((_, delta) => {
+    timeRef.current += delta;
+    const t = timeRef.current;
+
+    /* Float + slow rotation */
+    if (groupRef.current) {
+      groupRef.current.position.y = Math.sin(t * 0.62) * 0.04;
+      groupRef.current.rotation.y = Math.sin(t * 0.17) * 0.2;
+    }
+
+    /* Drums spin at individual rates */
+    if (drumsRef.current) {
+      drumsRef.current.children.forEach((drum, i) => {
+        drum.rotation.y += delta * (drumSpeeds[i] ?? 1.0) * 2.2;
+      });
+    }
+
+    /* Paper rises — oscillates upward then snaps back */
+    if (paperRef.current) {
+      const rise = ((t * 0.4) % 1.0);
+      paperRef.current.position.y = MH / 2 + 0.25 + rise * 0.5;
+      paperRef.current.scale.y = 0.5 + rise * 1.5;
+    }
+
+    /* Activity LEDs */
+    if (ledsRef.current) {
+      ledsRef.current.children.forEach((child, i) => {
+        const phase = t * 3.0 + i * 0.55;
+        const mat = (child as THREE.Mesh).material as THREE.MeshBasicMaterial;
+        mat.opacity = 0.4 + Math.abs(Math.sin(phase)) * 0.55;
+      });
+    }
+  });
+
+  const fz = MD / 2 + 0.01;
+  const drumSpacing = (MW - 0.4) / DRUM_COUNT;
+  const drumCY = 0.15;
 
   return (
-    <div className="process-progress-container">
-      <svg viewBox="0 0 100 115" className="process-svg" role="img" aria-label="Processing result rows">
-        <defs>
-          <filter id="proc-bloom" x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="1.4" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
+    <group ref={groupRef}>
 
-        <rect x="0" y="0" width="100" height="115" fill="#000" />
+      {/* ── Base plate ── */}
+      <group position={[0, -MH / 2 - 0.045, 0]}>
+        <mesh>
+          <boxGeometry args={[MW + 0.22, 0.09, MD + 0.1]} />
+          <meshBasicMaterial color={CYAN} transparent opacity={0.1} toneMapped={false} />
+        </mesh>
+        <lineSegments geometry={baseEdges}>
+          <lineBasicMaterial color={CYAN} transparent opacity={0.5} />
+        </lineSegments>
+      </group>
 
-        <g filter="url(#proc-bloom)">
-          {/* Column headers */}
-          {HEADERS.map((h: string, ci: number) => {
-            const cx: number = TBL_LEFT + ci * CELL_W + CELL_W / 2;
-            return (
-              <g key={ci}>
-                <rect
-                  x={TBL_LEFT + ci * CELL_W} y={TBL_TOP - CELL_H}
-                  width={CELL_W} height={CELL_H}
-                  fill="rgba(0,238,255,0.12)" stroke={COLOR} strokeWidth="0.7"
-                />
-                <text x={cx} y={TBL_TOP - CELL_H / 2}
-                  fontFamily="'Courier New', Courier, monospace"
-                  fontSize="4" fill={COLOR} textAnchor="middle" dominantBaseline="middle"
-                  fontWeight="bold"
-                >
-                  {h}
-                </text>
-              </g>
-            );
-          })}
+      {/* ── Main body ── */}
+      <mesh>
+        <boxGeometry args={[MW, MH, MD]} />
+        <meshBasicMaterial color={CYAN} transparent opacity={0.07} toneMapped={false} />
+      </mesh>
+      <lineSegments geometry={bodyEdges}>
+        <lineBasicMaterial color={CYAN} transparent opacity={0.55} />
+      </lineSegments>
 
-          {/* Data cells */}
-          {Array.from({ length: ROWS }, (_: unknown, ri: number) =>
-            Array.from({ length: COLS }, (_2: unknown, ci: number) => {
-              const idx: number = ri * COLS + ci;
-              const cell: CellData = cells[idx]!;
-              const isCursor: boolean = idx === cursor;
-              const cx: number = TBL_LEFT + ci * CELL_W + CELL_W / 2;
-              const cy: number = TBL_TOP + ri * CELL_H + CELL_H / 2;
-              const flashAlpha: number = Math.max(0, cell.flash);
+      {/* ── Counter drum cutout frames ── */}
+      <lineSegments geometry={drumFramesGeo}>
+        <lineBasicMaterial color={CYAN} transparent opacity={0.45} />
+      </lineSegments>
 
-              return (
-                <g key={idx}>
-                  {/* Cell background */}
-                  <rect
-                    x={TBL_LEFT + ci * CELL_W} y={TBL_TOP + ri * CELL_H}
-                    width={CELL_W} height={CELL_H}
-                    fill={
-                      isCursor
-                        ? `rgba(0,238,255,0.18)`
-                        : flashAlpha > 0
-                          ? `rgba(0,238,255,${flashAlpha * 0.15})`
-                          : 'rgba(0,0,0,0)'
-                    }
-                    stroke={COLOR}
-                    strokeWidth={isCursor ? 1 : 0.5}
-                    opacity={isCursor ? 1 : 0.3}
-                  />
-                  {/* Cell value */}
-                  {cell.filled && (
-                    <text
-                      x={cx} y={cy}
-                      fontFamily="'Courier New', Courier, monospace"
-                      fontSize="3.6"
-                      fill={COLOR}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      opacity={0.5 + flashAlpha * 0.5}
-                    >
-                      {cell.value}
-                    </text>
-                  )}
-                  {/* Cursor blink */}
-                  {isCursor && (
-                    <rect
-                      x={cx - 0.6} y={cy - 4}
-                      width="1.2" height="7"
-                      fill={COLOR}
-                      opacity="0.9"
-                    />
-                  )}
-                </g>
-              );
-            })
-          )}
+      {/* ── Counter drums (individual groups, each spins) ── */}
+      <group ref={drumsRef}>
+        {Array.from({ length: DRUM_COUNT }, (_, i) => {
+          const cx = -MW / 2 + 0.2 + i * drumSpacing + drumSpacing / 2;
+          return (
+            <group key={i} position={[cx, drumCY, fz + 0.01]} rotation={[Math.PI / 2, 0, 0]}>
+              <mesh>
+                <cylinderGeometry args={[DRUM_R, DRUM_R, DRUM_H, 12]} />
+                <meshBasicMaterial color={CYAN} transparent opacity={0.14} toneMapped={false} />
+              </mesh>
+              <lineSegments geometry={drumEdges}>
+                <lineBasicMaterial color={CYAN} transparent opacity={0.6} />
+              </lineSegments>
+              <lineSegments geometry={drumFaceGeo}>
+                <lineBasicMaterial color={CYAN} transparent opacity={0.35} />
+              </lineSegments>
+            </group>
+          );
+        })}
+      </group>
 
-          {/* Row count label below table */}
-          <text
-            x={TBL_LEFT + (TBL_RIGHT - TBL_LEFT) / 2} y={TBL_BOT + 9}
-            fontFamily="'Courier New', Courier, monospace"
-            fontSize="3.8" fill={COLOR} textAnchor="middle" opacity="0.4"
+      {/* ── Paper feed roller (at top) ── */}
+      <group position={[0, MH / 2 - 0.12, fz + 0.06]} rotation={[0, 0, Math.PI / 2]}>
+        <mesh>
+          <cylinderGeometry args={[0.06, 0.06, MW - 0.3, 12]} />
+          <meshBasicMaterial color={CYAN} transparent opacity={0.2} toneMapped={false} />
+        </mesh>
+        <lineSegments geometry={rollerEdges}>
+          <lineBasicMaterial color={CYAN} transparent opacity={0.55} />
+        </lineSegments>
+      </group>
+
+      {/* ── Paper strip emerging from top ── */}
+      <mesh ref={paperRef} position={[0, MH / 2 + 0.25, fz + 0.015]}>
+        <boxGeometry args={[MW * 0.7, 0.5, 0.01]} />
+        <meshBasicMaterial color={CYAN} transparent opacity={0.12} toneMapped={false} side={THREE.DoubleSide} />
+      </mesh>
+
+      {/* ── Operator display window ── */}
+      <lineSegments geometry={displayGeo}>
+        <lineBasicMaterial color={CYAN} transparent opacity={0.45} />
+      </lineSegments>
+
+      {/* ── Side panel detail ── */}
+      <lineSegments geometry={sidePanelGeo}>
+        <lineBasicMaterial color={CYAN} transparent opacity={0.2} />
+      </lineSegments>
+
+      {/* ── Activity LEDs ── */}
+      <group ref={ledsRef}>
+        {Array.from({ length: 5 }, (_, i) => (
+          <mesh
+            key={i}
+            geometry={ledGeo}
+            position={[-MW / 2 + 0.2 + i * 0.22, -MH / 2 + 0.18, fz + 0.01]}
           >
-            {cursor} rows processed
-          </text>
-        </g>
-      </svg>
-      <div className="process-progress-label">{label}</div>
-    </div>
+            <meshBasicMaterial color={CYAN} transparent opacity={0.6} toneMapped={false} />
+          </mesh>
+        ))}
+      </group>
+    </group>
   );
-};
+}
+
+export const ProcessProgress: React.FC<ProcessProgressProps> = ({ label = 'Processing rows...' }) => (
+  <div className="process-progress-container">
+    <div className="qprog-canvas">
+      <QueryScene cameraZ={5.0} fov={50}>
+        <Tabulator />
+      </QueryScene>
+    </div>
+    <div className="process-progress-label">{label}</div>
+  </div>
+);

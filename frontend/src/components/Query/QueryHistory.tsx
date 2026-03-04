@@ -57,6 +57,12 @@ export const QueryHistory: React.FC<QueryHistoryProps> = ({ refresh = 0 }) => {
     const nextId: string | null = expandedId === query.id ? null : query.id;
     setExpandedId(nextId);
 
+    // Stop any active replay when the expanded item changes (explicit collapse or switch to another)
+    if (expandedId !== null) {
+      stopReplay();
+      setReplayingId(null);
+    }
+
     // Fetch full query details (with response) when expanding, if not cached
     if (nextId && !detailCache[nextId]) {
       setDetailLoading(nextId);
@@ -229,19 +235,35 @@ export const QueryHistory: React.FC<QueryHistoryProps> = ({ refresh = 0 }) => {
                   <div className="history-item-actions">
                     {renderStatusBadge(query.status)}
                     {query.status === 'completed' && (
-                      <button
-                        className={`replay-button ${replayingId === query.id ? 'replaying' : ''}`}
-                        onClick={(e): void => handleReplay(query, e)}
-                        title={replayingId === query.id ? 'Stop replay' : 'Replay execution'}
-                        aria-label={`Replay query: ${query.query_text}`}
-                      >
-                        <svg className="replay-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M1.5 1.5 A5 5 0 1 1 1 6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none" />
-                          <path d="M1.5 1.5 L3.5 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-                          <path d="M1.5 1.5 L1.5 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-                        </svg>
-                        {replayingId === query.id ? 'Stop' : 'Replay'}
-                      </button>
+                      replayingId === query.id ? (
+                        /* ── Stop button (active during replay) ── */
+                        <button
+                          className="vcr-btn vcr-btn-stop"
+                          onClick={(e): void => { e.stopPropagation(); stopReplay(); setReplayingId(null); }}
+                          title="Stop replay"
+                          aria-label="Stop replay"
+                        >
+                          <svg width="10" height="10" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="2" y="2" width="8" height="8" rx="0.5" stroke="currentColor" strokeWidth="1.2" fill="none" />
+                          </svg>
+                          STOP
+                        </button>
+                      ) : (
+                        /* ── Replay trigger button (idle state) ── */
+                        <button
+                          className="replay-button"
+                          onClick={(e): void => handleReplay(query, e)}
+                          title="Replay execution"
+                          aria-label={`Replay query: ${query.query_text}`}
+                        >
+                          <svg className="replay-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M1.5 1.5 A5 5 0 1 1 1 6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none" />
+                            <path d="M1.5 1.5 L3.5 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                            <path d="M1.5 1.5 L1.5 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                          </svg>
+                          Replay
+                        </button>
+                      )
                     )}
                     <button
                       className="rerun-button"
@@ -278,6 +300,7 @@ export const QueryHistory: React.FC<QueryHistoryProps> = ({ refresh = 0 }) => {
                     <div className="history-detail-loading">Loading details...</div>
                   ) : replayingId === query.id && replayState.isReplaying ? (
                     <ResultDisplay
+                      key={replayState.replayKey}
                       query={{
                         ...(detailCache[query.id] || query),
                         status: 'processing' as QueryStatus,
