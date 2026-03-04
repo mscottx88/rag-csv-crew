@@ -11,6 +11,7 @@ Constitutional Requirements:
 """
 
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
@@ -19,6 +20,7 @@ from backend.src.crew.tasks import create_vector_search_task
 
 
 @pytest.mark.unit
+@patch.dict("os.environ", {"OPENAI_API_KEY": "sk-fake-key-for-testing"})
 class TestVectorSearchAgent:
     """Unit tests for Vector Search agent (T103)."""
 
@@ -94,9 +96,7 @@ class TestVectorSearchAgent:
         dataset_ids: list[str] = ["dataset-1", "dataset-2"]
 
         task: Any = create_vector_search_task(
-            agent=agent,
-            query_text=query_text,
-            dataset_ids=dataset_ids
+            agent=agent, query_text=query_text, dataset_ids=dataset_ids
         )
 
         # Verify task configuration
@@ -179,9 +179,7 @@ class TestVectorSearchAgent:
         agent: Any = create_vector_search_agent()
 
         task: Any = create_vector_search_task(
-            agent=agent,
-            query_text="product information",
-            dataset_ids=["dataset-1"]
+            agent=agent, query_text="product information", dataset_ids=["dataset-1"]
         )
 
         # Verify task expects similarity-scored output

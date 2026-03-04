@@ -1,6 +1,8 @@
 /**
  * Query Page
- * Natural language query interface with result display
+ * Natural language query interface with result display.
+ * Swaps between QueryInput and ResultDisplay — result area replaces
+ * the input form and is internally scrollable.
  */
 
 import React, { useState } from 'react';
@@ -55,6 +57,11 @@ export const Query: React.FC = () => {
     }
   };
 
+  const handleBack = (): void => {
+    setCurrentQuery(null);
+    setIsPolling(false);
+  };
+
   return (
     <div className="query-page">
       <h1>Query Your Data</h1>
@@ -63,15 +70,32 @@ export const Query: React.FC = () => {
         and display the results.
       </p>
 
-      <QueryInput
-        onSubmit={(query) => void handleQuerySubmit(query)}
-        isProcessing={isPolling}
-        onCancel={() => void handleCancel()}
-        initialQueryText={state?.queryText}
-        initialDatasetIds={state?.datasetIds}
-      />
-
-      {currentQuery && <ResultDisplay query={currentQuery} onCancel={isPolling ? handleCancel : undefined} />}
+      {currentQuery ? (
+        <div className="query-result-view">
+          {!isPolling && (
+            <button
+              className="back-button"
+              onClick={handleBack}
+              title="Back to query input"
+              aria-label="Back to query input"
+            >
+              <svg className="back-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9 2 L3.5 7 L9 12" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+              </svg>
+              New Query
+            </button>
+          )}
+          <ResultDisplay query={currentQuery} onCancel={isPolling ? handleCancel : undefined} />
+        </div>
+      ) : (
+        <QueryInput
+          onSubmit={(query) => void handleQuerySubmit(query)}
+          isProcessing={isPolling}
+          onCancel={() => void handleCancel()}
+          initialQueryText={state?.queryText}
+          initialDatasetIds={state?.datasetIds}
+        />
+      )}
     </div>
   );
 };

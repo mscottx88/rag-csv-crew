@@ -1,0 +1,25 @@
+.upload-page {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.upload-page h1 {
+  margin: 0 0 0.5rem 0;
+  color: var(--green);
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 10px var(--green-dim);
+}
+
+.upload-page > .page-description {
+  margin: 0 0 1.5rem 0;
+  color: var(--txt-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  font-family: 'Courier New', Courier, monospace;
+}

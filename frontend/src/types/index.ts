@@ -65,6 +65,11 @@ export interface QueryResponse {
   data_snapshot?: unknown;
 }
 
+export interface TimelineEntry {
+  elapsed_ms: number;
+  message: string;
+}
+
 export interface Query {
   id: string;
   query_text: string;
@@ -78,6 +83,7 @@ export interface Query {
   generated_sql?: string | null;
   response?: QueryResponse;
   progress_message?: string | null;
+  progress_timeline?: TimelineEntry[] | null;
   agent_logs?: string | null;
 }
 
@@ -97,6 +103,22 @@ export interface QueryExample {
   id: string;
   text: string;
   description: string;
+}
+
+// ============================================================================
+// Dataset Inspector Types
+// ============================================================================
+
+export interface DatasetRowsResponse {
+  dataset_id: string;
+  table_name: string;
+  columns: string[];
+  column_types: Record<string, string>;
+  rows: (string | number | boolean | null)[][];
+  total_row_count: number;
+  offset: number;
+  limit: number;
+  has_more: boolean;
 }
 
 // ============================================================================

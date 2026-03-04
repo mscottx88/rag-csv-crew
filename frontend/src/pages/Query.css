@@ -1,39 +1,131 @@
 .query-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   padding: 2rem;
-  max-width: 1400px;
-  margin: 0 auto;
-  overflow: visible;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .query-page h1 {
   margin: 0 0 0.5rem 0;
-  color: #1a202c;
-  font-size: 2rem;
+  color: var(--cyan);
+  font-size: clamp(1.5rem, 3vw, 2rem);
   font-weight: 700;
-  letter-spacing: -0.025em;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 10px var(--cyan-dim);
+  flex-shrink: 0;
 }
 
 .page-description {
-  margin: 0 0 2rem 0;
-  color: #718096;
-  font-size: 1rem;
+  margin: 0 0 1.5rem 0;
+  color: var(--txt-muted);
+  font-size: 0.9rem;
   line-height: 1.6;
+  font-family: 'Courier New', Courier, monospace;
+  flex-shrink: 0;
 }
 
-/* Visual separator between input and results */
-.query-page .result-display {
-  margin-top: 3rem;
-  position: relative;
+/* ── Query input — allow scroll when form is tall ── */
+.query-page > .query-input {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
-.query-page .result-display::before {
-  content: '';
-  position: absolute;
-  top: -1.5rem;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100px;
-  height: 4px;
-  background: linear-gradient(90deg, transparent, #667eea, transparent);
+/* ── Scrollbar — cyan (for query-input overflow) ── */
+.query-page > .query-input::-webkit-scrollbar {
+  width: 8px;
+}
+
+.query-page > .query-input::-webkit-scrollbar-track {
+  background: var(--bg-dim);
+}
+
+.query-page > .query-input::-webkit-scrollbar-thumb {
+  background: rgba(0, 238, 255, 0.25);
+  border-radius: 4px;
+}
+
+.query-page > .query-input::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 238, 255, 0.45);
+}
+
+/* ── Result view wrapper — fills remaining space ── */
+.query-result-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 0.75rem;
+}
+
+/* ── Back button — neon cyan wireframe ── */
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  align-self: flex-start;
+  padding: 0.4rem 0.9rem;
+  background: transparent;
+  color: var(--cyan);
+  border: 1px solid var(--cyan);
   border-radius: 2px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.back-icon {
+  filter: drop-shadow(0 0 3px var(--cyan)) drop-shadow(0 0 6px rgba(0, 238, 255, 0.3));
+  transition: filter 0.2s ease;
+}
+
+.back-button:hover {
+  background: rgba(0, 238, 255, 0.08);
+  box-shadow: 0 0 10px rgba(0, 238, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.back-button:hover .back-icon {
+  filter: drop-shadow(0 0 5px var(--cyan)) drop-shadow(0 0 12px rgba(0, 238, 255, 0.5));
+}
+
+.back-button:active {
+  transform: translateY(0);
+}
+
+/* ── Result display inside result view — fills space, scrolls, cyan glow ── */
+.query-result-view .result-display {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border-color: var(--cyan);
+  box-shadow: 0 0 16px var(--cyan-dim), 0 0 4px rgba(0, 238, 255, 0.1);
+  margin-top: 0;
+}
+
+/* ── Scrollbar — cyan (result display) ── */
+.query-result-view .result-display::-webkit-scrollbar {
+  width: 8px;
+}
+
+.query-result-view .result-display::-webkit-scrollbar-track {
+  background: var(--bg-dim);
+}
+
+.query-result-view .result-display::-webkit-scrollbar-thumb {
+  background: rgba(0, 238, 255, 0.25);
+  border-radius: 4px;
+}
+
+.query-result-view .result-display::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 238, 255, 0.45);
 }

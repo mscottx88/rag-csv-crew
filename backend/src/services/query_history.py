@@ -10,8 +10,8 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
-import json
 from datetime import UTC, datetime
+import json
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -29,13 +29,20 @@ class QueryHistoryService:
         """
         self.pool: ConnectionPool = pool
 
-    def store_query(self, query_text: str, username: str, status: str = "pending") -> UUID:
+    def store_query(
+        self,
+        query_text: str,
+        username: str,
+        status: str = "pending",
+        dataset_ids: list[str] | None = None,
+    ) -> UUID:
         """Store a new query in the database.
 
         Args:
             query_text: Natural language question
             username: Username for schema context
             status: Initial query status (default: "pending")
+            dataset_ids: Optional list of dataset UUID strings
 
         Returns:
             UUID of the created query
@@ -44,16 +51,17 @@ class QueryHistoryService:
         """
         query_id: UUID = uuid4()
         user_schema: str = f"{username}_schema"
+        dataset_ids_json: str | None = json.dumps(dataset_ids) if dataset_ids else None
 
         with self.pool.connection() as conn, conn.cursor() as cur:
             cur.execute(f"SET search_path TO {user_schema}, public")
 
             cur.execute(
                 """
-                    INSERT INTO queries (id, query_text, status, submitted_at)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO queries (id, query_text, status, submitted_at, dataset_ids)
+                    VALUES (%s, %s, %s, %s, %s::jsonb)
                     """,
-                (query_id, query_text, status, datetime.now(UTC)),
+                (query_id, query_text, status, datetime.now(UTC), dataset_ids_json),
             )
             conn.commit()
 
@@ -71,6 +79,7 @@ class QueryHistoryService:
         execution_time_ms: int | None = None,
         progress_message: str | None = None,
         agent_logs: str | None = None,
+        progress_timeline: str | None = None,
     ) -> None:
         """Update query status and optional fields.
 
@@ -84,6 +93,7 @@ class QueryHistoryService:
             execution_time_ms: Optional execution time in milliseconds
             progress_message: Optional progress message for current step
             agent_logs: Optional CrewAI agent reasoning and activity logs
+            progress_timeline: Optional JSON string of timestamped progress entries
         """
         user_schema: str = f"{username}_schema"
         completed_at: datetime | None = datetime.now(UTC) if status == "completed" else None
@@ -104,7 +114,8 @@ class QueryHistoryService:
                         result_count = %s,
                         execution_time_ms = %s,
                         progress_message = %s,
-                        agent_logs = %s
+                        agent_logs = %s,
+                        progress_timeline = %s::jsonb
                     WHERE id = %s
                     """,
                 (
@@ -116,14 +127,13 @@ class QueryHistoryService:
                     execution_time_ms,
                     progress_message,
                     agent_logs,
+                    progress_timeline,
                     query_id,
                 ),
             )
             conn.commit()
 
-    def update_progress_message(
-        self, query_id: UUID, username: str, progress_message: str
-    ) -> None:
+    def update_progress_message(self, query_id: UUID, username: str, progress_message: str) -> None:
         """Update only the progress message for a query.
 
         Args:
@@ -168,7 +178,7 @@ class QueryHistoryService:
                 """
                     SELECT id, query_text, submitted_at, completed_at, status,
                            generated_sql, result_count, execution_time_ms, progress_message,
-                           agent_logs
+                           agent_logs, progress_timeline, dataset_ids
                     FROM queries
                     WHERE id = %s
                     """,
@@ -191,6 +201,8 @@ class QueryHistoryService:
                 "execution_time_ms": row[7],
                 "progress_message": row[8],
                 "agent_logs": row[9],
+                "progress_timeline": row[10],
+                "dataset_ids": row[11],
             }
 
     def store_response(  # pylint: disable=too-many-positional-arguments
@@ -307,7 +319,11 @@ class QueryHistoryService:
 
     def get_query_history(  # pylint: disable=too-many-locals
         # TODO(pylint-refactor): Extract helper methods to reduce local variables (e.g., build_query, fetch_results)  # pylint: disable=line-too-long
-        self, username: str, page: int = 1, page_size: int = 50, status: str | None = None
+        self,
+        username: str,
+        page: int = 1,
+        page_size: int = 50,
+        status: str | None = None,
     ) -> dict[str, Any]:
         """Retrieve paginated query history.
 
@@ -339,7 +355,7 @@ class QueryHistoryService:
             query_sql: str = f"""
                     SELECT id, query_text, submitted_at, completed_at, status,
                            generated_sql, result_count, execution_time_ms, progress_message,
-                           agent_logs
+                           agent_logs, progress_timeline, dataset_ids
                     FROM queries
                     {where_clause}
                     ORDER BY submitted_at DESC
@@ -360,6 +376,8 @@ class QueryHistoryService:
                     "execution_time_ms": row[7],
                     "progress_message": row[8],
                     "agent_logs": row[9],
+                    "progress_timeline": row[10],
+                    "dataset_ids": row[11],
                 }
                 for row in rows
             ]

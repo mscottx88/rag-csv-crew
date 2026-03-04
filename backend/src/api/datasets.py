@@ -15,6 +15,7 @@ Constitutional Requirements:
 
 from io import BytesIO, StringIO
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from fastapi.responses import JSONResponse
@@ -22,23 +23,30 @@ from fastapi.security import HTTPBearer
 from psycopg import sql
 from psycopg_pool import ConnectionPool
 
-from src.api.dependencies import check_rate_limit
-from src.api.utils import get_pool_with_error_handling
-from src.db.connection import DatabaseConnectionPool
-from src.models.dataset import ColumnSchema, Dataset, DatasetList
-from src.services.column_metadata import ColumnMetadataService
-from src.services.ingestion import (  # pylint: disable=import-outside-toplevel
+from backend.src.api.dependencies import check_rate_limit
+from backend.src.api.utils import get_pool_with_error_handling
+from backend.src.db.connection import DatabaseConnectionPool
+from backend.src.models.dataset import ColumnSchema, Dataset, DatasetList
+from backend.src.services.column_metadata import ColumnMetadataService
+from backend.src.services.index_manager import (
+    IndexCreationError,
+    create_embedding_indexes,
+    create_indexes_for_dataset,
+    identify_qualifying_columns,
+)
+from backend.src.services.ingestion import (  # pylint: disable=import-outside-toplevel
     check_filename_conflict,
     create_dataset_table,
     detect_csv_format,
     detect_csv_schema,
     generate_column_embeddings,
     ingest_csv_data,
+    sanitize_column_name,
     store_column_mappings,
     store_dataset_metadata,
 )
-from src.utils.csv_validator import CSVValidationError, CSVValidator
-from src.utils.logging import get_structured_logger, log_event
+from backend.src.utils.csv_validator import CSVValidationError, CSVValidator
+from backend.src.utils.logging import get_structured_logger, log_event
 
 # Initialize router and logger
 router: APIRouter = APIRouter(prefix="/datasets", tags=["Datasets"])
@@ -204,9 +212,9 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
                 detail="Failed to check filename conflict",
             ) from e
 
-        # Detect CSV format
+        # Detect CSV format (csv_file_bytes already declared above; recreated here for format detection)
         try:
-            csv_file_bytes: BytesIO = BytesIO(file_content)
+            csv_file_bytes = BytesIO(file_content)
             format_info: dict[str, Any] = detect_csv_format(csv_file_bytes)
         except Exception as e:
             log_event(
@@ -318,8 +326,9 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
             col_type_upper: str = col["type"].upper()
             normalized_type: str = type_mapping.get(col_type_upper, "text")  # Default to text
 
+            sanitized_name: str = sanitize_column_name(col["name"])
             normalized_col: dict[str, Any] = {
-                "name": col["name"],
+                "name": sanitized_name,
                 "inferred_type": normalized_type,
                 "nullable": col.get("nullable", False),
             }
@@ -376,6 +385,149 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
                 detail=f"Failed to ingest CSV data: {e!s}",
             ) from e
 
+        # Create indexes for dataset (REQUIRED per FR-013 — failure blocks upload)
+        try:
+            # Build column list for index creation using sanitized names
+            index_columns: list[dict[str, str]] = [
+                {
+                    "name": sanitize_column_name(col["name"]),
+                    "type": col["type"].upper(),
+                }
+                for col in schema["columns"]
+            ]
+
+            log_event(
+                logger=logger,
+                level="info",
+                event="index_creation_start",
+                user=username,
+                extra={
+                    "dataset_id": dataset_id,
+                    "table_name": table_name,
+                    "column_count": len(index_columns),
+                },
+            )
+
+            create_indexes_for_dataset(
+                conn,
+                username,
+                dataset_id,
+                table_name,
+                index_columns,
+            )
+
+            log_event(
+                logger=logger,
+                level="info",
+                event="index_creation_success",
+                user=username,
+                extra={
+                    "dataset_id": dataset_id,
+                    "table_name": table_name,
+                },
+            )
+
+            # P2: Identify qualifying columns and generate embeddings
+            text_col_names: list[str] = [
+                c["name"] for c in index_columns if c.get("type", "").upper() == "TEXT"
+            ]
+            if text_col_names:
+                qualifying: list[str] = identify_qualifying_columns(
+                    conn,
+                    username,
+                    table_name,
+                    text_col_names,
+                )
+                if qualifying:
+                    log_event(
+                        logger=logger,
+                        level="info",
+                        event="embedding_generation_start",
+                        user=username,
+                        extra={
+                            "dataset_id": dataset_id,
+                            "qualifying_columns": qualifying,
+                        },
+                    )
+                    create_embedding_indexes(
+                        conn,
+                        username,
+                        dataset_id,
+                        table_name,
+                        qualifying,
+                    )
+                    log_event(
+                        logger=logger,
+                        level="info",
+                        event="embedding_generation_success",
+                        user=username,
+                        extra={
+                            "dataset_id": dataset_id,
+                            "qualifying_columns": qualifying,
+                        },
+                    )
+        except IndexCreationError as ice:
+            # Per FR-016: drop data table, delete metadata, return HTTP 500
+            log_event(
+                logger=logger,
+                level="error",
+                event="index_creation_failed",
+                user=username,
+                extra={
+                    "dataset_id": dataset_id,
+                    "failed_index": ice.failed_index,
+                    "partial_count": len(ice.partial_results),
+                    "error": str(ice),
+                },
+            )
+            # Cleanup: drop data table and delete dataset metadata
+            # Rollback first — PostgreSQL aborts all commands after a failed
+            # statement until the transaction is rolled back.
+            try:
+                conn.rollback()
+                with conn.cursor() as cur:
+                    cur.execute(f"DROP TABLE IF EXISTS" f" {username}_schema.{table_name} CASCADE")
+                    cur.execute(
+                        f"DELETE FROM {username}_schema.datasets" f" WHERE id = %s",
+                        (dataset_id,),
+                    )
+                conn.commit()
+            except Exception:  # pylint: disable=broad-exception-caught
+                # JUSTIFICATION: Cleanup is best-effort after primary failure
+                pass
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=(f"Index creation failed on {ice.failed_index}: " f"{ice!s}"),
+            ) from ice
+        except Exception as e:
+            log_event(
+                logger=logger,
+                level="error",
+                event="index_creation_failed",
+                user=username,
+                extra={
+                    "dataset_id": dataset_id,
+                    "error": str(e),
+                },
+            )
+            # Cleanup: drop data table and delete dataset metadata
+            try:
+                conn.rollback()
+                with conn.cursor() as cur:
+                    cur.execute(f"DROP TABLE IF EXISTS" f" {username}_schema.{table_name} CASCADE")
+                    cur.execute(
+                        f"DELETE FROM {username}_schema.datasets" f" WHERE id = %s",
+                        (dataset_id,),
+                    )
+                conn.commit()
+            except Exception:  # pylint: disable=broad-exception-caught
+                # JUSTIFICATION: Cleanup is best-effort after primary failure
+                pass
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Index creation failed: {e!s}",
+            ) from e
+
         # Store column mappings (REQUIRED - must succeed for dataset to be functional)
         try:
             underlying_pool_for_columns: ConnectionPool | None = pool._pool  # pylint: disable=protected-access
@@ -414,10 +566,12 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
             if underlying_pool_metadata is None:
                 raise RuntimeError("Connection pool not initialized")
 
-            metadata_service: ColumnMetadataService = ColumnMetadataService(underlying_pool_metadata)
+            metadata_service: ColumnMetadataService = ColumnMetadataService(
+                underlying_pool_metadata
+            )
             metadata_result: dict[str, Any] = metadata_service.compute_and_store_metadata(
                 username=username,
-                dataset_id=dataset_id,
+                dataset_id=UUID(dataset_id),
                 table_name=table_name,
             )
 
@@ -483,7 +637,7 @@ def upload_dataset(  # pylint: disable=too-many-locals,too-many-branches,too-man
             if underlying_pool_for_xref is None:
                 raise RuntimeError("Connection pool not initialized")
 
-            from src.services.ingestion import (  # pylint: disable=import-outside-toplevel
+            from backend.src.services.ingestion import (  # pylint: disable=import-outside-toplevel
                 IngestionService,
             )
 
@@ -819,7 +973,7 @@ def get_dataset(
 
 
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
-    # pylint: disable=redundant-returns-doc
+# pylint: disable=redundant-returns-doc
 def delete_dataset(
     response: Response,
     dataset_id: str,
@@ -889,7 +1043,9 @@ def delete_dataset(
 
             # Drop the data table (T208-POLISH: SQL injection prevention)
             with conn.cursor() as cur:
-                drop_sql: sql.Composed = sql.SQL("DROP TABLE IF EXISTS {schema}.{table} CASCADE").format(
+                drop_sql: sql.Composed = sql.SQL(
+                    "DROP TABLE IF EXISTS {schema}.{table} CASCADE"
+                ).format(
                     schema=sql.Identifier(f"{username}_schema"),
                     table=sql.Identifier(table_name),
                 )

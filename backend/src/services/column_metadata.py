@@ -19,6 +19,8 @@ from uuid import UUID
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
+from backend.src.db.migrations import add_column_metadata_table
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 
@@ -489,6 +491,11 @@ class ColumnMetadataService:
             table_name,
             dataset_id,
         )
+
+        # Ensure column_metadata table exists (idempotent migration for schemas
+        # created before this feature was added)
+        with self.pool.connection() as ensure_conn:
+            add_column_metadata_table(ensure_conn, username)
 
         # Get column names from table
         column_names: list[str] = self._get_column_names(username, table_name)

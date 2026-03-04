@@ -26,9 +26,9 @@ from psycopg import Connection, sql
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
-from src.services.column_metadata import ColumnMetadataService
-from src.services.vector_search import VectorSearchService
-from src.utils.logging import get_structured_logger, log_error, log_event
+from backend.src.services.column_metadata import ColumnMetadataService
+from backend.src.services.vector_search import VectorSearchService
+from backend.src.utils.logging import get_structured_logger, log_event
 
 # Get logger for file operations (T202-POLISH)
 logger = get_structured_logger(__name__)
@@ -138,13 +138,15 @@ def detect_csv_schema(csv_file: StringIO, sample_size: int = 1000) -> dict[str, 
         # Empty file or no header
         return {"columns": []}
 
-    # Initialize column metadata
+    # Initialize column metadata.
+    # Default nullable=True: schema is inferred from a sample only, so nulls
+    # beyond the sample window would cause NOT NULL violations at ingest time.
     column_stats: dict[str, dict[str, Any]] = {}
     for col_name in fieldnames:
         column_stats[col_name] = {
             "name": col_name,
             "type": "TEXT",  # Default to TEXT
-            "nullable": False,
+            "nullable": True,
             "types_seen": set(),
             "null_count": 0,
             "total_count": 0,
@@ -163,8 +165,7 @@ def detect_csv_schema(csv_file: StringIO, sample_size: int = 1000) -> dict[str, 
             column_stats[col_name]["total_count"] += 1
 
             if not value:
-                # Empty value → nullable
-                column_stats[col_name]["nullable"] = True
+                # Empty value — column is already nullable by default
                 column_stats[col_name]["null_count"] += 1
                 continue
 
@@ -226,7 +227,7 @@ def _infer_value_type(value: str) -> str:
         # Check for date patterns: YYYY-MM-DD, MM/DD/YYYY, etc.
         try:
             # Try common date formats
-            from dateutil import parser  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
+            from dateutil import parser  # pylint: disable=import-outside-toplevel
 
             parsed: datetime = parser.parse(value)
             if parsed:
@@ -330,7 +331,7 @@ def create_dataset_table(  # pylint: disable=too-many-locals
     )
 
     # Build CREATE TABLE statement using psycopg.sql for SQL injection protection
-    column_defs: list[sql.SQL] = [
+    column_defs: list[sql.Composable] = [
         sql.SQL("_row_id BIGSERIAL PRIMARY KEY"),
         sql.SQL("_dataset_id UUID NOT NULL"),
         sql.SQL("_ingested_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()"),
@@ -343,14 +344,14 @@ def create_dataset_table(  # pylint: disable=too-many-locals
         col_nullable: bool = col.get("nullable", True)
 
         # Sanitize column name
-        safe_col_name: str = _sanitize_column_name(col_name)
+        safe_col_name: str = sanitize_column_name(col_name)
 
         # Map inferred type to PostgreSQL type
         pg_type: str = _map_to_postgres_type(col_type)
 
         # Build column definition using Identifier for column name
         nullable_clause: str = "" if col_nullable else " NOT NULL"
-        column_def: sql.SQL = sql.SQL("{col_name} {col_type}{nullable}").format(
+        column_def: sql.Composed = sql.SQL("{col_name} {col_type}{nullable}").format(
             col_name=sql.Identifier(safe_col_name),
             col_type=sql.SQL(pg_type),
             nullable=sql.SQL(nullable_clause),
@@ -475,16 +476,82 @@ def _sanitize_table_name(filename: str) -> str:
 # PostgreSQL reserved keywords that require quoting
 # Source: https://www.postgresql.org/docs/current/sql-keywords-appendix.html
 _SQL_RESERVED_KEYWORDS: set[str] = {
-    "all", "analyse", "analyze", "and", "any", "array", "as", "asc", "asymmetric",
-    "both", "case", "cast", "check", "collate", "column", "constraint", "create",
-    "current_catalog", "current_date", "current_role", "current_time",
-    "current_timestamp", "current_user", "default", "deferrable", "desc", "distinct",
-    "do", "else", "end", "except", "false", "fetch", "for", "foreign", "from",
-    "grant", "group", "having", "in", "initially", "intersect", "into", "lateral",
-    "leading", "limit", "localtime", "localtimestamp", "not", "null", "offset",
-    "on", "only", "or", "order", "placing", "primary", "references", "returning",
-    "select", "session_user", "some", "symmetric", "table", "then", "to", "trailing",
-    "true", "union", "unique", "user", "using", "variadic", "when", "where", "window",
+    "all",
+    "analyse",
+    "analyze",
+    "and",
+    "any",
+    "array",
+    "as",
+    "asc",
+    "asymmetric",
+    "both",
+    "case",
+    "cast",
+    "check",
+    "collate",
+    "column",
+    "constraint",
+    "create",
+    "current_catalog",
+    "current_date",
+    "current_role",
+    "current_time",
+    "current_timestamp",
+    "current_user",
+    "default",
+    "deferrable",
+    "desc",
+    "distinct",
+    "do",
+    "else",
+    "end",
+    "except",
+    "false",
+    "fetch",
+    "for",
+    "foreign",
+    "from",
+    "grant",
+    "group",
+    "having",
+    "in",
+    "initially",
+    "intersect",
+    "into",
+    "lateral",
+    "leading",
+    "limit",
+    "localtime",
+    "localtimestamp",
+    "not",
+    "null",
+    "offset",
+    "on",
+    "only",
+    "or",
+    "order",
+    "placing",
+    "primary",
+    "references",
+    "returning",
+    "select",
+    "session_user",
+    "some",
+    "symmetric",
+    "table",
+    "then",
+    "to",
+    "trailing",
+    "true",
+    "union",
+    "unique",
+    "user",
+    "using",
+    "variadic",
+    "when",
+    "where",
+    "window",
     "with",
 }
 
@@ -501,7 +568,7 @@ def _is_sql_reserved_keyword(name: str) -> bool:
     return name.lower() in _SQL_RESERVED_KEYWORDS
 
 
-def _sanitize_column_name(col_name: str) -> str:
+def sanitize_column_name(col_name: str) -> str:
     """Sanitize column name for PostgreSQL with comprehensive security checks.
 
     Handles special characters, Unicode, SQL keywords, length limits, and empty inputs.
@@ -518,13 +585,13 @@ def _sanitize_column_name(col_name: str) -> str:
         ValueError: If column name is empty or results in empty sanitized name
 
     Examples:
-        >>> _sanitize_column_name("Product ID")
+        >>> sanitize_column_name("Product ID")
         'product_id'
-        >>> _sanitize_column_name("group")
+        >>> sanitize_column_name("group")
         'group_col'
-        >>> _sanitize_column_name("2024_value")
+        >>> sanitize_column_name("2024_value")
         '_2024_value'
-        >>> _sanitize_column_name("Prénom")  # Unicode
+        >>> sanitize_column_name("Prénom")  # Unicode
         'prenom'
 
     Note:
@@ -545,9 +612,7 @@ def _sanitize_column_name(col_name: str) -> str:
     sanitized = sanitized.strip("_")
 
     if not sanitized:
-        raise ValueError(
-            f"Column name '{col_name}' results in empty name after sanitization"
-        )
+        raise ValueError(f"Column name '{col_name}' results in empty name after sanitization")
 
     # Ensure starts with letter or underscore (not number)
     if sanitized[0].isdigit():
@@ -663,7 +728,7 @@ def ingest_csv_data(  # pylint: disable=too-many-locals
         raise ValueError("CSV file has no columns")
 
     # Sanitize column names to match table
-    sanitized_columns: list[str] = [_sanitize_column_name(col) for col in fieldnames]
+    sanitized_columns: list[str] = [sanitize_column_name(col) for col in fieldnames]
 
     # Build COPY statement with column list using Identifier for SQL injection protection
     column_identifiers: list[sql.Identifier] = [sql.Identifier(col) for col in sanitized_columns]
@@ -935,7 +1000,7 @@ def store_column_mappings(
 
                     # Sanitize column name to match actual table column
                     # (tables use lowercase sanitized names)
-                    col_name_sanitized: str = _sanitize_column_name(col_name_original)
+                    col_name_sanitized: str = sanitize_column_name(col_name_original)
 
                     cur.execute(
                         insert_sql,
@@ -945,9 +1010,7 @@ def store_column_mappings(
             conn.commit()
 
     except Exception as e:
-        raise RuntimeError(
-            f"Failed to store column mappings for dataset {dataset_id}: {e}"
-        ) from e
+        raise RuntimeError(f"Failed to store column mappings for dataset {dataset_id}: {e}") from e
 
 
 def generate_column_embeddings(
@@ -987,7 +1050,7 @@ def generate_column_embeddings(
             metadata_service: ColumnMetadataService = ColumnMetadataService(pool)
             metadata_list: list[dict[str, Any]] = metadata_service.get_column_metadata(
                 username=username,
-                dataset_id=dataset_id,
+                dataset_id=uuid.UUID(dataset_id),
             )
             # Index metadata by column name for quick lookup
             metadata_by_column = {m["column_name"]: m for m in metadata_list}
@@ -1014,9 +1077,7 @@ def generate_column_embeddings(
 
             # Add numeric range context (min/max) for numeric columns
             if metadata.get("min_value") is not None and metadata.get("max_value") is not None:
-                enrichment_parts.append(
-                    f"range {metadata['min_value']} to {metadata['max_value']}"
-                )
+                enrichment_parts.append(f"range {metadata['min_value']} to {metadata['max_value']}")
 
             # Add cardinality context (distinct count)
             if metadata.get("distinct_count") is not None:
@@ -1114,9 +1175,7 @@ class IngestionService:
             pool=self.pool, username=username, dataset_id=dataset_id, columns=columns
         )
 
-    def detect_and_store_cross_references(
-        self, username: str, new_dataset_id: str
-    ) -> int:
+    def detect_and_store_cross_references(self, username: str, new_dataset_id: str) -> int:
         """Detect and store cross-references between new dataset and existing datasets.
 
         Args:
@@ -1129,7 +1188,7 @@ class IngestionService:
         Raises:
             RuntimeError: If cross-reference detection or storage fails
         """
-        from src.services.cross_reference import (  # pylint: disable=import-outside-toplevel
+        from backend.src.services.cross_reference import (  # pylint: disable=import-outside-toplevel
             CrossReferenceService,
         )
 
@@ -1155,22 +1214,18 @@ class IngestionService:
                 # Detect cross-references with each existing dataset
                 for (existing_dataset_id,) in existing_datasets:
                     # Check both directions
-                    refs_forward: list[dict[str, Any]] = (
-                        cross_ref_service.detect_cross_references(
-                            username=username,
-                            source_dataset_id=new_dataset_id,
-                            target_dataset_id=existing_dataset_id,
-                            min_confidence=0.3,
-                        )
+                    refs_forward: list[dict[str, Any]] = cross_ref_service.detect_cross_references(
+                        username=username,
+                        source_dataset_id=new_dataset_id,
+                        target_dataset_id=existing_dataset_id,
+                        min_confidence=0.3,
                     )
 
-                    refs_backward: list[dict[str, Any]] = (
-                        cross_ref_service.detect_cross_references(
-                            username=username,
-                            source_dataset_id=existing_dataset_id,
-                            target_dataset_id=new_dataset_id,
-                            min_confidence=0.3,
-                        )
+                    refs_backward: list[dict[str, Any]] = cross_ref_service.detect_cross_references(
+                        username=username,
+                        source_dataset_id=existing_dataset_id,
+                        target_dataset_id=new_dataset_id,
+                        min_confidence=0.3,
                     )
 
                     # Store detected references
@@ -1183,13 +1238,9 @@ class IngestionService:
             return total_refs
 
         except Exception as e:
-            raise RuntimeError(
-                f"Failed to detect cross-references: {e!s}"
-            ) from e
+            raise RuntimeError(f"Failed to detect cross-references: {e!s}") from e
 
-    def _store_cross_reference(
-        self, conn: Any, user_schema: str, ref: dict[str, Any]
-    ) -> None:
+    def _store_cross_reference(self, conn: Any, user_schema: str, ref: dict[str, Any]) -> None:
         """Store a single cross-reference in the database.
 
         Args:

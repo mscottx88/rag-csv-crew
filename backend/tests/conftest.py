@@ -18,7 +18,8 @@ import uuid
 from psycopg import Connection, sql
 from psycopg_pool import ConnectionPool
 import pytest
-from src.models.config import DatabaseConfig
+
+from backend.src.models.config import DatabaseConfig
 
 
 @pytest.fixture(scope="session")
@@ -137,10 +138,14 @@ def test_schema(db_pool: ConnectionPool, test_username: str) -> Generator[str]:
     with db_pool.connection() as conn:
         with conn.cursor() as cur:
             # Create schema
-            cur.execute(sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(sql.Identifier(schema_name)))  # pylint: disable=line-too-long
+            cur.execute(
+                sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(sql.Identifier(schema_name))
+            )  # pylint: disable=line-too-long
 
             # Create required tables in schema
-            cur.execute(sql.SQL("SET search_path TO {}, public").format(sql.Identifier(schema_name)))  # pylint: disable=line-too-long
+            cur.execute(
+                sql.SQL("SET search_path TO {}, public").format(sql.Identifier(schema_name))
+            )  # pylint: disable=line-too-long
 
             # Create datasets table
             cur.execute("""
@@ -213,9 +218,7 @@ def test_schema(db_pool: ConnectionPool, test_username: str) -> Generator[str]:
 
 
 @pytest.fixture
-def test_connection(
-    db_pool: ConnectionPool, test_schema: str
-) -> Generator[Connection[Any]]:
+def test_connection(db_pool: ConnectionPool, test_schema: str) -> Generator[Connection[Any]]:
     """Create test database connection with schema set.
 
     Provides a single connection for a test with search_path set to the test schema.
@@ -233,6 +236,8 @@ def test_connection(
     """
     with db_pool.connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(sql.SQL("SET search_path TO {}, public").format(sql.Identifier(test_schema)))  # pylint: disable=line-too-long
+            cur.execute(
+                sql.SQL("SET search_path TO {}, public").format(sql.Identifier(test_schema))
+            )  # pylint: disable=line-too-long
         yield conn
         # Auto-commit on test success (connection context manager handles this)

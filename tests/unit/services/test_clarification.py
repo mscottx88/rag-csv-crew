@@ -47,7 +47,7 @@ class TestClarificationGeneration:
         response: dict[str, Any] = generator.generate_html_response(
             query_text="show me financial data",
             query_results=ambiguous_results,
-            _query_id="test-query-id"
+            _query_id="test-query-id",
         )
 
         # Verify clarification generated
@@ -76,14 +76,12 @@ class TestClarificationGeneration:
         # Many ambiguous results
         ambiguous_results: dict[str, Any] = {
             "fused_results": [
-                {"column_name": f"column_{i}", "combined_score": 0.5 - i * 0.01}
-                for i in range(10)
+                {"column_name": f"column_{i}", "combined_score": 0.5 - i * 0.01} for i in range(10)
             ]
         }
 
         clarification: dict[str, Any] = generator.generate_clarification_request(
-            query_text="show data",
-            search_results=ambiguous_results
+            query_text="show data", search_results=ambiguous_results
         )
 
         # Verify limited number of alternatives (3-5)
@@ -117,9 +115,7 @@ class TestClarificationGeneration:
         }
 
         response: dict[str, Any] = generator.generate_html_response(
-            query_text="financial data",
-            query_results=ambiguous_results,
-            _query_id="test-query-id"
+            query_text="financial data", query_results=ambiguous_results, _query_id="test-query-id"
         )
 
         html_content: str = response["html_content"]
@@ -157,9 +153,7 @@ class TestClarificationGeneration:
         }
 
         response: dict[str, Any] = generator.generate_html_response(
-            query_text="financial data",
-            query_results=ambiguous_results,
-            _query_id="test-query-id"
+            query_text="financial data", query_results=ambiguous_results, _query_id="test-query-id"
         )
 
         plain_text: str = response["plain_text"]
@@ -191,8 +185,7 @@ class TestClarificationGeneration:
         }
 
         clarification: dict[str, Any] = generator.generate_clarification_request(
-            query_text="show me money",
-            search_results=ambiguous_results
+            query_text="show me money", search_results=ambiguous_results
         )
 
         # Verify refinement suggestions
@@ -226,9 +219,7 @@ class TestClarificationGeneration:
         }
 
         response: dict[str, Any] = generator.generate_html_response(
-            query_text="show revenue",
-            query_results=clear_results,
-            _query_id="test-query-id"
+            query_text="show revenue", query_results=clear_results, _query_id="test-query-id"
         )
 
         html_content: str = response["html_content"]
@@ -269,9 +260,7 @@ class TestClarificationGeneration:
         }
 
         response: dict[str, Any] = generator.generate_html_response(
-            query_text="revenue",
-            query_results=ambiguous_results,
-            _query_id="test-query-id"
+            query_text="revenue", query_results=ambiguous_results, _query_id="test-query-id"
         )
 
         html_content: str = response["html_content"]
@@ -298,14 +287,12 @@ class TestClarificationGeneration:
         """
         generator: ResponseGenerator = ResponseGenerator()
 
-        empty_results: dict[str, Any] = {
-            "fused_results": []
-        }
+        empty_results: dict[str, Any] = {"fused_results": []}
 
         response: dict[str, Any] = generator.generate_html_response(
             query_text="nonexistent_column_xyz",
             query_results=empty_results,
-            _query_id="test-query-id"
+            _query_id="test-query-id",
         )
 
         html_content: str = response["html_content"]
@@ -333,9 +320,7 @@ class TestClarificationGeneration:
         generator: ResponseGenerator = ResponseGenerator()
 
         marginal_results: dict[str, Any] = {
-            "fused_results": [
-                {"column_name": "revenue", "combined_score": 0.65}
-            ]
+            "fused_results": [{"column_name": "revenue", "combined_score": 0.65}]
         }
 
         # Default threshold (60%)
@@ -343,7 +328,7 @@ class TestClarificationGeneration:
             query_text="revenue",
             query_results=marginal_results,
             _query_id="test-query-id",
-            confidence_threshold=0.6
+            confidence_threshold=0.6,
         )
 
         # Stricter threshold (70%)
@@ -351,7 +336,7 @@ class TestClarificationGeneration:
             query_text="revenue",
             query_results=marginal_results,
             _query_id="test-query-id",
-            confidence_threshold=0.7
+            confidence_threshold=0.7,
         )
 
         # At 60%, should not trigger clarification

@@ -9,12 +9,16 @@ body {
     'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: var(--bg);
+  color: var(--txt);
 }
 
 .app-layout {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 1;
 }
 
 .app-main {
@@ -24,8 +28,9 @@ body {
 
 .app-content {
   flex: 1;
-  background-color: #f5f5f5;
-  min-height: calc(100vh - 64px);
-  overflow-y: auto;
-  overflow-x: visible;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: calc(100vh - 64px);
+  overflow: hidden;
 }

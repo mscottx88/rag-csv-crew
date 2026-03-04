@@ -68,6 +68,7 @@ COLUMN_MAPPINGS_EMBEDDING_INDEX_SQL: str = """
 CREATE INDEX IF NOT EXISTS idx_column_mappings_embedding
 ON {schema_name}.column_mappings
 USING hnsw (embedding vector_cosine_ops)
+WITH (m = 16, ef_construction = 64)
 """
 
 COLUMN_MAPPINGS_FULLTEXT_INDEX_SQL: str = """
@@ -107,13 +108,17 @@ QUERIES_TABLE_SQL: str = """
 CREATE TABLE IF NOT EXISTS {schema_name}.queries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     query_text TEXT NOT NULL,
+    dataset_ids JSONB,
     submitted_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     completed_at TIMESTAMP WITH TIME ZONE,
     status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'cancelled', 'timeout')),
     generated_sql TEXT,
+    query_params JSONB,
     result_count INTEGER,
     execution_time_ms INTEGER,
     progress_message TEXT,
+    progress_timeline JSONB,
+    agent_logs TEXT,
 
     CONSTRAINT positive_execution_time CHECK (execution_time_ms IS NULL OR execution_time_ms >= 0),
     CONSTRAINT positive_result_count CHECK (result_count IS NULL OR result_count >= 0)
@@ -182,4 +187,29 @@ COLUMN_METADATA_TOP_VALUES_INDEX_SQL: str = """
 CREATE INDEX IF NOT EXISTS idx_column_metadata_top_values
 ON {schema_name}.column_metadata
 USING GIN (top_values)
+"""
+
+INDEX_METADATA_TABLE_SQL: str = """
+CREATE TABLE IF NOT EXISTS {schema_name}.index_metadata (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    dataset_id UUID NOT NULL REFERENCES {schema_name}.datasets(id) ON DELETE CASCADE,
+    column_name VARCHAR(255) NOT NULL,
+    index_name VARCHAR(255) NOT NULL,
+    index_type VARCHAR(50) NOT NULL,
+    capability VARCHAR(50) NOT NULL,
+    generated_column_name VARCHAR(255),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    UNIQUE (dataset_id, column_name, index_type)
+)
+"""
+
+INDEX_METADATA_DATASET_INDEX_SQL: str = """
+CREATE INDEX IF NOT EXISTS idx_index_metadata_dataset
+ON {schema_name}.index_metadata (dataset_id)
+"""
+
+INDEX_METADATA_CAPABILITY_INDEX_SQL: str = """
+CREATE INDEX IF NOT EXISTS idx_index_metadata_capability
+ON {schema_name}.index_metadata (capability)
 """

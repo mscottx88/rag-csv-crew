@@ -12,23 +12,19 @@ This script:
 6. Reports overall accuracy score
 """
 
+from collections.abc import Generator
 import json
 import os
-import sys
 from pathlib import Path
 from typing import Any
 
-import pytest
 from psycopg_pool import ConnectionPool
+import pytest
 
-# Add backend to path
-backend_dir: Path = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(backend_dir))
-
-from src.models.config import DatabaseConfig
-from src.services.cross_reference import CrossReferenceService
-from src.services.ingestion import IngestionService
-from src.services.text_to_sql import TextToSQLService
+from backend.src.models.config import DatabaseConfig
+from backend.src.services.cross_reference import CrossReferenceService
+from backend.src.services.ingestion import IngestionService
+from backend.src.services.text_to_sql import TextToSQLService
 
 
 class CrossDatasetEvaluator:
@@ -103,9 +99,7 @@ class CrossDatasetEvaluator:
 
                 # Create data table
                 table_name: str = f"{dataset_name}_data"
-                columns_def: list[str] = [
-                    f'"{col}" TEXT' for col in dataset_info["columns"]
-                ]
+                columns_def: list[str] = [f'"{col}" TEXT' for col in dataset_info["columns"]]
                 columns_sql: str = ", ".join(columns_def)
 
                 cur.execute(
@@ -131,7 +125,7 @@ class CrossDatasetEvaluator:
                         INSERT INTO {table_name} (_dataset_id, {columns_str})
                         VALUES ({placeholders})
                         """,
-                        [dataset_id] + values,
+                        [dataset_id, *values],
                     )
 
             conn.commit()
@@ -151,13 +145,11 @@ class CrossDatasetEvaluator:
                 source_id: str = self.dataset_ids[source_name]
                 target_id: str = self.dataset_ids[target_name]
 
-                refs: list[dict[str, Any]] = (
-                    self.cross_ref_service.detect_cross_references(
-                        username=self.username,
-                        source_dataset_id=source_id,
-                        target_dataset_id=target_id,
-                        min_confidence=0.3,
-                    )
+                refs: list[dict[str, Any]] = self.cross_ref_service.detect_cross_references(
+                    username=self.username,
+                    source_dataset_id=source_id,
+                    target_dataset_id=target_id,
+                    min_confidence=0.3,
                 )
                 all_refs.extend(refs)
 
@@ -184,25 +176,21 @@ class CrossDatasetEvaluator:
         try:
             # Resolve relevant datasets
             resolved: list[str] = self.text_to_sql_service.resolve_datasets(
-                username=self.username,
+                _username=self.username,
                 query_text=query_text,
                 available_datasets=list(self.dataset_ids.keys()),
                 dataset_ids=None,  # Let system auto-detect
             )
 
             # Check if required datasets were identified
-            identified_all: bool = all(
-                ds in resolved for ds in required_datasets
-            )
+            identified_all: bool = all(ds in resolved for ds in required_datasets)
 
             # Get cross-references for JOIN context
             from uuid import UUID
 
             dataset_uuids: list[UUID] = [UUID(ds_id) for ds_id in dataset_ids]
-            cross_refs: list[dict[str, Any]] = (
-                self.text_to_sql_service.get_cross_references(
-                    username=self.username, dataset_ids=dataset_uuids
-                )
+            cross_refs: list[dict[str, Any]] = self.text_to_sql_service.get_cross_references(
+                username=self.username, dataset_ids=dataset_uuids
             )
 
             # Check if JOIN was detected (cross-references found)
@@ -241,13 +229,13 @@ def evaluation_data() -> dict[str, Any]:
         Parsed JSON data with questions and schema
     """
     fixture_path: Path = Path(__file__).parent.parent / "fixtures" / "cross_dataset_questions.json"
-    with open(fixture_path, "r", encoding="utf-8") as f:
+    with fixture_path.open(encoding="utf-8") as f:
         data: dict[str, Any] = json.load(f)
     return data
 
 
 @pytest.fixture
-def test_pool() -> ConnectionPool:
+def test_pool() -> Generator[ConnectionPool]:
     """Create test database connection pool.
 
     Returns:
@@ -286,7 +274,9 @@ def test_username() -> str:
 
 
 @pytest.fixture
-def evaluator(test_pool: ConnectionPool, test_username: str, evaluation_data: dict[str, Any]) -> CrossDatasetEvaluator:
+def evaluator(
+    test_pool: ConnectionPool, test_username: str, evaluation_data: dict[str, Any]
+) -> Generator[CrossDatasetEvaluator]:
     """Create and setup evaluator with test data.
 
     Args:
@@ -386,7 +376,9 @@ def evaluator(test_pool: ConnectionPool, test_username: str, evaluation_data: di
         conn.commit()
 
 
-def test_cross_dataset_accuracy(evaluator: CrossDatasetEvaluator, evaluation_data: dict[str, Any]) -> None:
+def test_cross_dataset_accuracy(
+    evaluator: CrossDatasetEvaluator, evaluation_data: dict[str, Any]
+) -> None:
     """Test SC-007: 75% accuracy on cross-dataset queries.
 
     Args:
@@ -413,7 +405,7 @@ def test_cross_dataset_accuracy(evaluator: CrossDatasetEvaluator, evaluation_dat
 
         print(f"{result['question_id']} ({result['difficulty']:6s}): {status}")
         if not result["passed"]:
-            print(f"  Issue: ", end="")
+            print("  Issue: ", end="")
             if not result["datasets_identified"]:
                 print("Failed to identify required datasets")
             elif not result["join_detected"]:
@@ -428,7 +420,7 @@ def test_cross_dataset_accuracy(evaluator: CrossDatasetEvaluator, evaluation_dat
     print(f"Passed: {passed_count}")
     print(f"Failed: {total_questions - passed_count}")
     print(f"Accuracy: {accuracy * 100:.1f}%")
-    print(f"SC-007 Threshold: 75.0%")
+    print("SC-007 Threshold: 75.0%")
 
     # Breakdown by difficulty
     by_difficulty: dict[str, dict[str, int]] = {}
@@ -443,7 +435,9 @@ def test_cross_dataset_accuracy(evaluator: CrossDatasetEvaluator, evaluation_dat
     print("\n--- By Difficulty ---")
     for difficulty, stats in sorted(by_difficulty.items()):
         diff_accuracy: float = stats["passed"] / stats["total"] if stats["total"] > 0 else 0.0
-        print(f"{difficulty.capitalize():8s}: {stats['passed']}/{stats['total']} ({diff_accuracy * 100:.1f}%)")
+        print(
+            f"{difficulty.capitalize():8s}: {stats['passed']}/{stats['total']} ({diff_accuracy * 100:.1f}%)"
+        )
 
     # Breakdown by category
     by_category: dict[str, dict[str, int]] = {}
@@ -465,9 +459,13 @@ def test_cross_dataset_accuracy(evaluator: CrossDatasetEvaluator, evaluation_dat
 
     threshold: float = evaluation_data["success_criteria"]["sc_007"]["threshold"]
     if accuracy >= threshold:
-        print(f"✓ SUCCESS: Accuracy {accuracy * 100:.1f}% meets SC-007 requirement (≥{threshold * 100:.1f}%)")
+        print(
+            f"✓ SUCCESS: Accuracy {accuracy * 100:.1f}% meets SC-007 requirement (≥{threshold * 100:.1f}%)"
+        )
     else:
-        print(f"✗ FAILURE: Accuracy {accuracy * 100:.1f}% below SC-007 requirement (≥{threshold * 100:.1f}%)")
+        print(
+            f"✗ FAILURE: Accuracy {accuracy * 100:.1f}% below SC-007 requirement (≥{threshold * 100:.1f}%)"
+        )
         print("\nRecommendations:")
         print("- Review failed questions for patterns")
         print("- Verify cross-reference detection accuracy")

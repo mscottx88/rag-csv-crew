@@ -54,7 +54,7 @@ class TestCrewOrchestration:
         orchestrator: TextToSQLOrchestrator = TextToSQLOrchestrator()
 
         result: dict[str, Any] = orchestrator.process_query(
-            query_text="Show me the top 10 rows", dataset_ids=[uuid4()], _username="testuser"
+            query_text="Show me the top 10 rows", dataset_ids=[uuid4()], username="testuser"
         )
 
         # Verify crew was executed
@@ -64,6 +64,7 @@ class TestCrewOrchestration:
         assert "generated_sql" in result
         assert "html_content" in result
 
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "sk-fake-key-for-testing"})
     @patch("backend.src.crew.agents.create_sql_generator_agent")
     @patch("backend.src.crew.agents.create_result_analyst_agent")
     def test_task_dependencies_enforced(
@@ -155,7 +156,7 @@ class TestCrewOrchestration:
 
         with pytest.raises(Exception) as exc_info:
             orchestrator.process_query(
-                query_text="Test query", dataset_ids=[uuid4()], _username="testuser"
+                query_text="Test query", dataset_ids=[uuid4()], username="testuser"
             )
 
         # Verify error is raised
@@ -203,7 +204,7 @@ class TestCrewOrchestration:
         orchestrator: TextToSQLOrchestrator = TextToSQLOrchestrator()
 
         result: dict[str, Any] = orchestrator.process_query(
-            query_text="Show me the data", dataset_ids=[uuid4()], _username="testuser"
+            query_text="Show me the data", dataset_ids=[uuid4()], username="testuser"
         )
 
         # Verify orchestration completed
@@ -243,7 +244,7 @@ class TestCrewOrchestration:
         def run_query(query_num: int) -> dict[str, Any]:
             """Run a single query."""
             return orchestrator.process_query(
-                query_text=f"Query {query_num}", dataset_ids=[uuid4()], _username="testuser"
+                query_text=f"Query {query_num}", dataset_ids=[uuid4()], username="testuser"
             )
 
         # Run multiple queries concurrently

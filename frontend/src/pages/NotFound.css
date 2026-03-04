@@ -4,6 +4,7 @@
   align-items: center;
   min-height: calc(100vh - 64px);
   padding: 2rem;
+  background: var(--bg);
 }
 
 .not-found-content {
@@ -11,36 +12,45 @@
 }
 
 .not-found-content h1 {
-  font-size: 6rem;
+  font-size: clamp(4rem, 12vw, 8rem);
   margin: 0;
-  color: #667eea;
+  color: var(--pink);
   font-weight: bold;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.1em;
+  text-shadow: 0 0 20px var(--pink), 0 0 40px var(--pink-dim);
 }
 
 .not-found-content h2 {
-  font-size: 2rem;
+  font-size: 1.5rem;
   margin: 0 0 1rem 0;
-  color: #333;
+  color: var(--txt-muted);
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.06em;
 }
 
 .not-found-content p {
-  font-size: 1.125rem;
+  font-size: 1rem;
   margin: 0 0 2rem 0;
-  color: #666;
+  color: var(--txt-dim);
 }
 
 .home-button {
   padding: 0.75rem 1.5rem;
-  background-color: #667eea;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  font-weight: 500;
+  background: transparent;
+  color: var(--pink);
+  border: 1px solid var(--pink);
+  border-radius: 2px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
 
 .home-button:hover {
-  background-color: #5568d3;
+  background: var(--pink-dim);
+  box-shadow: 0 0 16px var(--pink-dim);
 }

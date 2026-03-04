@@ -34,11 +34,19 @@ def start_backend(script_dir: Path) -> subprocess.Popen[bytes]:
         subprocess.SubprocessError: If backend fails to start
     """
     print("Starting backend server (FastAPI on http://localhost:8000)...")
-    backend_cwd: Path = script_dir / "backend"
+    backend_cwd: Path = script_dir
     # pylint: disable=consider-using-with
     # JUSTIFICATION: Process must remain open beyond this function scope for monitoring
     backend_process: subprocess.Popen[bytes] = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "src.main:app", "--reload", "--port", "8000"],
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "backend.src.main:app",
+            "--reload",
+            "--port",
+            "8000",
+        ],
         cwd=str(backend_cwd),
         # Inherit parent's stdout/stderr so output is displayed in console
     )
@@ -66,7 +74,7 @@ def start_frontend(script_dir: Path) -> subprocess.Popen[bytes]:
         ["npm", "run", "dev"],
         cwd=str(frontend_cwd),
         # Inherit parent's stdout/stderr so output is displayed in console
-        shell=True,  # Required for npm on Windows
+        shell=sys.platform == "win32",  # Required for npm on Windows
     )
     print(f"[OK] Frontend started (PID: {frontend_process.pid})")
     return frontend_process

@@ -62,13 +62,14 @@ dev = [
     "httpx>=0.26.0",  # FastAPI test client
 
     # Quality Tools
-    "ruff>=0.1.11",  # Linting and formatting
+    "ruff==0.8.4",  # Linting and formatting (pinned to match pre-commit hook version)
     "mypy>=1.8.0",  # Type checking
     "pylint>=3.0.3",  # Additional linting
 
     # Type Stubs
     "types-python-jose>=3.3.0",
     "types-passlib>=1.7.0",
+    "types-requests>=2.31.0",
 ]
 
 [project.scripts]
@@ -93,6 +94,7 @@ addopts = [
     "--cov-fail-under=80",
 ]
 testpaths = ["tests"]
+pythonpath = ["."]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -266,3 +268,8 @@ min-similarity-lines = 4
 ignore-comments = true
 ignore-docstrings = true
 ignore-imports = true
+
+[dependency-groups]
+dev = [
+    "types-python-dateutil>=2.9.0.20260124",
+]

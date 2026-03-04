@@ -17,7 +17,7 @@ from uuid import UUID
 from psycopg import sql
 from psycopg_pool import ConnectionPool
 
-from src.services.column_metadata import ColumnMetadataService
+from backend.src.services.column_metadata import ColumnMetadataService
 
 
 class SchemaInspectorService:

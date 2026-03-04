@@ -16,7 +16,7 @@ import uuid
 
 from jose import JWTError, jwt
 
-from src.utils.logging import get_structured_logger, log_error, log_event
+from backend.src.utils.logging import get_structured_logger, log_error, log_event
 
 # Get logger for authentication events (T201-POLISH)
 logger = get_structured_logger(__name__)

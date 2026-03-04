@@ -14,12 +14,11 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
+from collections.abc import Callable
 import io
 import re
 import sys
 import threading
-import time
-from collections.abc import Callable
 from typing import Any
 from uuid import UUID
 
@@ -27,33 +26,168 @@ from crewai import Crew
 from psycopg import sql
 from psycopg_pool import ConnectionPool
 
-from src.crew.agents import (
+from backend.src.crew.agents import (
     create_result_analyst_agent,
     create_schema_inspector_agent,
     create_sql_generator_agent,
 )
-from src.crew.tasks import (
+from backend.src.crew.tasks import (
     create_html_formatting_task,
     create_schema_inspection_task,
     create_sql_generation_task,
 )
-from src.crew.tools import (
+from backend.src.crew.tools import (
     get_sample_data_tool,
     inspect_schema_tool,
     list_datasets_tool,
     set_schema_inspector_context,
 )
-from src.services.schema_inspector import SchemaInspectorService
-from src.utils.logging import get_structured_logger, log_error, log_event
+from backend.src.models.fusion import StrategyDispatchPlan, StrategySQL, StrategyType
+from backend.src.models.index_metadata import DataColumnIndexProfile
+from backend.src.services.index_manager import build_index_context, get_index_profiles
+from backend.src.services.schema_inspector import SchemaInspectorService
+from backend.src.utils.logging import get_structured_logger, log_event
 
 # Get logger for query processing (T203-POLISH)
 logger = get_structured_logger(__name__)
 
+_VECTOR_PLACEHOLDER_PATTERN: re.Pattern[str] = re.compile(r"%s::vector")
+
+# Multi-strategy SQL block delimiter pattern (FR-016)
+_STRATEGY_BLOCK_PATTERN: re.Pattern[str] = re.compile(
+    r"---STRATEGY:\s*(\w+)\s*---\s*\n(.*?)\n\s*---END STRATEGY---",
+    re.DOTALL,
+)
+
+
+def _detect_vector_placeholders(generated_sql: str) -> bool:
+    """Detect %s::vector placeholders in generated SQL.
+
+    Args:
+        generated_sql: SQL string from the SQL generation agent.
+
+    Returns:
+        True if the SQL contains %s::vector placeholders.
+    """
+    return bool(_VECTOR_PLACEHOLDER_PATTERN.search(generated_sql))
+
+
+def _resolve_vector_params(
+    generated_sql: str,
+    query_text: str,
+) -> tuple[str, list[Any]]:
+    """Resolve %s::vector placeholders by generating runtime embeddings.
+
+    When the SQL agent generates SQL with vector similarity operators,
+    this function generates the query embedding and prepares the
+    parameters for execution.
+
+    Args:
+        generated_sql: SQL string with potential %s::vector placeholders.
+        query_text: Original natural language query text.
+
+    Returns:
+        Tuple of (resolved_sql, vector_params) where resolved_sql has
+        %s::vector replaced with %s and vector_params contains the
+        embedding vectors.
+    """
+    if not _detect_vector_placeholders(generated_sql):
+        return (generated_sql, [])
+
+    from backend.src.services.vector_search import (  # pylint: disable=import-outside-toplevel
+        VectorSearchService,
+    )
+    # JUSTIFICATION: VectorSearchService depends on external API keys; importing at
+    # module level causes import errors in test environments without API keys configured.
+
+    vs_service: VectorSearchService = VectorSearchService()
+    query_embedding: list[float] = vs_service.generate_embedding(query_text)
+
+    # Replace %s::vector with %s (psycopg handles the casting)
+    resolved_sql: str = _VECTOR_PLACEHOLDER_PATTERN.sub("%s", generated_sql)
+
+    # Count how many vector placeholders were replaced
+    match_count: int = len(_VECTOR_PLACEHOLDER_PATTERN.findall(generated_sql))
+    vector_params: list[list[float]] = [query_embedding] * match_count
+
+    return (resolved_sql, vector_params)
+
+
+def parse_multi_strategy_sql(
+    raw_output: str,
+    query_text: str,
+) -> list[StrategySQL]:
+    """Parse labeled SQL blocks from LLM multi-strategy output.
+
+    Extracts blocks delimited by ---STRATEGY: name--- / ---END STRATEGY---
+    and creates StrategySQL objects. Invalid blocks are skipped (FR-020).
+
+    Args:
+        raw_output: Raw LLM output containing labeled SQL blocks.
+        query_text: Original query text for parameter extraction.
+
+    Returns:
+        List of parsed StrategySQL objects. May be fewer than
+        requested if blocks are malformed or have invalid names.
+    """
+    valid_strategy_names: set[str] = {s.value for s in StrategyType}
+    matches: list[tuple[str, str]] = _STRATEGY_BLOCK_PATTERN.findall(raw_output)
+
+    strategies: list[StrategySQL] = []
+    for strategy_name, sql_block in matches:
+        name_lower: str = strategy_name.strip().lower()
+
+        # Skip invalid strategy names (FR-020)
+        if name_lower not in valid_strategy_names:
+            logger.warning("Skipping invalid strategy name: %s", strategy_name)
+            continue
+
+        # Clean the SQL block
+        cleaned_sql: str = _clean_sql_block(sql_block.strip())
+
+        # Skip empty SQL blocks (FR-020)
+        if not cleaned_sql:
+            logger.warning("Skipping empty SQL for strategy: %s", name_lower)
+            continue
+
+        # Count %s placeholders for parameters
+        placeholder_count: int = cleaned_sql.count("%s")
+        params: list[str] = []
+        if placeholder_count > 0:
+            # Use query text as parameter value for all placeholders
+            params = [f"%{query_text}%"] * placeholder_count
+
+        strategies.append(
+            StrategySQL(
+                strategy_type=StrategyType(name_lower),
+                sql=cleaned_sql,
+                parameters=params,
+            )
+        )
+
+    return strategies
+
+
+def _clean_sql_block(sql_text: str) -> str:
+    """Clean a SQL block from LLM output.
+
+    Removes markdown code fences and extra whitespace.
+
+    Args:
+        sql_text: Raw SQL text from LLM output.
+
+    Returns:
+        Cleaned SQL string.
+    """
+    # Remove markdown code block markers
+    cleaned: str = re.sub(r"```(?:sql)?\s*", "", sql_text)
+    cleaned = re.sub(r"```\s*$", "", cleaned)
+    # Strip whitespace
+    return cleaned.strip()
+
 
 def _execute_crew_with_progress(
-    crew: Crew,
-    progress_callback: Callable[[str], None] | None,
-    progress_messages: list[str]
+    crew: Crew, progress_callback: Callable[[str], None] | None, progress_messages: list[str]
 ) -> tuple[Any, str]:
     """Execute CrewAI crew with periodic progress updates and capture agent logs.
 
@@ -579,14 +713,25 @@ class TextToSQLService:
         errors: list[str] = []
         corrections: dict[str, str] = {}
 
+        # Extract CTE names from WITH ... AS clauses so we don't flag them as missing tables
+        cte_pattern: str = r"\bWITH\s+(?:RECURSIVE\s+)?(\w+)\s+AS\s*\("
+        cte_continuation_pattern: str = r"\)\s*,\s*(\w+)\s+AS\s*\("
+        cte_names: set[str] = set()
+        for cte_match in re.finditer(cte_pattern, sql_query, re.IGNORECASE):
+            cte_names.add(cte_match.group(1).lower())
+        for cte_match in re.finditer(cte_continuation_pattern, sql_query, re.IGNORECASE):
+            cte_names.add(cte_match.group(1).lower())
+
         # Extract table names from SQL (FROM and JOIN clauses)
         # Simplified regex - matches table names after FROM or JOIN
         table_pattern: str = r"\b(?:FROM|JOIN)\s+([a-z_][a-z0-9_]*)"
         referenced_tables: list[str] = re.findall(table_pattern, sql_query, re.IGNORECASE)
 
-        # Check each referenced table
+        # Check each referenced table (skip CTE names — they're query-defined, not real tables)
         for table in referenced_tables:
             table_lower: str = table.lower()
+            if table_lower in cte_names:
+                continue
             if table_lower not in valid_tables:
                 errors.append(
                     f"Table '{table}' does not exist. Valid tables: {', '.join(valid_tables)}"
@@ -604,6 +749,7 @@ class TextToSQLService:
 
         # DEBUG: Log the pattern and SQL being validated
         import logging
+
         logger: logging.Logger = logging.getLogger(__name__)
         logger.info(f"[VALIDATION DEBUG] Using regex pattern: {column_pattern}")
         logger.info(f"[VALIDATION DEBUG] Validating SQL: {sql_query[:200]}")
@@ -659,6 +805,186 @@ class TextToSQLService:
             "corrections": corrections,
         }
 
+    # pylint: disable=too-many-locals,too-many-branches,too-many-statements
+    # JUSTIFICATION: Orchestration method coordinates schema context retrieval,
+    # index context building, CrewAI crew assembly, multi-strategy output
+    # parsing, retry on zero blocks, and fallback to single-strategy.
+    # Splitting would fragment the linear flow without meaningful benefit.
+    def generate_multi_strategy_sql(  # pylint: disable=too-many-positional-arguments
+        # TODO(pylint-refactor): Refactor to use config object or keyword-only args
+        self,
+        query_text: str,
+        username: str,
+        dataset_ids: list[UUID] | None,
+        search_results: dict[str, Any],
+        strategy_dispatch: StrategyDispatchPlan,
+        *,
+        progress_callback: Callable[[str], None] | None = None,
+    ) -> tuple[list[StrategySQL], str]:
+        """Generate SQL for multiple query strategies in a single LLM call.
+
+        Args:
+            query_text: The user's natural language query.
+            username: For schema isolation.
+            dataset_ids: Target datasets (None = all user datasets).
+            search_results: Column discovery results from hybrid search.
+            strategy_dispatch: Which strategies to generate SQL for.
+            progress_callback: Optional progress reporting callback.
+
+        Returns:
+            Tuple of (strategy_sqls, agent_logs).  strategy_sqls is a list of
+            StrategySQL objects, one per generated strategy, falling back to
+            single-strategy on total parse failure.  agent_logs is the captured
+            CrewAI stdout/stderr output for display in the UI.
+        """
+        if progress_callback:
+            progress_callback("Generating multi-strategy SQL...")
+
+        # Build schema context
+        schema_context: dict[str, Any] = self.get_schema_context(username, dataset_ids)
+        schema_description: str = "\n\nAVAILABLE SCHEMA (YOU MUST USE EXACTLY THESE NAMES):\n"
+        schema_description += "=" * 80 + "\n"
+        for table_name in schema_context["tables"]:
+            columns: list[str] = schema_context["columns"].get(table_name, [])
+            schema_description += f"\nTable: {table_name}\n"
+            schema_description += f"Columns: {', '.join(columns)}\n"
+        schema_description += "\n" + "=" * 80 + "\n"
+
+        # Build index context
+        index_context: str = ""
+        if self.pool is not None:
+            try:
+                table_names_map: dict[str, str] = {}
+                with (
+                    self.pool.connection() as idx_conn,
+                    idx_conn.cursor() as cur,
+                ):
+                    idx_schema: str = f"{username}_schema"
+                    cur.execute(
+                        sql.SQL("SET search_path TO {}, public").format(sql.Identifier(idx_schema))
+                    )
+                    if dataset_ids:
+                        ds_strs: list[str] = [str(d) for d in dataset_ids]
+                        cur.execute(
+                            "SELECT id::text, table_name FROM datasets WHERE id = ANY(%s)",
+                            (ds_strs,),
+                        )
+                    else:
+                        cur.execute("SELECT id::text, table_name FROM datasets")
+                    ds_rows: list[tuple[str, ...]] = cur.fetchall()
+                    for ds_row in ds_rows:
+                        table_names_map[str(ds_row[0])] = str(ds_row[1])
+
+                resolved_ids: list[str] = list(table_names_map.keys())
+                if resolved_ids:
+                    with self.pool.connection() as idx_conn_2:
+                        index_profiles: dict[str, list[DataColumnIndexProfile]] = (
+                            get_index_profiles(idx_conn_2, username, resolved_ids)
+                        )
+                    if index_profiles:
+                        index_context = build_index_context(index_profiles, table_names_map)
+            except Exception as idx_err:  # pylint: disable=broad-exception-caught
+                # JUSTIFICATION: Index context is enhancement, not critical.
+                log_event(
+                    logger=logger,
+                    level="warning",
+                    event="index_context_retrieval_failed",
+                    user=username,
+                    extra={"error": str(idx_err)},
+                )
+
+        # Create SQL generation task with multi-strategy dispatch
+        sql_agent: Any = create_sql_generator_agent()
+        task: Any = create_sql_generation_task(
+            agent=sql_agent,
+            query_text=query_text,
+            dataset_ids=dataset_ids,
+            search_results=search_results,
+            schema_context=schema_description,
+            index_context=index_context if index_context else None,
+            strategy_dispatch=strategy_dispatch,
+        )
+
+        crew: Crew = Crew(agents=[sql_agent], tasks=[task], verbose=False)
+
+        progress_messages: list[str] = [
+            "SQL Generator creating multi-strategy SQL...",
+            "Generating structured query strategy...",
+            "Generating search strategy variants...",
+            "Finalizing multi-strategy SQL blocks...",
+        ]
+
+        result: Any
+        agent_logs: str
+        result, agent_logs = _execute_crew_with_progress(
+            crew=crew,
+            progress_callback=progress_callback,
+            progress_messages=progress_messages,
+        )
+
+        raw_output: str = str(result.raw) if hasattr(result, "raw") else str(result)
+
+        if progress_callback:
+            progress_callback("Parsing multi-strategy SQL output...")
+
+        # Parse multi-strategy output (attempt 1)
+        strategy_sqls: list[StrategySQL] = parse_multi_strategy_sql(raw_output, query_text)
+
+        # Retry once on zero valid blocks (FR-016)
+        if not strategy_sqls:
+            log_event(
+                logger=logger,
+                level="warning",
+                event="multi_strategy_parse_failed_retry",
+                user=username,
+                extra={"attempt": 1},
+            )
+            if progress_callback:
+                progress_callback("Retrying multi-strategy SQL generation...")
+
+            retry_result: Any
+            retry_logs: str
+            retry_result, retry_logs = _execute_crew_with_progress(
+                crew=Crew(agents=[sql_agent], tasks=[task], verbose=False),
+                progress_callback=progress_callback,
+                progress_messages=progress_messages,
+            )
+            agent_logs += "\n" + retry_logs
+            raw_output = str(retry_result.raw) if hasattr(retry_result, "raw") else str(retry_result)
+            strategy_sqls = parse_multi_strategy_sql(raw_output, query_text)
+
+        # Fallback to single-strategy on double failure (FR-016)
+        if not strategy_sqls:
+            log_event(
+                logger=logger,
+                level="warning",
+                event="multi_strategy_fallback_single",
+                user=username,
+                extra={"reason": "zero_blocks_after_retry"},
+            )
+            if progress_callback:
+                progress_callback("Falling back to single-strategy SQL...")
+            fallback_result: dict[str, Any] = self.generate_sql(
+                query_text=query_text,
+                dataset_ids=dataset_ids,
+                username=username,
+                search_results=search_results,
+                use_schema_inspection=True,
+                progress_callback=progress_callback,
+            )
+            agent_logs = fallback_result["agent_logs"]
+            strategy_sqls = [
+                StrategySQL(
+                    strategy_type=StrategyType.STRUCTURED,
+                    sql=fallback_result["sql"],
+                    parameters=fallback_result["params"],
+                )
+            ]
+
+        return strategy_sqls, agent_logs
+
+    # pylint: enable=too-many-locals,too-many-branches,too-many-statements
+
     def generate_sql(
         self,
         query_text: str,
@@ -666,7 +992,7 @@ class TextToSQLService:
         username: str,
         search_results: dict[str, Any] | None = None,
         use_schema_inspection: bool = False,
-        progress_callback: Callable[[str], None] | None = None
+        progress_callback: Callable[[str], None] | None = None,
     ) -> dict[str, Any]:
         """Generate SQL from natural language query.
 
@@ -693,7 +1019,11 @@ class TextToSQLService:
         # Report which tables were loaded
         tables: list[str] = schema_context["tables"]
         if progress_callback and tables:
-            table_list: str = ", ".join(tables) if len(tables) <= 5 else f"{', '.join(tables[:5])} and {len(tables) - 5} more"
+            table_list: str = (
+                ", ".join(tables)
+                if len(tables) <= 5
+                else f"{', '.join(tables[:5])} and {len(tables) - 5} more"
+            )
             progress_callback(f"Loaded schema for tables: {table_list}")
 
         # Retrieve cross-references if multiple datasets specified
@@ -710,7 +1040,9 @@ class TextToSQLService:
                     relationship_tables.add(ref.get("to_table", ""))
                 relationship_tables.discard("")
                 tables_str: str = ", ".join(sorted(relationship_tables))
-                progress_callback(f"Found {len(cross_references)} relationships between tables: {tables_str}")
+                progress_callback(
+                    f"Found {len(cross_references)} relationships between tables: {tables_str}"
+                )
 
         # Build schema description for agent (explicit table and column names)
         schema_description: str = "\n\nAVAILABLE SCHEMA (YOU MUST USE EXACTLY THESE NAMES):\n"
@@ -732,8 +1064,14 @@ class TextToSQLService:
                 raise ValueError("Database pool is required for schema inspection")
 
             if progress_callback:
-                table_list_inspector: str = ", ".join(tables) if len(tables) <= 5 else f"{', '.join(tables[:5])} and {len(tables) - 5} more"
-                progress_callback(f"Creating Schema Inspector Agent to analyze: {table_list_inspector}...")
+                table_list_inspector: str = (
+                    ", ".join(tables)
+                    if len(tables) <= 5
+                    else f"{', '.join(tables[:5])} and {len(tables) - 5} more"
+                )
+                progress_callback(
+                    f"Creating Schema Inspector Agent to analyze: {table_list_inspector}..."
+                )
 
             # Initialize Schema Inspector Service
             schema_inspector_service: SchemaInspectorService = SchemaInspectorService(self.pool)
@@ -750,7 +1088,9 @@ class TextToSQLService:
             inspector_agent: Any = create_schema_inspector_agent(inspector_tools)
 
             if progress_callback:
-                progress_callback("Schema Inspector Agent tools ready (list_datasets, inspect_schema, get_sample_data)")
+                progress_callback(
+                    "Schema Inspector Agent tools ready (list_datasets, inspect_schema, get_sample_data)"
+                )
 
             # Create schema inspection task
             schema_inspection_task = create_schema_inspection_task(
@@ -758,7 +1098,64 @@ class TextToSQLService:
             )
 
             if progress_callback:
-                progress_callback(f"Schema Inspector Agent will examine {len(tables)} table(s) for relevant columns")
+                progress_callback(
+                    f"Schema Inspector Agent will examine {len(tables)} table(s) for relevant columns"
+                )
+
+        # Retrieve index capabilities context for SQL generation (FR-017)
+        index_context: str = ""
+        if self.pool is not None:
+            try:
+                # Resolve dataset IDs and table names in a single query
+                table_names_map: dict[str, str] = {}
+                with self.pool.connection() as idx_conn, idx_conn.cursor() as cur:
+                    idx_schema: str = f"{username}_schema"
+                    cur.execute(
+                        sql.SQL("SET search_path TO {}, public").format(sql.Identifier(idx_schema))
+                    )
+                    if dataset_ids:
+                        dataset_id_strs: list[str] = [str(d) for d in dataset_ids]
+                        cur.execute(
+                            "SELECT id::text, table_name FROM datasets WHERE id = ANY(%s)",
+                            (dataset_id_strs,),
+                        )
+                    else:
+                        cur.execute("SELECT id::text, table_name FROM datasets")
+
+                    ds_rows: list[tuple[str, ...]] = cur.fetchall()
+                    for ds_row in ds_rows:
+                        table_names_map[str(ds_row[0])] = str(ds_row[1])
+
+                resolved_ids: list[str] = list(table_names_map.keys())
+
+                if resolved_ids:
+                    with self.pool.connection() as idx_conn_2:
+                        index_profiles: dict[str, list[DataColumnIndexProfile]] = (
+                            get_index_profiles(idx_conn_2, username, resolved_ids)
+                        )
+
+                    if index_profiles:
+                        index_context = build_index_context(
+                            index_profiles,
+                            table_names_map,
+                        )
+
+                        if progress_callback and index_context:
+                            profile_count: int = sum(len(p) for p in index_profiles.values())
+                            progress_callback(
+                                f"Loaded index capabilities for {profile_count} columns"
+                            )
+            except Exception as idx_err:  # pylint: disable=broad-exception-caught
+                # JUSTIFICATION: Index context is enhancement, not critical.
+                # If index retrieval fails, SQL generation proceeds without
+                # it (agent falls back to standard behavior per FR-017).
+                log_event(
+                    logger=logger,
+                    level="warning",
+                    event="index_context_retrieval_failed",
+                    user=username,
+                    extra={"error": str(idx_err)},
+                )
 
         if progress_callback:
             progress_callback("Creating SQL Generator Agent for query translation...")
@@ -776,6 +1173,7 @@ class TextToSQLService:
             cross_references=cross_references,
             search_results=search_results,
             schema_context=schema_description,  # Pass explicit schema
+            index_context=index_context if index_context else None,
         )
 
         # Set context if schema inspection task exists
@@ -791,7 +1189,9 @@ class TextToSQLService:
         if progress_callback:
             agent_count: int = len(crew_agents)
             task_count: int = len(crew_tasks)
-            progress_callback(f"Starting CrewAI with {agent_count} agent(s) and {task_count} task(s)...")
+            progress_callback(
+                f"Starting CrewAI with {agent_count} agent(s) and {task_count} task(s)..."
+            )
 
         crew: Crew = Crew(agents=crew_agents, tasks=crew_tasks, verbose=False)
 
@@ -824,9 +1224,7 @@ class TextToSQLService:
         result: Any
         agent_logs: str
         result, agent_logs = _execute_crew_with_progress(
-            crew=crew,
-            progress_callback=progress_callback,
-            progress_messages=progress_messages
+            crew=crew, progress_callback=progress_callback, progress_messages=progress_messages
         )
 
         if progress_callback:
@@ -849,7 +1247,9 @@ class TextToSQLService:
 
         if not validation["is_valid"]:
             if progress_callback:
-                progress_callback(f"SQL validation failed: {len(validation['errors'])} error(s) found")
+                progress_callback(
+                    f"SQL validation failed: {len(validation['errors'])} error(s) found"
+                )
             error_message: str = "Generated SQL contains invalid table or column names:\n"
             error_message += "\n".join(f"  - {error}" for error in validation["errors"])
             error_message += f"\n\nGenerated SQL:\n{cleaned_sql}"
@@ -941,10 +1341,41 @@ class TextToSQLService:
         # Strategy 3: Fallback to last significant word (legacy behavior)
         # Filter out common stop words and query structure words
         stop_words: set[str] = {
-            "show", "me", "the", "a", "an", "all", "by", "for", "in", "on", "at",
-            "from", "to", "of", "with", "about", "tell", "give", "get", "find",
-            "display", "list", "see", "view", "hour", "day", "month", "year",
-            "time", "date", "detailed", "analysis", "report", "data", "sales",
+            "show",
+            "me",
+            "the",
+            "a",
+            "an",
+            "all",
+            "by",
+            "for",
+            "in",
+            "on",
+            "at",
+            "from",
+            "to",
+            "of",
+            "with",
+            "about",
+            "tell",
+            "give",
+            "get",
+            "find",
+            "display",
+            "list",
+            "see",
+            "view",
+            "hour",
+            "day",
+            "month",
+            "year",
+            "time",
+            "date",
+            "detailed",
+            "analysis",
+            "report",
+            "data",
+            "sales",
         }
 
         query_words: list[str] = [
@@ -988,7 +1419,9 @@ class TextToSQLService:
         keywords: list[str] = []
 
         # Extract WHERE clause from SQL
-        where_match: re.Match[str] | None = re.search(r"WHERE\s+(.+?)(?:GROUP BY|ORDER BY|LIMIT|$)", sql, re.IGNORECASE)
+        where_match: re.Match[str] | None = re.search(
+            r"WHERE\s+(.+?)(?:GROUP BY|ORDER BY|LIMIT|$)", sql, re.IGNORECASE
+        )
         if not where_match:
             return keywords
 
@@ -1037,33 +1470,89 @@ class TextToSQLService:
 
                 # Filter out stop words and find potential values
                 stop_words: set[str] = {
-                    "show", "me", "the", "a", "an", "all", "by", "for", "in", "on",
-                    "of", "with", "about", "tell", "find", "get", "sales", "analysis",
-                    "hour", "day", "month", "year", "time", "date", "detailed", "report",
+                    "show",
+                    "me",
+                    "the",
+                    "a",
+                    "an",
+                    "all",
+                    "by",
+                    "for",
+                    "in",
+                    "on",
+                    "of",
+                    "with",
+                    "about",
+                    "tell",
+                    "find",
+                    "get",
+                    "sales",
+                    "analysis",
+                    "hour",
+                    "day",
+                    "month",
+                    "year",
+                    "time",
+                    "date",
+                    "detailed",
+                    "report",
                 }
 
                 for word in words:
                     word_clean: str = word.strip(",.!?;:")
-                    if word_clean not in stop_words and len(word_clean) > 2:
-                        # Check if this word appears before common aggregate keywords
-                        if any(agg in query_lower for agg in ["sales", "orders", "customers", "by"]):
-                            keywords.append(word_clean)
-                            break
+                    if (
+                        word_clean not in stop_words
+                        and len(word_clean) > 2
+                        and any(
+                            agg in query_lower for agg in ["sales", "orders", "customers", "by"]
+                        )
+                    ):
+                        keywords.append(word_clean)
+                        break
 
         return keywords
 
     def _clean_sql(self, raw_sql: str) -> str:
-        """Clean generated SQL by removing markdown formatting.
+        """Clean generated SQL by extracting SQL from LLM response.
+
+        Handles cases where the LLM returns prose mixed with SQL code blocks.
+        Extracts the last (most refined) SQL block from markdown fences, or
+        falls back to stripping markdown markers if no fenced blocks found.
 
         Args:
-            raw_sql: Raw SQL string possibly with markdown
+            raw_sql: Raw SQL string possibly with markdown and prose
 
         Returns:
             Clean SQL string
         """
-        # Remove markdown code block markers
+        # Strategy 1: Extract SQL from markdown code blocks (```sql ... ``` or ``` ... ```)
+        # Use the LAST fenced block since LLMs often refine their answer
+        code_block_pattern: str = r"```(?:sql)?\s*\n?(.*?)```"
+        matches: list[str] = re.findall(code_block_pattern, raw_sql, re.DOTALL | re.IGNORECASE)
+
+        if matches:
+            # Use the last code block (LLMs often say "here's a better version" at the end)
+            extracted_sql: str = matches[-1].strip()
+            if extracted_sql:
+                return extracted_sql
+
+        # Strategy 2: No markdown fences found — try to extract SQL by finding
+        # the first SQL statement keyword and taking everything from there
+        # Look for common SQL statement starts
+        sql_start_pattern: str = r"(?:^|\n)\s*((?:WITH|SELECT|INSERT|UPDATE|DELETE)\b.*)"
+        sql_match: re.Match[str] | None = re.search(
+            sql_start_pattern, raw_sql, re.DOTALL | re.IGNORECASE
+        )
+        if sql_match:
+            extracted_sql = sql_match.group(1).strip()
+            # Remove any trailing prose after the SQL (text after final semicolon)
+            semicolon_idx: int = extracted_sql.rfind(";")
+            if semicolon_idx != -1:
+                extracted_sql = extracted_sql[: semicolon_idx + 1]
+            return extracted_sql
+
+        # Strategy 3: Fallback — just strip markdown markers
         cleaned_sql: str = raw_sql.replace("```sql", "").replace("```", "")
-        # Trim whitespace
         return cleaned_sql.strip()
 
 
@@ -1102,7 +1591,7 @@ class TextToSQLOrchestrator:
         - Thread-based execution
         """
         # Log query processing start (T203-POLISH: Structured logging for query processing)
-        from datetime import datetime  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
+        from datetime import datetime  # pylint: disable=import-outside-toplevel
 
         query_start_time: datetime = datetime.now()
         log_event(
@@ -1174,8 +1663,6 @@ class TextToSQLOrchestrator:
             )
 
         # Log successful query processing (T203-POLISH)
-        from datetime import datetime  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
-
         query_time_ms: int = int((datetime.now() - query_start_time).total_seconds() * 1000)
         log_event(
             logger=logger,

@@ -14,10 +14,8 @@ import os
 from pathlib import Path
 from typing import Any
 
-import pytest
 from psycopg_pool import ConnectionPool
-
-from backend.src.services.hybrid_search import HybridSearchService
+import pytest
 
 
 class TestSemanticMatching:
@@ -30,8 +28,10 @@ class TestSemanticMatching:
         Returns:
             Dictionary containing test dataset with 30 question pairs
         """
-        fixture_path: Path = Path(__file__).parents[2] / "tests" / "fixtures" / "semantic_questions.json"
-        with open(fixture_path, "r", encoding="utf-8") as f:
+        fixture_path: Path = (
+            Path(__file__).parents[2] / "tests" / "fixtures" / "semantic_questions.json"
+        )
+        with fixture_path.open(encoding="utf-8") as f:
             data: dict[str, Any] = json.load(f)
         return data
 
@@ -54,10 +54,7 @@ class TestSemanticMatching:
         )
 
         pool: ConnectionPool = ConnectionPool(
-            conninfo=conninfo,
-            min_size=1,
-            max_size=5,
-            timeout=30.0
+            conninfo=conninfo, min_size=1, max_size=5, timeout=30.0
         )
 
         yield pool
@@ -85,10 +82,7 @@ class TestSemanticMatching:
         return column_names
 
     def _calculate_semantic_match(
-        self,
-        base_columns: set[str],
-        variation_columns: set[str],
-        expected_columns: list[str]
+        self, base_columns: set[str], variation_columns: set[str], expected_columns: list[str]
     ) -> bool:
         """Determine if base and variation questions match semantically.
 
@@ -117,9 +111,7 @@ class TestSemanticMatching:
 
     @pytest.mark.performance
     def test_semantic_matching_accuracy(
-        self,
-        semantic_questions: dict[str, Any],
-        connection_pool: ConnectionPool
+        self, semantic_questions: dict[str, Any], connection_pool: ConnectionPool
     ) -> None:
         """Test semantic matching accuracy meets SC-004 threshold (80%).
 
@@ -133,9 +125,6 @@ class TestSemanticMatching:
         Raises:
             AssertionError: If accuracy is below 80% threshold
         """
-        # Initialize hybrid search service
-        hybrid_service: HybridSearchService = HybridSearchService(connection_pool)
-
         # Test configuration
         question_pairs: list[dict[str, Any]] = semantic_questions["question_pairs"]
         total_pairs: int = len(question_pairs)
@@ -144,92 +133,13 @@ class TestSemanticMatching:
         assert total_pairs == 30, f"Expected 30 question pairs, got {total_pairs}"
         assert success_threshold == 0.80, "Success threshold should be 80%"
 
-        # Track results
-        successful_matches: int = 0
-        failed_pairs: list[dict[str, Any]] = []
+        # Note: This test requires a test database with sample data.
+        # Full implementation iterates through all pairs and tests matching.
 
-        # Note: This test requires a test database with sample data containing
-        # the expected column names. In a real implementation, you would either:
-        # 1. Use a fixture database with known schema
-        # 2. Mock the HybridSearchService responses
-        # 3. Skip this test if test data is not available
-
-        # For demonstration, we'll check if the service is functional
-        # A full implementation would iterate through all pairs and test matching
-
-        print(f"\nSemantic Matching Evaluation (SC-004)")
+        print("\nSemantic Matching Evaluation (SC-004)")
         print(f"Total question pairs: {total_pairs}")
         print(f"Success threshold: {success_threshold * 100}%")
         print(f"Minimum required matches: {int(total_pairs * success_threshold)}")
-
-        # Example of how one pair would be tested (requires test data):
-        # for pair in question_pairs:
-        #     base_question: str = pair["base_question"]
-        #     variation: str = pair["semantic_variation"]
-        #     expected_columns: list[str] = pair["expected_columns"]
-        #
-        #     # Search with base question
-        #     base_results: dict[str, Any] = hybrid_service.search(
-        #         username="test_user",
-        #         query_text=base_question,
-        #         dataset_ids=None,
-        #         limit=10
-        #     )
-        #
-        #     # Search with semantic variation
-        #     variation_results: dict[str, Any] = hybrid_service.search(
-        #         username="test_user",
-        #         query_text=variation,
-        #         dataset_ids=None,
-        #         limit=10
-        #     )
-        #
-        #     # Extract columns
-        #     base_columns: set[str] = self._extract_column_matches(base_results)
-        #     variation_columns: set[str] = self._extract_column_matches(variation_results)
-        #
-        #     # Check if they match semantically
-        #     is_match: bool = self._calculate_semantic_match(
-        #         base_columns, variation_columns, expected_columns
-        #     )
-        #
-        #     if is_match:
-        #         successful_matches += 1
-        #     else:
-        #         failed_pairs.append({
-        #             "id": pair["id"],
-        #             "category": pair["category"],
-        #             "base_question": base_question,
-        #             "variation": variation,
-        #             "base_columns": list(base_columns),
-        #             "variation_columns": list(variation_columns),
-        #             "expected_columns": expected_columns
-        #         })
-
-        # Calculate accuracy
-        # accuracy: float = successful_matches / total_pairs
-
-        # Report results
-        # print(f"\nResults:")
-        # print(f"Successful matches: {successful_matches}/{total_pairs}")
-        # print(f"Accuracy: {accuracy * 100:.1f}%")
-        # print(f"Required: {success_threshold * 100:.1f}%")
-
-        # if failed_pairs:
-        #     print(f"\nFailed pairs ({len(failed_pairs)}):")
-        #     for failure in failed_pairs[:5]:  # Show first 5 failures
-        #         print(f"  - Pair {failure['id']} ({failure['category']})")
-        #         print(f"    Base: {failure['base_question']}")
-        #         print(f"    Variation: {failure['variation']}")
-        #         print(f"    Base columns: {failure['base_columns']}")
-        #         print(f"    Variation columns: {failure['variation_columns']}")
-        #         print(f"    Expected: {failure['expected_columns']}")
-
-        # Assert accuracy meets threshold
-        # assert accuracy >= success_threshold, (
-        #     f"Semantic matching accuracy {accuracy * 100:.1f}% "
-        #     f"is below required threshold {success_threshold * 100:.1f}%"
-        # )
 
         # For now, mark as skipped pending test data setup
         pytest.skip(
@@ -238,10 +148,7 @@ class TestSemanticMatching:
         )
 
     @pytest.mark.performance
-    def test_semantic_question_dataset_structure(
-        self,
-        semantic_questions: dict[str, Any]
-    ) -> None:
+    def test_semantic_question_dataset_structure(self, semantic_questions: dict[str, Any]) -> None:
         """Validate semantic_questions.json structure and completeness.
 
         Args:
@@ -263,8 +170,12 @@ class TestSemanticMatching:
         # Verify all question pairs have required fields
         pairs: list[dict[str, Any]] = semantic_questions["question_pairs"]
         required_fields: list[str] = [
-            "id", "category", "base_question", "semantic_variation",
-            "expected_columns", "notes"
+            "id",
+            "category",
+            "base_question",
+            "semantic_variation",
+            "expected_columns",
+            "notes",
         ]
 
         for pair in pairs:
@@ -276,15 +187,14 @@ class TestSemanticMatching:
             assert isinstance(expected_cols, list), "expected_columns must be list"
             assert len(expected_cols) > 0, "expected_columns must not be empty"
 
-        print(f"\n✅ Dataset structure validated:")
+        print("\n✅ Dataset structure validated:")
         print(f"   Total pairs: {len(pairs)}")
-        print(f"   Categories: {len(set(p['category'] for p in pairs))}")
-        print(f"   All pairs have required fields")
+        print(f"   Categories: {len({p['category'] for p in pairs})}")
+        print("   All pairs have required fields")
 
     @pytest.mark.performance
     def test_semantic_question_categories_coverage(
-        self,
-        semantic_questions: dict[str, Any]
+        self, semantic_questions: dict[str, Any]
     ) -> None:
         """Validate semantic question pairs cover diverse categories.
 
@@ -312,16 +222,14 @@ class TestSemanticMatching:
         # Verify no category is over-represented (max 4 pairs per category)
         max_per_category: int = 4
         overrepresented: list[tuple[str, int]] = [
-            (cat, count) for cat, count in category_counts.items()
-            if count > max_per_category
+            (cat, count) for cat, count in category_counts.items() if count > max_per_category
         ]
         assert not overrepresented, (
-            f"Categories over-represented (>{max_per_category} pairs): "
-            f"{overrepresented}"
+            f"Categories over-represented (>{max_per_category} pairs): " f"{overrepresented}"
         )
 
-        print(f"\n✅ Category coverage validated:")
+        print("\n✅ Category coverage validated:")
         print(f"   Unique categories: {unique_categories}")
-        print(f"   Category distribution:")
+        print("   Category distribution:")
         for category, count in sorted(category_counts.items()):
             print(f"     - {category}: {count} pairs")

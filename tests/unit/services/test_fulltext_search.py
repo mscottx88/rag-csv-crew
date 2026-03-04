@@ -52,9 +52,7 @@ class TestFullTextSearch:
 
         service: HybridSearchService = HybridSearchService(mock_pool)
         results: list[dict[str, Any]] = service.fulltext_search(
-            username="testuser",
-            query_text="revenue",
-            limit=10
+            username="testuser", query_text="revenue", limit=10
         )
 
         # Verify results
@@ -93,15 +91,10 @@ class TestFullTextSearch:
         ]
 
         service: HybridSearchService = HybridSearchService(mock_pool)
-        results: list[dict[str, Any]] = service.fulltext_search(
-            username="testuser",
-            query_text="customer name",
-            limit=10
-        )
+        service.fulltext_search(username="testuser", query_text="customer name", limit=10)
 
         # Verify multi-word query executed
         assert mock_cursor.execute.call_count == 2  # SET search_path + actual query
-        sql_query: str = mock_cursor.execute.call_args_list[1][0][0]  # Second call
         sql_params: tuple[Any, ...] = mock_cursor.execute.call_args_list[1][0][1]
 
         # Verify query parameters contain search text
@@ -132,16 +125,15 @@ class TestFullTextSearch:
         ]
 
         service: HybridSearchService = HybridSearchService(mock_pool)
-        results: list[dict[str, Any]] = service.fulltext_search(
+        service.fulltext_search(
             username="testuser",
             query_text="revenue",
             dataset_ids=["dataset-A", "dataset-B"],
-            limit=10
+            limit=10,
         )
 
         # Verify dataset filter applied
         assert mock_cursor.execute.call_count == 2  # SET search_path + actual query
-        sql_query: str = mock_cursor.execute.call_args_list[1][0][0]  # Second call
         sql_params: tuple[Any, ...] = mock_cursor.execute.call_args_list[1][0][1]
 
         # Should have dataset IDs in params
@@ -174,9 +166,7 @@ class TestFullTextSearch:
 
         service: HybridSearchService = HybridSearchService(mock_pool)
         results: list[dict[str, Any]] = service.fulltext_search(
-            username="testuser",
-            query_text="revenue",
-            limit=10
+            username="testuser", query_text="revenue", limit=10
         )
 
         # Verify ranking order
@@ -209,9 +199,7 @@ class TestFullTextSearch:
 
         service: HybridSearchService = HybridSearchService(mock_pool)
         results: list[dict[str, Any]] = service.fulltext_search(
-            username="testuser",
-            query_text="nonexistent_term_xyz",
-            limit=10
+            username="testuser", query_text="nonexistent_term_xyz", limit=10
         )
 
         # Should return empty list
@@ -250,9 +238,7 @@ class TestFullTextSearch:
 
         for query in special_queries:
             results: list[dict[str, Any]] = service.fulltext_search(
-                username="testuser",
-                query_text=query,
-                limit=10
+                username="testuser", query_text=query, limit=10
             )
             # Should not raise exception
             assert isinstance(results, list)
@@ -278,15 +264,12 @@ class TestFullTextSearch:
 
         # Mock more results than limit
         mock_cursor.fetchall.return_value = [
-            (f"column_{i}", "dataset-1", 0.9 - i * 0.1)
-            for i in range(5)
+            (f"column_{i}", "dataset-1", 0.9 - i * 0.1) for i in range(5)
         ]
 
         service: HybridSearchService = HybridSearchService(mock_pool)
         results: list[dict[str, Any]] = service.fulltext_search(
-            username="testuser",
-            query_text="column",
-            limit=5
+            username="testuser", query_text="column", limit=5
         )
 
         # Verify limit applied
@@ -327,9 +310,7 @@ class TestFullTextSearch:
         # Test different cases
         for query_text in ["revenue", "Revenue", "REVENUE"]:
             results: list[dict[str, Any]] = service.fulltext_search(
-                username="testuser",
-                query_text=query_text,
-                limit=10
+                username="testuser", query_text=query_text, limit=10
             )
             # All should return results
             assert len(results) > 0

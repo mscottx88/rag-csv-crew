@@ -15,7 +15,7 @@ from typing import Any
 
 from crewai import Agent
 
-from src.utils.llm_config import get_llm_for_crew, get_llm_provider_name
+from backend.src.utils.llm_config import get_llm_for_crew, get_llm_provider_name
 
 logger: logging.Logger = logging.getLogger(__name__)
 

@@ -10,11 +10,11 @@ Requirements:
 - Maintain SQL injection prevention
 """
 
-
 # pylint: disable=redefined-outer-name,broad-exception-caught,docstring-first-line-empty
 from crewai import Agent
 import pytest
-from src.crew.agents import create_sql_generator_agent
+
+from backend.src.crew.agents import create_sql_generator_agent
 
 
 @pytest.fixture

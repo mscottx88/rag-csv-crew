@@ -24,11 +24,13 @@ from backend.src.models.config import AppConfig, DatabaseConfig, LLMConfig
 class TestDatabaseConfig:
     """Test DatabaseConfig model validation and defaults."""
 
-    def test_database_config_with_required_fields(self) -> None:
+    def test_database_config_with_required_fields(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test DatabaseConfig creation with all required fields."""
+        monkeypatch.delenv("DATABASE_DATABASE", raising=False)
         config: DatabaseConfig = DatabaseConfig(
             user="testuser",
             password="testpass",
+            _env_file=None,  # type: ignore[call-arg]
         )
 
         assert config.host == "localhost"
@@ -164,10 +166,13 @@ class TestLLMConfig:
 class TestAppConfig:
     """Test AppConfig model validation and composition."""
 
-    def test_app_config_defaults(self) -> None:
-        """Test AppConfig loads from .env file correctly."""
-        # Note: This loads from .env file if present
-        config: AppConfig = AppConfig(db=DatabaseConfig(user="testuser", password="testpass"))
+    def test_app_config_defaults(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test AppConfig default values when no .env overrides are present."""
+        monkeypatch.delenv("QUERY_TIMEOUT_SECONDS", raising=False)
+        config: AppConfig = AppConfig(
+            db=DatabaseConfig(user="testuser", password="testpass"),
+            _env_file=None,  # type: ignore[call-arg]
+        )
 
         assert config.log_level == "INFO"
         # CORS origins loaded from .env file (not default)

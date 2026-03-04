@@ -1,27 +1,17 @@
 .history-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   padding: 2rem;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .history-page h1 {
   margin: 0 0 0.5rem 0;
-  color: #333;
-  font-size: 2rem;
-}
-
-.page-description {
-  margin: 0 0 2rem 0;
-  color: #666;
-  font-size: 1rem;
-}
-
-.history-layout {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-}
-
-@media (max-width: 768px) {
-  .history-layout {
-    grid-template-columns: 1fr;
-  }
+  color: var(--gold);
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 10px var(--gold-dim);
 }

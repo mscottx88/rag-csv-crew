@@ -69,27 +69,23 @@ def add_query_params_column(pool: ConnectionPool) -> None:
                     column_exists: tuple[Any, ...] | None = cur.fetchone()
 
                     if column_exists:
-                        logger.info(
-                            f"Column query_params already exists in {schema_name}.queries"
-                        )
+                        logger.info(f"Column query_params already exists in {schema_name}.queries")
                         continue
 
                     # Add query_params column (JSONB type for storing parameter list)
                     # pylint: disable=consider-using-f-string
                     cur.execute(
-                        """
-                        ALTER TABLE {}.queries
+                        f"""
+                        ALTER TABLE {schema_name}.queries
                         ADD COLUMN query_params JSONB
-                        """.format(schema_name)
+                        """
                     )
                     conn.commit()
 
                     logger.info(f"Added query_params column to {schema_name}.queries")
 
                 except Exception as e:
-                    logger.error(
-                        f"Failed to migrate schema {schema_name}: {e!s}", exc_info=True
-                    )
+                    logger.error(f"Failed to migrate schema {schema_name}: {e!s}", exc_info=True)
                     conn.rollback()
                     raise
 

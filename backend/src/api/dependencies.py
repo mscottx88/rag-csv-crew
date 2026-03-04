@@ -18,9 +18,9 @@ from fastapi import Depends, HTTPException, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 
-from src.services.auth import validate_jwt_token
-from src.utils.logging import get_structured_logger, log_event
-from src.utils.rate_limiter import get_rate_limiter
+from backend.src.services.auth import validate_jwt_token
+from backend.src.utils.logging import get_structured_logger, log_event
+from backend.src.utils.rate_limiter import get_rate_limiter
 
 logger = get_structured_logger(__name__)
 

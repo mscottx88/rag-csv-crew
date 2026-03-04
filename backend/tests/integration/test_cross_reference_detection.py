@@ -11,11 +11,11 @@ Requirements (FR-010):
 - Calculate confidence scores based on overlap percentage
 """
 
-
 # pylint: disable=redefined-outer-name,broad-exception-caught,docstring-first-line-empty
 from psycopg_pool import ConnectionPool
 import pytest
-from src.services.ingestion import IngestionService
+
+from backend.src.services.ingestion import IngestionService
 
 
 @pytest.fixture
@@ -34,10 +34,8 @@ class TestCrossReferenceDetection:
     ) -> None:
         """Should detect foreign_key relationship with high confidence."""
         # RED: Implementation needed
-        # Upload two related datasets with exact matches
-        # customers.csv: customer_id (1, 2, 3)  # noqa: ERA001
-        # orders.csv: customer_id (1, 1, 2, 3, 3, 3)  # noqa: ERA001
-        # Expected: 100% overlap, confidence > 0.9, type = foreign_key
+        # Upload customers and orders CSVs sharing customer_id values
+        # Expects 100% overlap giving confidence > 0.9 and foreign_key type
 
     def test_detect_shared_values_relationship(
         self,
@@ -46,10 +44,8 @@ class TestCrossReferenceDetection:
     ) -> None:
         """Should detect shared_values relationship with moderate confidence."""
         # RED: Implementation needed
-        # Upload two datasets with partial overlap
-        # products.csv: category (Electronics, Furniture, Clothing)  # noqa: ERA001
-        # inventory.csv: category (Electronics, Furniture, Books)  # noqa: ERA001
-        # Expected: 66% overlap, confidence 0.5-0.8, type = shared_values
+        # Upload products and inventory CSVs with partially overlapping categories
+        # Expects 66% overlap giving confidence 0.5-0.8 and shared_values type
 
     def test_detect_similar_values_relationship(
         self,
@@ -58,10 +54,8 @@ class TestCrossReferenceDetection:
     ) -> None:
         """Should detect similar_values relationship with lower confidence."""
         # RED: Implementation needed
-        # Upload two datasets with fuzzy matches
-        # dataset1: company_name (Apple Inc., Microsoft Corporation)
-        # dataset2: company (Apple, Microsoft)  # noqa: ERA001
-        # Expected: fuzzy match detected, confidence 0.3-0.5, type = similar_values
+        # Upload datasets with fuzzy-matching company names vs short company identifiers
+        # Expects fuzzy match detection giving confidence 0.3-0.5 and similar_values type
 
     def test_no_relationship_detected(
         self,
@@ -70,10 +64,8 @@ class TestCrossReferenceDetection:
     ) -> None:
         """Should not detect relationship when overlap is minimal."""
         # RED: Implementation needed
-        # Upload two unrelated datasets
-        # dataset1: customer_id (1, 2, 3)  # noqa: ERA001
-        # dataset2: product_id (100, 200, 300)  # noqa: ERA001
-        # Expected: No cross-reference created (overlap < threshold)
+        # Upload two unrelated datasets with no shared values
+        # Expects no cross-reference created when overlap is below threshold
 
     def test_confidence_score_calculation(
         self,

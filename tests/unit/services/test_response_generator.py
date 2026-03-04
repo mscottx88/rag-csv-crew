@@ -16,6 +16,13 @@ from uuid import uuid4
 
 import pytest
 
+from backend.src.models.fusion import (
+    FusedResult,
+    FusedRow,
+    StrategyAttribution,
+    StrategyType,
+)
+
 
 @pytest.mark.unit
 class TestResponseGenerator:
@@ -163,7 +170,9 @@ class TestResponseGenerator:
 
         mock_crew_instance: MagicMock = MagicMock()
         mock_result: MagicMock = MagicMock()
-        mock_result.raw = "<p>The total revenue is <strong>$1,234.56</strong> across 42 transactions.</p>"
+        mock_result.raw = (
+            "<p>The total revenue is <strong>$1,234.56</strong> across 42 transactions.</p>"
+        )
         mock_crew_instance.kickoff.return_value = mock_result
         mock_crew.return_value = mock_crew_instance
 
@@ -204,7 +213,10 @@ class TestResponseGenerator:
 
         mock_crew_instance: MagicMock = MagicMock()
         mock_result: MagicMock = MagicMock()
-        mock_result.raw = "<p>No results found for your query. Try rephrasing your question or check your data.</p>"
+        mock_result.raw = (
+            "<p>No results found for your query."
+            " Try rephrasing your question or check your data.</p>"
+        )
         mock_crew_instance.kickoff.return_value = mock_result
         mock_crew.return_value = mock_crew_instance
 
@@ -287,3 +299,517 @@ class TestResponseGenerator:
         if "confidence_score" in result:
             score: float = result["confidence_score"]
             assert 0.0 <= score <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# Helpers for FusedResult test fixtures
+# ---------------------------------------------------------------------------
+
+
+def _make_multi_strategy_fused_result() -> FusedResult:
+    """Create a FusedResult with three contributing strategies.
+
+    Returns:
+        FusedResult with structured (5 rows), fulltext (3 rows),
+        and vector (2 rows) attributions, all succeeded.
+    """
+    rows: list[FusedRow] = [
+        FusedRow(
+            ctid="(0,1)",
+            data={"name": "Alice", "revenue": 1000},
+            rrf_score=0.85,
+            source_strategies=[
+                StrategyType.STRUCTURED,
+                StrategyType.FULLTEXT,
+            ],
+        ),
+        FusedRow(
+            ctid="(0,2)",
+            data={"name": "Bob", "revenue": 800},
+            rrf_score=0.72,
+            source_strategies=[
+                StrategyType.STRUCTURED,
+                StrategyType.VECTOR,
+            ],
+        ),
+    ]
+    attributions: list[StrategyAttribution] = [
+        StrategyAttribution(
+            strategy_type=StrategyType.STRUCTURED,
+            row_count=5,
+            execution_time_ms=12.0,
+            succeeded=True,
+        ),
+        StrategyAttribution(
+            strategy_type=StrategyType.FULLTEXT,
+            row_count=3,
+            execution_time_ms=8.0,
+            succeeded=True,
+        ),
+        StrategyAttribution(
+            strategy_type=StrategyType.VECTOR,
+            row_count=2,
+            execution_time_ms=15.0,
+            succeeded=True,
+        ),
+    ]
+    return FusedResult(
+        rows=rows,
+        columns=["name", "revenue"],
+        total_row_count=2,
+        attributions=attributions,
+        rrf_k=60,
+    )
+
+
+def _make_single_strategy_fused_result() -> FusedResult:
+    """Create a FusedResult with only one contributing strategy.
+
+    Returns:
+        FusedResult with only structured attribution (single
+        strategy, is_multi_strategy is False).
+    """
+    rows: list[FusedRow] = [
+        FusedRow(
+            ctid="(0,1)",
+            data={"name": "Alice", "revenue": 1000},
+            rrf_score=0.90,
+            source_strategies=[StrategyType.STRUCTURED],
+        ),
+    ]
+    attributions: list[StrategyAttribution] = [
+        StrategyAttribution(
+            strategy_type=StrategyType.STRUCTURED,
+            row_count=1,
+            execution_time_ms=10.0,
+            succeeded=True,
+        ),
+    ]
+    return FusedResult(
+        rows=rows,
+        columns=["name", "revenue"],
+        total_row_count=1,
+        attributions=attributions,
+        rrf_k=60,
+    )
+
+
+def _make_empty_fused_result() -> FusedResult:
+    """Create a FusedResult with zero rows.
+
+    Returns:
+        FusedResult with empty rows, columns, and attributions.
+    """
+    return FusedResult(
+        rows=[],
+        columns=[],
+        total_row_count=0,
+        attributions=[],
+        rrf_k=60,
+    )
+
+
+@pytest.mark.unit
+class TestResponseGeneratorFusedResult:
+    """Unit tests for generate_html_response with fused_result param (T017).
+
+    Validates the new keyword-only fused_result parameter on
+    ResponseGenerator.generate_html_response, including multi-strategy
+    attribution text, single-strategy suppression (FR-015), ctid
+    exclusion (FR-013), human-readable strategy names, backwards
+    compatibility when fused_result is None, and zero-row handling.
+    """
+
+    @patch("backend.src.services.response_generator.Crew")
+    def test_multi_strategy_attribution_in_prompt(
+        self,
+        mock_crew: MagicMock,
+    ) -> None:
+        """Test fused_result with multi-strategy adds attribution to prompt.
+
+        When fused_result.is_multi_strategy is True the CrewAI prompt
+        must include attribution text listing per-strategy row counts.
+
+        Args:
+            mock_crew: Mocked CrewAI Crew class
+        """
+        from backend.src.services.response_generator import (
+            ResponseGenerator,
+        )
+
+        mock_crew_instance: MagicMock = MagicMock()
+        mock_result: MagicMock = MagicMock()
+        mock_result.raw = "<p>Sales results</p>"
+        mock_crew_instance.kickoff.return_value = mock_result
+        mock_crew.return_value = mock_crew_instance
+
+        generator: ResponseGenerator = ResponseGenerator()
+        fused: FusedResult = _make_multi_strategy_fused_result()
+
+        query_results: dict[str, Any] = {
+            "rows": [row.data for row in fused.rows],
+            "row_count": fused.total_row_count,
+            "columns": fused.columns,
+        }
+
+        _result: dict[str, Any] = generator.generate_html_response(
+            query_text="Show top sales",
+            query_results=query_results,
+            _query_id=uuid4(),
+            fused_result=fused,
+        )
+
+        # Extract the task description passed to Crew
+        crew_call: Any = mock_crew.call_args
+        tasks_arg: list[Any] = crew_call.kwargs.get(
+            "tasks",
+            crew_call.args[1] if len(crew_call.args) > 1 else [],
+        )
+        assert len(tasks_arg) == 1
+        task_description: str = tasks_arg[0].description
+
+        # Verify attribution text is present
+        assert "structured query" in task_description
+        assert "full-text search" in task_description
+        assert "semantic search" in task_description
+        assert "5 rows" in task_description
+        assert "3 rows" in task_description
+        assert "2 rows" in task_description
+
+    @patch("backend.src.services.response_generator.Crew")
+    def test_single_strategy_no_attribution(
+        self,
+        mock_crew: MagicMock,
+    ) -> None:
+        """Test fused_result with single strategy omits attribution (FR-015).
+
+        When fused_result.is_multi_strategy is False the CrewAI prompt
+        must NOT include any strategy attribution summary.
+
+        Args:
+            mock_crew: Mocked CrewAI Crew class
+        """
+        from backend.src.services.response_generator import (
+            ResponseGenerator,
+        )
+
+        mock_crew_instance: MagicMock = MagicMock()
+        mock_result: MagicMock = MagicMock()
+        mock_result.raw = "<p>Single strategy result</p>"
+        mock_crew_instance.kickoff.return_value = mock_result
+        mock_crew.return_value = mock_crew_instance
+
+        generator: ResponseGenerator = ResponseGenerator()
+        fused: FusedResult = _make_single_strategy_fused_result()
+
+        query_results: dict[str, Any] = {
+            "rows": [row.data for row in fused.rows],
+            "row_count": fused.total_row_count,
+            "columns": fused.columns,
+        }
+
+        _result: dict[str, Any] = generator.generate_html_response(
+            query_text="Show top sales",
+            query_results=query_results,
+            _query_id=uuid4(),
+            fused_result=fused,
+        )
+
+        # Extract the task description passed to Crew
+        tasks_arg: list[Any] = mock_crew.call_args.kwargs.get(
+            "tasks",
+            (mock_crew.call_args.args[1] if len(mock_crew.call_args.args) > 1 else []),
+        )
+        assert len(tasks_arg) == 1
+        task_description: str = tasks_arg[0].description
+
+        # Attribution text must NOT be present for single strategy
+        assert "Results from" not in task_description
+
+    @patch("backend.src.services.response_generator.Crew")
+    def test_fused_result_none_preserves_existing_behavior(
+        self,
+        mock_crew: MagicMock,
+    ) -> None:
+        """Test fused_result=None preserves backwards compatibility.
+
+        When fused_result is not provided (defaults to None) the
+        method must behave identically to the original implementation.
+
+        Args:
+            mock_crew: Mocked CrewAI Crew class
+        """
+        from backend.src.services.response_generator import (
+            ResponseGenerator,
+        )
+
+        mock_crew_instance: MagicMock = MagicMock()
+        mock_result: MagicMock = MagicMock()
+        mock_result.raw = "<p>Original behavior</p>"
+        mock_crew_instance.kickoff.return_value = mock_result
+        mock_crew.return_value = mock_crew_instance
+
+        generator: ResponseGenerator = ResponseGenerator()
+        query_results: dict[str, Any] = {
+            "rows": [{"id": 1, "amount": 500}],
+            "row_count": 1,
+            "columns": ["id", "amount"],
+        }
+
+        result: dict[str, Any] = generator.generate_html_response(
+            query_text="Show amounts",
+            query_results=query_results,
+            _query_id=uuid4(),
+        )
+
+        # Verify standard output keys
+        assert "html_content" in result
+        assert "plain_text" in result
+
+        html: str = result["html_content"]
+        assert "<p>" in html
+
+        # Verify no attribution text leaked in
+        tasks_arg: list[Any] = mock_crew.call_args.kwargs.get(
+            "tasks",
+            (mock_crew.call_args.args[1] if len(mock_crew.call_args.args) > 1 else []),
+        )
+        assert len(tasks_arg) == 1
+        task_description: str = tasks_arg[0].description
+        assert "Results from" not in task_description
+
+    @patch("backend.src.services.response_generator.Crew")
+    def test_zero_rows_no_attribution(
+        self,
+        mock_crew: MagicMock,
+    ) -> None:
+        """Test fused_result with zero rows shows no attribution.
+
+        When all strategies return zero rows the response should
+        contain a helpful message without strategy attribution.
+
+        Args:
+            mock_crew: Mocked CrewAI Crew class
+        """
+        from backend.src.services.response_generator import (
+            ResponseGenerator,
+        )
+
+        mock_crew_instance: MagicMock = MagicMock()
+        mock_result: MagicMock = MagicMock()
+        mock_result.raw = "<p>No results found for your query.</p>"
+        mock_crew_instance.kickoff.return_value = mock_result
+        mock_crew.return_value = mock_crew_instance
+
+        generator: ResponseGenerator = ResponseGenerator()
+        fused: FusedResult = _make_empty_fused_result()
+
+        query_results: dict[str, Any] = {
+            "rows": [],
+            "row_count": 0,
+            "columns": [],
+        }
+
+        result: dict[str, Any] = generator.generate_html_response(
+            query_text="Find nonexistent data",
+            query_results=query_results,
+            _query_id=uuid4(),
+            fused_result=fused,
+        )
+
+        assert "html_content" in result
+        # Zero rows returns early without calling Crew
+        mock_crew.assert_not_called()
+        # No attribution in the static response
+        assert "Results from" not in result["html_content"]
+
+    @patch("backend.src.services.response_generator.Crew")
+    def test_ctid_excluded_from_output_data(
+        self,
+        mock_crew: MagicMock,
+    ) -> None:
+        """Test ctid is excluded from user-visible output (FR-013).
+
+        FusedRow.data should never contain ctid; the rows passed
+        to the CrewAI prompt must not expose ctid values.
+
+        Args:
+            mock_crew: Mocked CrewAI Crew class
+        """
+        from backend.src.services.response_generator import (
+            ResponseGenerator,
+        )
+
+        mock_crew_instance: MagicMock = MagicMock()
+        mock_result: MagicMock = MagicMock()
+        mock_result.raw = "<p>Results without ctid</p>"
+        mock_crew_instance.kickoff.return_value = mock_result
+        mock_crew.return_value = mock_crew_instance
+
+        generator: ResponseGenerator = ResponseGenerator()
+        fused: FusedResult = _make_multi_strategy_fused_result()
+
+        # Verify ctid is NOT in any FusedRow.data
+        for row in fused.rows:
+            assert "ctid" not in row.data, "ctid must not appear in FusedRow.data (FR-013)"
+
+        # Build query_results from fused row data only
+        rows_for_query: list[dict[str, Any]] = [row.data for row in fused.rows]
+        query_results: dict[str, Any] = {
+            "rows": rows_for_query,
+            "row_count": fused.total_row_count,
+            "columns": fused.columns,
+        }
+
+        _result: dict[str, Any] = generator.generate_html_response(
+            query_text="Show sales",
+            query_results=query_results,
+            _query_id=uuid4(),
+            fused_result=fused,
+        )
+
+        # Verify the data passed to CrewAI has no ctid
+        tasks_arg: list[Any] = mock_crew.call_args.kwargs.get(
+            "tasks",
+            (mock_crew.call_args.args[1] if len(mock_crew.call_args.args) > 1 else []),
+        )
+        task_description: str = tasks_arg[0].description
+        assert "ctid" not in task_description
+
+    @patch("backend.src.services.response_generator.Crew")
+    def test_strategy_names_are_human_readable(
+        self,
+        mock_crew: MagicMock,
+    ) -> None:
+        """Test strategy names use human-readable labels in attribution.
+
+        Mapping: structured -> "structured query",
+        fulltext -> "full-text search", vector -> "semantic search".
+
+        Args:
+            mock_crew: Mocked CrewAI Crew class
+        """
+        from backend.src.services.response_generator import (
+            ResponseGenerator,
+        )
+
+        mock_crew_instance: MagicMock = MagicMock()
+        mock_result: MagicMock = MagicMock()
+        mock_result.raw = "<p>Human-readable names</p>"
+        mock_crew_instance.kickoff.return_value = mock_result
+        mock_crew.return_value = mock_crew_instance
+
+        generator: ResponseGenerator = ResponseGenerator()
+        fused: FusedResult = _make_multi_strategy_fused_result()
+
+        query_results: dict[str, Any] = {
+            "rows": [row.data for row in fused.rows],
+            "row_count": fused.total_row_count,
+            "columns": fused.columns,
+        }
+
+        _result: dict[str, Any] = generator.generate_html_response(
+            query_text="Show top sales",
+            query_results=query_results,
+            _query_id=uuid4(),
+            fused_result=fused,
+        )
+
+        tasks_arg: list[Any] = mock_crew.call_args.kwargs.get(
+            "tasks",
+            (mock_crew.call_args.args[1] if len(mock_crew.call_args.args) > 1 else []),
+        )
+        task_description: str = tasks_arg[0].description
+
+        # Must use human-readable names, not enum values
+        assert "structured query" in task_description
+        assert "full-text search" in task_description
+        assert "semantic search" in task_description
+
+        # Must NOT contain raw enum values as strategy labels
+        # (checking they don't appear as standalone labels)
+        assert "fulltext (" not in task_description
+        assert "vector (" not in task_description
+
+    @patch("backend.src.services.response_generator.Crew")
+    def test_fused_result_columns_used_for_response(
+        self,
+        mock_crew: MagicMock,
+    ) -> None:
+        """Test fused_result.columns are used in the CrewAI prompt.
+
+        The columns from the FusedResult should be passed through
+        to the CrewAI task description for proper HTML generation.
+
+        Args:
+            mock_crew: Mocked CrewAI Crew class
+        """
+        from backend.src.services.response_generator import (
+            ResponseGenerator,
+        )
+
+        mock_crew_instance: MagicMock = MagicMock()
+        mock_result: MagicMock = MagicMock()
+        mock_result.raw = "<p>Columns test</p>"
+        mock_crew_instance.kickoff.return_value = mock_result
+        mock_crew.return_value = mock_crew_instance
+
+        generator: ResponseGenerator = ResponseGenerator()
+
+        # Create fused result with specific columns
+        fused_rows: list[FusedRow] = [
+            FusedRow(
+                ctid="(0,1)",
+                data={
+                    "product_name": "Widget",
+                    "unit_price": 9.99,
+                    "quantity": 100,
+                },
+                rrf_score=0.88,
+                source_strategies=[StrategyType.STRUCTURED],
+            ),
+        ]
+        fused_columns: list[str] = [
+            "product_name",
+            "unit_price",
+            "quantity",
+        ]
+        fused_attrs: list[StrategyAttribution] = [
+            StrategyAttribution(
+                strategy_type=StrategyType.STRUCTURED,
+                row_count=1,
+                execution_time_ms=5.0,
+                succeeded=True,
+            ),
+        ]
+        fused: FusedResult = FusedResult(
+            rows=fused_rows,
+            columns=fused_columns,
+            total_row_count=1,
+            attributions=fused_attrs,
+            rrf_k=60,
+        )
+
+        query_results: dict[str, Any] = {
+            "rows": [row.data for row in fused.rows],
+            "row_count": fused.total_row_count,
+            "columns": fused.columns,
+        }
+
+        _result: dict[str, Any] = generator.generate_html_response(
+            query_text="Show product details",
+            query_results=query_results,
+            _query_id=uuid4(),
+            fused_result=fused,
+        )
+
+        tasks_arg: list[Any] = mock_crew.call_args.kwargs.get(
+            "tasks",
+            (mock_crew.call_args.args[1] if len(mock_crew.call_args.args) > 1 else []),
+        )
+        task_description: str = tasks_arg[0].description
+
+        # Verify fused_result columns appear in the prompt
+        assert "product_name" in task_description
+        assert "unit_price" in task_description
+        assert "quantity" in task_description

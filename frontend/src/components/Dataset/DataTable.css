@@ -1,0 +1,478 @@
+/**
+ * DataTable Styles — Neon Orange Theme
+ * Page-based data table for the Dataset Inspector
+ */
+
+/* ── Root wrapper — fills inspector page ── */
+.data-table-root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Controls bar ── */
+.table-controls {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8rem;
+  color: var(--txt-muted);
+}
+
+.table-controls label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+
+.row-count-display {
+  margin-left: auto;
+  color: var(--txt-dim);
+}
+
+/* ── Scroll container — NeonScrollbar outer ── */
+.table-scroll-container {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--orange);
+  border-radius: 4px;
+  box-shadow: 0 0 12px var(--orange-dim);
+  transition: opacity 0.22s ease-out;
+}
+
+/* ── Dissolve transition for page navigation ── */
+.data-table-root.navigating .table-scroll-container {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.data-table-root.navigating .pagination-controls {
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+/* ── Table ── */
+.data-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+}
+
+/* Once column widths are locked via <colgroup>, switch to fixed layout so
+   re-sorts with different value lengths don't resize any column. */
+.data-table.fixed-layout {
+  table-layout: fixed;
+}
+
+.data-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.data-table th {
+  position: relative;
+  padding: 0.6rem 1rem;
+  background: var(--bg-dim);
+  color: var(--orange);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: 'Courier New', Courier, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  user-select: none;
+  cursor: pointer;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--orange);
+  transition: background 0.15s, opacity 0.15s;
+}
+
+/* Inner flex row: drag-handle | type-icon | name | sort-icon */
+.th-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  overflow: hidden;
+}
+
+.col-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Data-type icon */
+.col-type-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  height: 11px;
+  width: auto;
+  vertical-align: middle;
+  color: var(--orange);
+  opacity: 0.55;
+}
+
+/* Sort direction icon — shown only on active sort column */
+.sort-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  height: 9px;
+  width: auto;
+  vertical-align: middle;
+  color: var(--orange);
+}
+
+/* Active sort column highlight */
+.data-table th.sorted {
+  background: rgba(255, 102, 0, 0.06);
+  text-shadow: 0 0 8px rgba(255, 102, 0, 0.4);
+}
+
+.data-table th.sorted .col-type-icon {
+  opacity: 0.85;
+}
+
+.data-table th:last-child {
+  border-right: none;
+}
+
+.data-table th:hover {
+  background: var(--orange-dim);
+}
+
+.data-table th.dragging {
+  opacity: 0.35;
+}
+
+.data-table th.drop-target {
+  background: var(--orange-dim);
+  box-shadow: inset 2px 0 0 var(--orange);
+}
+
+/* ── Column resize handle ── */
+.col-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+}
+
+.col-resize-handle:hover {
+  background: rgba(255, 102, 0, 0.35);
+}
+
+.drag-handle {
+  flex-shrink: 0;
+  color: var(--txt-dim);
+  font-size: 0.85rem;
+  cursor: grab;
+}
+
+/* ── Body rows ── */
+.data-table td {
+  padding: 0.4rem 1rem;
+  color: var(--txt-muted);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.data-table td:last-child {
+  border-right: none;
+}
+
+.data-table tbody tr {
+  transition: background 0.12s;
+}
+
+.data-table tbody tr:hover {
+  background: var(--orange-dim);
+}
+
+.data-table tbody tr:nth-child(even) {
+  background: rgba(255, 102, 0, 0.02);
+}
+
+.data-table tbody tr:nth-child(even):hover {
+  background: var(--orange-dim);
+}
+
+/* Null values */
+.cell-null {
+  color: var(--txt-dim);
+  font-style: italic;
+}
+
+/* ── Row number column — frozen left ── */
+.data-table .row-num,
+.data-table th.row-num-header {
+  position: sticky;
+  left: 0;
+  background: var(--bg-dim);
+  /* Shadow on right edge marks the freeze boundary */
+  box-shadow: 3px 0 6px rgba(0, 0, 0, 0.45);
+  /* Keep it above scrolling data cells */
+  z-index: 1;
+}
+
+.data-table .row-num {
+  color: var(--txt-dim);
+  font-size: 0.7rem;
+  text-align: right;
+  padding-right: 0.75rem;
+  max-width: none;
+  border-right: 1px solid var(--border);
+  user-select: none;
+}
+
+/* Hover / even-row tinting on the frozen cell must be explicit because
+   <tr> background doesn't show through a sticky cell's own background. */
+.data-table tbody tr:hover .row-num {
+  background: var(--orange-dim);
+}
+
+.data-table tbody tr:nth-child(even) .row-num {
+  background: color-mix(in srgb, var(--bg-dim) 95%, var(--orange) 5%);
+}
+
+.data-table tbody tr:nth-child(even):hover .row-num {
+  background: var(--orange-dim);
+}
+
+.data-table th.row-num-header {
+  text-align: right;
+  padding-right: 0.75rem;
+  cursor: default;
+  color: var(--txt-dim);
+  min-width: 3rem;
+  /* Corner cell sits above both the sticky header row and sticky column */
+  z-index: 2;
+}
+
+/* ── Pagination controls ─────────────────────────────────────────────────── */
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.625rem 0.25rem 0.125rem;
+  flex-shrink: 0;
+}
+
+.pagination-info {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.7rem;
+  color: var(--txt-dim);
+  letter-spacing: 0.04em;
+}
+
+.pagination-pips {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* Prev / Next arrow buttons — wireframe chevrons */
+.pagination-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  color: var(--orange);
+  border: 1px solid rgba(255, 102, 0, 0.35);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.pagination-btn svg {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
+.pagination-btn:not(:disabled):hover {
+  background: var(--orange-dim);
+  border-color: var(--orange);
+  box-shadow: 0 0 8px var(--orange-dim);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.22;
+  cursor: not-allowed;
+}
+
+/* Page number pips — small PCB pad squares */
+.pagination-pip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 28px;
+  padding: 0 4px;
+  background: transparent;
+  color: var(--txt-dim);
+  border: 1px solid rgba(255, 102, 0, 0.18);
+  border-radius: 2px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.68rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.pagination-pip:not(:disabled):hover {
+  background: var(--orange-dim);
+  color: var(--orange);
+  border-color: rgba(255, 102, 0, 0.5);
+}
+
+.pagination-pip:disabled {
+  cursor: not-allowed;
+}
+
+/* Active page — neon-lit pad with inner glow */
+.pagination-pip.active {
+  background: rgba(255, 102, 0, 0.14);
+  color: var(--orange);
+  border-color: var(--orange);
+  font-weight: 700;
+  box-shadow:
+    0 0 6px var(--orange-dim),
+    inset 0 0 8px rgba(255, 102, 0, 0.08);
+}
+
+/* Ellipsis separators */
+.pagination-ellipsis {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 28px;
+  color: var(--txt-dim);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  user-select: none;
+}
+
+/* ── Infinite-scroll sentinels ── */
+
+/* Top sentinel — appears above the table while loading a previous page */
+.load-top-sentinel {
+  padding: 0.625rem 1rem;
+  text-align: center;
+}
+
+/* Bottom sentinel — appears below the table, triggers next-page load */
+.load-more-sentinel {
+  padding: 1rem;
+  text-align: center;
+  color: var(--txt-dim);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8rem;
+}
+
+.loading-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--orange);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8rem;
+  animation: load-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes load-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── Empty / error states ── */
+.table-empty,
+.table-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: var(--txt-muted);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9rem;
+}
+
+.table-error {
+  color: var(--err);
+}
+
+.table-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem;
+  color: var(--orange);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9rem;
+  animation: load-pulse 1.5s ease-in-out infinite;
+}
+
+/* ── Overflow tooltip ─────────────────────────────────────────────────────── */
+
+/* Invisible zone that bridges the gap between cell and tooltip */
+.cell-overflow-tooltip-zone {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: auto;
+}
+
+.cell-overflow-tooltip {
+  --hover-glow-color: #ff6600;
+  max-width: 500px;
+  max-height: 300px;
+  border: 1px solid rgba(255, 102, 0, 0.35);
+  border-radius: 4px;
+  background: rgba(8, 8, 8, 0.94);
+  box-shadow:
+    0 0 16px rgba(255, 102, 0, 0.30),
+    0 0 40px rgba(255, 102, 0, 0.12);
+  animation: tooltip-appear 0.18s ease-out both;
+}
+
+.cell-overflow-tooltip .tooltip-content {
+  padding: 0.6rem 0.8rem;
+  color: var(--txt);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@keyframes tooltip-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+

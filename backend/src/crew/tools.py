@@ -17,7 +17,7 @@ from uuid import UUID
 
 from crewai.tools import tool
 
-from src.services.schema_inspector import SchemaInspectorService
+from backend.src.services.schema_inspector import SchemaInspectorService
 
 # Global state for schema inspector context
 # pylint: disable=invalid-name  # JUSTIFICATION: These are mutable global state variables, not constants
@@ -37,12 +37,14 @@ def set_schema_inspector_context(service: SchemaInspectorService, username: str)
         This must be called before using schema inspector tools.
         Uses module-level globals for CrewAI tool compatibility.
     """
-    global _schema_inspector_service, _schema_inspector_username  # noqa: PLW0603  # pylint: disable=global-statement
+    # pylint: disable=global-statement  # JUSTIFICATION: CrewAI tool pattern requires module-level globals
+    global _schema_inspector_service, _schema_inspector_username  # noqa: PLW0603
+    # pylint: enable=global-statement
     _schema_inspector_service = service
     _schema_inspector_username = username
 
 
-@tool("list_datasets")  # type: ignore[misc]
+@tool("list_datasets")
 def list_datasets_tool() -> str:
     """List all available datasets with metadata.
 
@@ -84,7 +86,7 @@ def list_datasets_tool() -> str:
         return f"Error listing datasets: {e!s}"
 
 
-@tool("inspect_schema")  # type: ignore[misc]
+@tool("inspect_schema")
 def inspect_schema_tool(dataset_id: str) -> str:
     """Inspect the complete schema of a specific dataset.
 
@@ -132,7 +134,7 @@ def inspect_schema_tool(dataset_id: str) -> str:
         return f"Error inspecting schema: {e!s}"
 
 
-@tool("get_sample_data")  # type: ignore[misc]
+@tool("get_sample_data")
 def get_sample_data_tool(dataset_id: str, limit: int = 3) -> str:
     """Get sample rows from a dataset to understand data structure.
 

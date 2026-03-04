@@ -51,7 +51,7 @@ class TestQueryExecution:
 
         with pytest.raises((FuturesTimeoutError, Exception)):
             service.execute_query(
-                sql=long_query, params=[], username="testuser", timeout_seconds=30
+                query_sql=long_query, params=[], username="testuser", timeout_seconds=30
             )
 
         elapsed_time: float = time.time() - start_time
@@ -85,7 +85,7 @@ class TestQueryExecution:
         query: str = "SELECT 1 AS num, 'test' AS text"
 
         result: dict[str, Any] = service.execute_query(
-            sql=query, params=[], username="testuser", timeout_seconds=30
+            query_sql=query, params=[], username="testuser", timeout_seconds=30
         )
 
         # Verify result structure
@@ -123,7 +123,7 @@ class TestQueryExecution:
         params: list[str] = ["test'; DROP TABLE users; --"]
 
         result: dict[str, Any] = service.execute_query(
-            sql=query, params=params, username="testuser", timeout_seconds=30
+            query_sql=query, params=params, username="testuser", timeout_seconds=30
         )
 
         # Verify parameter was safely escaped
@@ -157,7 +157,7 @@ class TestQueryExecution:
         def run_query() -> dict[str, Any]:
             """Run long query with cancellation support."""
             return service.execute_query(
-                sql="SELECT pg_sleep(30)",  # 30 second query
+                query_sql="SELECT pg_sleep(30)",  # 30 second query
                 params=[],
                 username="testuser",
                 timeout_seconds=60,
@@ -205,7 +205,7 @@ class TestQueryExecution:
 
         with pytest.raises(Exception) as exc_info:
             service.execute_query(
-                sql=invalid_query, params=[], username="testuser", timeout_seconds=30
+                query_sql=invalid_query, params=[], username="testuser", timeout_seconds=30
             )
 
         # Verify error is raised
@@ -237,7 +237,7 @@ class TestQueryExecution:
         query: str = "SELECT generate_series(1, 1000) AS num"
 
         result: dict[str, Any] = service.execute_query(
-            sql=query, params=[], username="testuser", timeout_seconds=30
+            query_sql=query, params=[], username="testuser", timeout_seconds=30
         )
 
         # Verify all rows returned

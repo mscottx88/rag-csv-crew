@@ -3,18 +3,186 @@
  * Displays query results with HTML rendering and metadata
  */
 
-import React from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import type { Query, Dataset } from '../../types';
+import * as datasetsService from '../../services/datasets';
 import { AgentConsole } from './AgentConsole';
+import { SearchProgress } from './SearchProgress';
+import { AnalyzeProgress } from './AnalyzeProgress';
+import { SQLProgress } from './SQLProgress';
+import { ExecuteProgress } from './ExecuteProgress';
+import { ProcessProgress } from './ProcessProgress';
+import { HTMLProgress } from './HTMLProgress';
 import './ResultDisplay.css';
 
 interface ResultDisplayProps {
   query: Query;
-  datasets?: Dataset[];
   onCancel?: () => void;
 }
 
-export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, datasets, onCancel }) => {
+type QueryStage = 'search' | 'analyze' | 'sql' | 'execute' | 'process' | 'html';
+
+/** Ordered pipeline stages — index determines forward-only progression. */
+const STAGE_ORDER: QueryStage[] = ['search', 'analyze', 'sql', 'execute', 'process', 'html'];
+
+/** Minimum time each animation stage is displayed, even if the backend moves faster. */
+const MIN_STAGE_MS = 1500;
+
+/**
+ * Map a backend progress_message to a pipeline stage.
+ *
+ * Uses ordered prefix/phrase matching against known backend messages to avoid
+ * ambiguous keyword collisions (e.g. "data value search" during analyze phase).
+ *
+ * Pipeline: search → analyze → sql → execute → process → html
+ */
+function getQueryStage(message: string): QueryStage {
+  const m: string = message.toLowerCase();
+
+  // ── html: Result Analyst formatting ──
+  if (m.includes('result analyst') || m.includes('formatting result')) return 'html';
+
+  // ── process: final row processing + completion ──
+  if (m.startsWith('query completed') || m.startsWith('completed successfully')) return 'process';
+
+  // ── execute: running SQL against the database ──
+  if (m.startsWith('executing sql') || m.includes('validating syntax')) return 'execute';
+
+  // ── sql: generation, schema inspection, validation, parameter extraction ──
+  if (
+    m.includes('generating sql') || m.includes('sql generator')
+    || m.includes('schema inspector') || m.includes('loading database schema')
+    || m.includes('crewai') || m.includes('agent') || m.includes('translating')
+    || m.includes('cleaning sql') || m.includes('validating sql')
+    || m.includes('sql validation') || m.includes('parameterized')
+    || m.includes('extracting') || m.includes('filter keyword')
+    || m.includes('matched values') || m.includes('agent execution')
+    || m.includes('collaborating') || m.includes('optimizing')
+    || m.includes('mapping columns') || m.includes('where clauses')
+    || m.includes('finalizing') || m.includes('relationships between')
+  ) return 'sql';
+
+  // ── analyze: confidence scoring, data-value search, merging, clarification ──
+  if (
+    m.includes('confidence') || m.includes('analyzing')
+    || m.includes('query type') || m.includes('clarification')
+    || m.includes('merging') || m.includes('data value')
+    || m.includes('recalculating') || m.includes('improved to')
+    || m.includes('low confidence')
+  ) return 'analyze';
+
+  // ── search: hybrid/vector/full-text/exact search ──
+  if (
+    m.includes('hybrid search') || m.includes('search thread')
+    || m.includes('vector') || m.includes('full-text')
+    || m.includes('exact match') || m.includes('fusing')
+    || m.includes('deduplicating') || m.includes('fusion')
+    || m.includes('parallel search') || m.includes('starting hybrid')
+    || m.includes('columns found') || m.includes('matches')
+  ) return 'search';
+
+  // ── initial messages map to search (first stage) ──
+  if (m.includes('starting query') || m === '') return 'search';
+
+  return 'search';
+}
+
+function getStageLabel(stage: QueryStage): string {
+  switch (stage) {
+    case 'search': return 'Searching columns...';
+    case 'analyze': return 'Analyzing results...';
+    case 'sql': return 'Generating SQL...';
+    case 'execute': return 'Executing query...';
+    case 'process': return 'Processing rows...';
+    case 'html': return 'Formatting output...';
+  }
+}
+
+export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, onCancel }) => {
+  /** High-water mark for stage pips — tracks displayStageIdx, never regresses. */
+  const highWaterRef = useRef<number>(0);
+  /**
+   * True if this component instance ever observed a pending/processing status.
+   * Prevents the post-completion animation from firing when a completed query is
+   * expanded in history (where the component mounts directly into completed state).
+   */
+  const wasProcessingRef = useRef<boolean>(
+    query.status === 'pending' || query.status === 'processing',
+  );
+  const [datasets, setDatasets] = useState<Dataset[]>([]);
+
+  /**
+   * displayStageIdx — the stage index currently shown in the animation.
+   * Advances toward detectedIndex one step at a time, with a minimum
+   * dwell of MIN_STAGE_MS per stage so every animation gets screen time.
+   */
+  const [displayStageIdx, setDisplayStageIdx] = useState<number>(0);
+  const displayStageStartRef = useRef<number>(Date.now());
+
+  // Fetch datasets for name resolution
+  useEffect(() => {
+    if (query.dataset_ids && query.dataset_ids.length > 0) {
+      void datasetsService.list().then((data) => {
+        setDatasets(data.datasets);
+      }).catch(() => {
+        // Silently fail — will show truncated IDs as fallback
+      });
+    }
+  }, [query.dataset_ids]);
+
+  // Track whether this instance ever saw an active processing state.
+  useEffect(() => {
+    if (query.status === 'pending' || query.status === 'processing') {
+      wasProcessingRef.current = true;
+    }
+  }, [query.status]);
+
+  // Reset display stage and high-water mark when a new query starts.
+  useEffect(() => {
+    setDisplayStageIdx(0);
+    displayStageStartRef.current = Date.now();
+    highWaterRef.current = 0;
+  }, [query.id]);
+
+  // Derive the target stage from the latest backend message.
+  const detectedStage: QueryStage = getQueryStage(query.progress_message || '');
+  const detectedIndex: number = STAGE_ORDER.indexOf(detectedStage);
+
+  /**
+   * When the backend reports completed (and this component witnessed processing),
+   * keep driving displayStageIdx all the way to the last stage so every animation
+   * (including 'html') gets its screen time.
+   * If the component mounted directly into completed (history view), skip animation.
+   */
+  const effectiveDetectedIndex: number =
+    query.status === 'completed' && wasProcessingRef.current
+      ? STAGE_ORDER.length - 1
+      : detectedIndex;
+
+  /**
+   * Step displayStageIdx toward effectiveDetectedIndex one stage at a time,
+   * waiting at least MIN_STAGE_MS before each advance.
+   * Continues running after status=completed only if wasProcessingRef is set.
+   */
+  useEffect(() => {
+    const shouldAdvance =
+      query.status === 'pending' ||
+      query.status === 'processing' ||
+      (query.status === 'completed' && wasProcessingRef.current && displayStageIdx < STAGE_ORDER.length - 1);
+    if (!shouldAdvance) return;
+    if (displayStageIdx >= effectiveDetectedIndex) return;
+
+    const elapsed: number = Date.now() - displayStageStartRef.current;
+    const delay: number = Math.max(0, MIN_STAGE_MS - elapsed);
+
+    const timer: ReturnType<typeof setTimeout> = setTimeout(() => {
+      displayStageStartRef.current = Date.now();
+      setDisplayStageIdx(prev => Math.min(prev + 1, STAGE_ORDER.length - 1));
+    }, delay);
+
+    return (): void => { clearTimeout(timer); };
+  }, [displayStageIdx, effectiveDetectedIndex, query.status]);
+
   const renderStatus = (): JSX.Element => {
     switch (query.status) {
       case 'pending':
@@ -22,7 +190,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, datasets, o
       case 'processing':
         return <div className="status-badge status-processing">Processing...</div>;
       case 'completed':
-        return <div className="status-badge status-completed">Completed</div>;
+        return <div className="status-badge status-completed"><svg className="status-check-icon" width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1.5 5.5 L4 8 L8.5 2" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" /></svg>Completed</div>;
       case 'failed':
         return <div className="status-badge status-failed">Failed</div>;
       case 'cancelled':
@@ -42,17 +210,23 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, datasets, o
       );
     }
 
-    // Find dataset names from IDs
     const datasetNames: string[] = query.dataset_ids
       .map((id: string) => {
-        const dataset: Dataset | undefined = datasets?.find((d: Dataset) => d.id === id);
-        return dataset?.filename || id;
+        const dataset: Dataset | undefined = datasets.find((d: Dataset) => d.id === id);
+        return dataset?.filename || id.slice(0, 8);
       });
+
+    const count: number = datasetNames.length;
 
     return (
       <div className="query-datasets">
         <span className="datasets-label">Datasets:</span>
-        <span className="datasets-value">{datasetNames.join(', ')}</span>
+        <span className="datasets-value">
+          {count === 1 ? datasetNames[0] : `${count} selected`}
+        </span>
+        {count > 1 && (
+          <span className="datasets-list">{datasetNames.join(', ')}</span>
+        )}
       </div>
     );
   };
@@ -69,7 +243,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, datasets, o
         {query.execution_time_ms !== undefined && (
           <div className="metadata-item">
             <span className="metadata-label">Execution Time:</span>
-            <span className="metadata-value">{query.execution_time_ms}ms</span>
+            <span className="metadata-value">{(query.execution_time_ms / 1000).toFixed(2)}s</span>
           </div>
         )}
         {query.result_count !== undefined && (
@@ -88,93 +262,63 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, datasets, o
     );
   };
 
-  const getProgressStage = (): { icon: string; color: string; label: string } => {
-    const message: string = query.progress_message || '';
-
-    if (message.includes('search') || message.includes('column')) {
-      return { icon: '🔍', color: '#00d4ff', label: 'Searching' };
+  const renderAnimation = (stage: QueryStage, label: string): JSX.Element => {
+    switch (stage) {
+      case 'search':  return <SearchProgress label={label} />;
+      case 'analyze': return <AnalyzeProgress label={label} />;
+      case 'sql':     return <SQLProgress label={label} />;
+      case 'execute': return <ExecuteProgress label={label} />;
+      case 'process': return <ProcessProgress label={label} />;
+      case 'html':    return <HTMLProgress label={label} />;
     }
-    if (message.includes('Schema Inspector') || message.includes('analyzing')) {
-      return { icon: '🤖', color: '#667eea', label: 'Analyzing' };
-    }
-    if (message.includes('SQL') || message.includes('translating')) {
-      return { icon: '⚡', color: '#f59e0b', label: 'Generating' };
-    }
-    if (message.includes('executing') || message.includes('query')) {
-      return { icon: '🚀', color: '#10b981', label: 'Executing' };
-    }
-    if (message.includes('processing') || message.includes('rows')) {
-      return { icon: '📊', color: '#8b5cf6', label: 'Processing' };
-    }
-    return { icon: '⚙️', color: '#6366f1', label: 'Working' };
   };
 
   const renderContent = (): JSX.Element => {
-    if (query.status === 'pending' || query.status === 'processing') {
-      const stage = getProgressStage();
+    // Show animation while processing, or while we're still playing remaining stages
+    // after the backend has completed (so html stage always gets its MIN_STAGE_MS).
+    const isShowingAnimation =
+      query.status === 'pending' ||
+      query.status === 'processing' ||
+      (query.status === 'completed' && wasProcessingRef.current && displayStageIdx < STAGE_ORDER.length - 1);
+
+    if (isShowingAnimation) {
       const message: string = query.progress_message || '';
+
+      /* displayStageIdx is the throttled index — drives both animation and pips. */
+      const displayStage: QueryStage = STAGE_ORDER[displayStageIdx] ?? 'search';
+      const label: string = getStageLabel(displayStage);
+
+      /* High-water mark tracks the display stage (stays in sync with animation). */
+      if (displayStageIdx > highWaterRef.current) {
+        highWaterRef.current = displayStageIdx;
+      }
 
       return (
         <div className="result-processing">
-          <div className="progress-container">
-            {/* Animated background particles */}
-            <div className="progress-particles">
-              <div className="particle particle-1"></div>
-              <div className="particle particle-2"></div>
-              <div className="particle particle-3"></div>
-              <div className="particle particle-4"></div>
-              <div className="particle particle-5"></div>
-            </div>
+          <div className="query-animation-wrap">
+            {/* Animation matches the throttled display stage */}
+            {renderAnimation(displayStage, label)}
 
-            {/* Main progress display */}
-            <div className="progress-main">
-              <div className="progress-icon-container" style={{ color: stage.color }}>
-                <span className="progress-icon-large animated-icon">{stage.icon}</span>
-                <div className="progress-ring" style={{ borderColor: stage.color }}></div>
-                <div className="progress-glow" style={{ backgroundColor: stage.color }}></div>
-              </div>
+            {message && (
+              <p className="query-progress-message">{message}</p>
+            )}
 
-              <div className="progress-info">
-                <h4 className="progress-title" style={{ color: stage.color }}>
-                  {stage.label}
-                </h4>
-                <div className="progress-bar-container">
-                  <div className="progress-bar-track">
-                    <div
-                      className="progress-bar-fill"
-                      style={{ backgroundColor: stage.color }}
-                    ></div>
-                  </div>
-                </div>
-                {query.progress_message && (
-                  <p className="progress-message-text">{query.progress_message}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Stage indicators */}
-            <div className="progress-stages">
-              <div className={`stage-dot ${message.includes('search') ? 'active' : ''}`} title="Searching">
-                🔍
-              </div>
-              <div className={`stage-dot ${message.includes('Schema') || message.includes('analyzing') ? 'active' : ''}`} title="Analyzing">
-                🤖
-              </div>
-              <div className={`stage-dot ${message.includes('SQL') || message.includes('translating') ? 'active' : ''}`} title="Generating">
-                ⚡
-              </div>
-              <div className={`stage-dot ${message.includes('executing') ? 'active' : ''}`} title="Executing">
-                🚀
-              </div>
-              <div className={`stage-dot ${message.includes('processing') || message.includes('rows') ? 'active' : ''}`} title="Processing">
-                📊
-              </div>
+            {/* Stage indicator pips — advance with display stage */}
+            <div className="query-stages">
+              {STAGE_ORDER.map(
+                (s: QueryStage, i: number) => (
+                  <div
+                    key={s}
+                    className={`query-stage-pip ${displayStage === s ? 'active' : ''} ${i <= highWaterRef.current ? 'reached' : ''}`}
+                    title={getStageLabel(s)}
+                  />
+                )
+              )}
             </div>
 
             {onCancel && (
-              <button onClick={onCancel} className="cancel-button-modern">
-                <span className="cancel-icon">✕</span>
-                Cancel Query
+              <button onClick={onCancel} className="cancel-query-btn">
+                ✕ Cancel
               </button>
             )}
           </div>
@@ -233,7 +377,6 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ query, datasets, o
 
       <div className="result-content">{renderContent()}</div>
 
-      {/* Agent Activity Console - Show agent reasoning and logs */}
       <AgentConsole agentLogs={query.agent_logs} />
     </div>
   );

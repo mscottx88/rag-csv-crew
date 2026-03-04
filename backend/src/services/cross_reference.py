@@ -260,20 +260,14 @@ class CrossReferenceService:
             cur.execute(f"SET search_path TO {user_schema}, public")
 
             # Get columns from both datasets
-            source_columns: list[tuple[str, ...]] = self._get_columns(
-                cur, source_dataset_id
-            )
-            target_columns: list[tuple[str, ...]] = self._get_columns(
-                cur, target_dataset_id
-            )
+            source_columns: list[tuple[str, ...]] = self._get_columns(cur, source_dataset_id)
+            target_columns: list[tuple[str, ...]] = self._get_columns(cur, target_dataset_id)
 
             # Compare all column pairs
             for source_col_name, source_col_type in source_columns:
                 for target_col_name, target_col_type in target_columns:
                     # Only compare columns of compatible types
-                    if not self._are_types_compatible(
-                        source_col_type, target_col_type
-                    ):
+                    if not self._are_types_compatible(source_col_type, target_col_type):
                         continue
 
                     # Get sample values from both columns
@@ -303,9 +297,7 @@ class CrossReferenceService:
 
         return cross_references
 
-    def _get_columns(
-        self, cur: Any, dataset_id: str
-    ) -> list[tuple[str, ...]]:
+    def _get_columns(self, cur: Any, dataset_id: str) -> list[tuple[str, ...]]:
         """Get column names and types for a dataset.
 
         Args:
@@ -317,7 +309,7 @@ class CrossReferenceService:
         """
         cur.execute(
             """
-            SELECT column_name, data_type
+            SELECT column_name, inferred_type
             FROM column_mappings
             WHERE dataset_id = %s
             AND column_name NOT LIKE '_%%'  -- Exclude metadata columns (escape %% for psycopg)
@@ -376,14 +368,14 @@ class CrossReferenceService:
         Returns:
             True if types are compatible
         """
-        # Numeric types
-        numeric_types: set[str] = {"integer", "bigint", "numeric", "real", "double precision"}
+        # Numeric types (inferred_type values from ingestion)
+        numeric_types: set[str] = {"INTEGER", "FLOAT"}
 
         # Text types
-        text_types: set[str] = {"text", "varchar", "character varying", "char"}
+        text_types: set[str] = {"TEXT"}
 
         # Date/time types
-        date_types: set[str] = {"date", "timestamp", "timestamp with time zone"}
+        date_types: set[str] = {"DATE", "TIMESTAMP"}
 
         if type1 in numeric_types and type2 in numeric_types:
             return True

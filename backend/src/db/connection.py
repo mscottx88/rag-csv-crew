@@ -11,9 +11,12 @@ from contextlib import contextmanager
 import logging
 from typing import TYPE_CHECKING
 
+import psycopg
 from psycopg import Connection
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
+
+from .retry import retry_with_backoff
 
 if TYPE_CHECKING:
     from ..models.config import DatabaseConfig
@@ -63,6 +66,41 @@ class DatabaseConnectionPool:
             f"user={self.config.user} "
             f"password={self.config.password} "
             f"options='-c statement_timeout={self.config.statement_timeout}'"
+        )
+
+        bootstrap_conninfo: str = (
+            f"host={self.config.host} "
+            f"port={self.config.port} "
+            f"dbname=postgres "
+            f"user={self.config.user} "
+            f"password={self.config.password}"
+        )
+
+        def _probe_connection() -> None:
+            """Connect to postgres and create target database if missing."""
+            with (
+                psycopg.connect(bootstrap_conninfo, autocommit=True, connect_timeout=5) as conn,
+                conn.cursor() as cur,
+            ):
+                cur.execute(
+                    "SELECT 1 FROM pg_database WHERE datname = %s",
+                    (self.config.database,),
+                )
+                db_exists: bool = cur.fetchone() is not None
+                if not db_exists:
+                    logger.info("Creating database %s", self.config.database)
+                    cur.execute(
+                        psycopg.sql.SQL("CREATE DATABASE {}").format(
+                            psycopg.sql.Identifier(self.config.database)
+                        )
+                    )
+                    logger.info("Database %s created successfully", self.config.database)
+
+        retry_with_backoff(
+            operation=_probe_connection,
+            max_retries=15,
+            initial_delay=2.0,
+            backoff_factor=1.0,
         )
 
         self._pool = ConnectionPool(
@@ -198,7 +236,9 @@ def initialize_global_pool(config: DatabaseConfig) -> None:
     Args:
         config: Database configuration
     """
-    global _global_pool  # noqa: PLW0603  # pylint: disable=global-statement,global-variable-not-assigned
+    # pylint: disable=global-statement  # JUSTIFICATION: Singleton pool pattern requires module-level global
+    global _global_pool  # noqa: PLW0603
+    # pylint: enable=global-statement
     if _global_pool is not None:
         logger.warning("Global pool already initialized")
         return
@@ -230,7 +270,9 @@ def close_global_pool() -> None:
 
     Should be called during application shutdown.
     """
-    global _global_pool  # noqa: PLW0603  # pylint: disable=global-statement,global-variable-not-assigned
+    # pylint: disable=global-statement  # JUSTIFICATION: Singleton pool pattern requires module-level global
+    global _global_pool  # noqa: PLW0603
+    # pylint: enable=global-statement
     if _global_pool is None:
         logger.warning("Global pool not initialized, nothing to close")
         return

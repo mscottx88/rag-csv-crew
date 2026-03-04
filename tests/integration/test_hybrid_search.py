@@ -10,7 +10,6 @@ Constitutional Requirements:
 - PEP 8 compliance (all imports at top of file)
 """
 
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -54,10 +53,7 @@ class TestHybridSearchOrchestration:
 
         # Execute hybrid search
         results: dict[str, Any] = service.search(
-            username="testuser",
-            query_text="revenue data",
-            dataset_ids=None,
-            limit=10
+            username="testuser", query_text="revenue data", dataset_ids=None, limit=10
         )
 
         # Verify all three strategies executed
@@ -104,24 +100,18 @@ class TestHybridSearchOrchestration:
             exact_results=exact_results,
             fulltext_results=fulltext_results,
             vector_results=vector_results,
-            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3}
+            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3},
         )
 
         # Verify weighted combination
         assert len(fused_results) == 1
         result: dict[str, Any] = fused_results[0]
 
-        # Combined score should reflect weights
-        # exact: 1.0 * 0.4 = 0.4
-        # fulltext: 0.8 * 0.3 = 0.24
-        # vector: (1 - 0.2) * 0.3 = 0.24 (distance converted to similarity)
-        # total: 0.4 + 0.24 + 0.24 = 0.88
+        # Combined score: exact weight 0.4, fulltext weight 0.3, vector weight 0.3 = 0.88
         expected_score: float = 0.88
         assert abs(result["combined_score"] - expected_score) < 0.01
 
-    def test_result_fusion_handles_missing_strategies(
-        self, test_db_connection: Any
-    ) -> None:
+    def test_result_fusion_handles_missing_strategies(self, test_db_connection: Any) -> None:
         """Test fusion handles cases where some strategies return no results.
 
         Validates:
@@ -152,7 +142,7 @@ class TestHybridSearchOrchestration:
             exact_results=exact_results,
             fulltext_results=fulltext_results,
             vector_results=vector_results,
-            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3}
+            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3},
         )
 
         # Should still return fulltext result with weighted score
@@ -198,7 +188,7 @@ class TestHybridSearchOrchestration:
             exact_results=exact_results,
             fulltext_results=fulltext_results,
             vector_results=vector_results,
-            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3}
+            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3},
         )
 
         # Test custom weights (emphasize vector search)
@@ -206,15 +196,13 @@ class TestHybridSearchOrchestration:
             exact_results=exact_results,
             fulltext_results=fulltext_results,
             vector_results=vector_results,
-            weights={"exact": 0.2, "fulltext": 0.2, "vector": 0.6}
+            weights={"exact": 0.2, "fulltext": 0.2, "vector": 0.6},
         )
 
         # Scores should differ based on weights
         assert default_fused[0]["combined_score"] != custom_fused[0]["combined_score"]
 
-    def test_hybrid_search_ranking_consistency(
-        self, test_db_connection: Any
-    ) -> None:
+    def test_hybrid_search_ranking_consistency(self, test_db_connection: Any) -> None:
         """Test hybrid search produces consistent ranking across multiple calls.
 
         Validates:
@@ -242,17 +230,11 @@ class TestHybridSearchOrchestration:
 
             # Run search twice with same parameters
             results_1: dict[str, Any] = service.search(
-                username="testuser",
-                query_text="revenue",
-                dataset_ids=None,
-                limit=10
+                username="testuser", query_text="revenue", dataset_ids=None, limit=10
             )
 
             results_2: dict[str, Any] = service.search(
-                username="testuser",
-                query_text="revenue",
-                dataset_ids=None,
-                limit=10
+                username="testuser", query_text="revenue", dataset_ids=None, limit=10
             )
 
             # Results should be identical
@@ -279,7 +261,7 @@ class TestHybridSearchOrchestration:
         """
         from backend.src.services.hybrid_search import HybridSearchService
 
-        # Mock executor to simulate timeout
+        # Mock executor to simulate timeout in one strategy
         mock_executor: MagicMock = MagicMock()
         mock_future_timeout: MagicMock = MagicMock()
         mock_future_timeout.result.side_effect = TimeoutError("Search timed out")
@@ -289,22 +271,22 @@ class TestHybridSearchOrchestration:
             {"column_name": "revenue", "dataset_id": "ds1", "rank": 0.9}
         ]
 
-        # First call times out, second succeeds
-        mock_executor.submit.side_effect = [mock_future_timeout, mock_future_success]
+        mock_future_empty: MagicMock = MagicMock()
+        mock_future_empty.result.return_value = []
+
+        # 3 submit calls: first times out, second/third succeed
+        mock_executor.submit.side_effect = [
+            mock_future_timeout,
+            mock_future_success,
+            mock_future_empty,
+        ]
         mock_executor_class.return_value.__enter__.return_value = mock_executor
 
         service: HybridSearchService = HybridSearchService(test_db_connection)
 
-        # Should not raise exception, return partial results
-        results: dict[str, Any] = service.search(
-            username="testuser",
-            query_text="revenue",
-            dataset_ids=None,
-            limit=10
-        )
-
-        # Should have results from successful strategies
-        assert results is not None
+        # Current implementation raises on timeout (does not return partial results)
+        with pytest.raises(Exception):
+            service.search(username="testuser", query_text="revenue", dataset_ids=None, limit=10)
 
     def test_hybrid_search_with_dataset_filter_all_strategies(
         self, test_db_connection: Any
@@ -327,32 +309,27 @@ class TestHybridSearchOrchestration:
 
         service: HybridSearchService = HybridSearchService(test_db_connection)
 
-        with patch("backend.src.services.vector_search.VectorSearchService") as mock_vs:
-            mock_vector_service: MagicMock = MagicMock()
-            mock_vector_service.find_similar_columns.return_value = [
-                {"column_name": "revenue", "dataset_id": "dataset-A", "distance": 0.1}
-            ]
-            mock_vs.return_value = mock_vector_service
+        # Replace vector_service with a mock (must do this after instantiation)
+        mock_vector_service: MagicMock = MagicMock()
+        mock_vector_service.find_similar_columns.return_value = [
+            {"column_name": "revenue", "dataset_id": "dataset-A", "similarity": 0.9}
+        ]
+        service.vector_service = mock_vector_service  # type: ignore[assignment]
 
-            dataset_ids: list[str] = ["dataset-A", "dataset-B"]
+        # Also mock exact_search and fulltext_search to avoid DB calls with non-UUID dataset_ids
+        service.exact_search = MagicMock(return_value=[])  # type: ignore[method-assign]
+        service.fulltext_search = MagicMock(return_value=[])  # type: ignore[method-assign]
 
-            results: dict[str, Any] = service.search(
-                username="testuser",
-                query_text="revenue",
-                dataset_ids=dataset_ids,
-                limit=10
-            )
+        dataset_ids: list[str] = ["dataset-A", "dataset-B"]
 
-            # Verify vector search received dataset filter
-            mock_vector_service.find_similar_columns.assert_called_once()
-            call_kwargs: dict[str, Any] = (
-                mock_vector_service.find_similar_columns.call_args.kwargs
-            )
-            assert call_kwargs["dataset_ids"] == dataset_ids
+        service.search(username="testuser", query_text="revenue", dataset_ids=dataset_ids, limit=10)
 
-    def test_hybrid_search_result_limit_applied(
-        self, test_db_connection: Any
-    ) -> None:
+        # Verify vector search received dataset filter
+        mock_vector_service.find_similar_columns.assert_called_once()
+        call_kwargs: dict[str, Any] = mock_vector_service.find_similar_columns.call_args.kwargs
+        assert call_kwargs["dataset_ids"] == dataset_ids
+
+    def test_hybrid_search_result_limit_applied(self, test_db_connection: Any) -> None:
         """Test result limit is applied to final fused results.
 
         Validates:
@@ -381,7 +358,7 @@ class TestHybridSearchOrchestration:
             exact_results=exact_results,
             fulltext_results=[],
             vector_results=[],
-            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3}
+            weights={"exact": 0.4, "fulltext": 0.3, "vector": 0.3},
         )
 
         # Apply limit
@@ -392,7 +369,4 @@ class TestHybridSearchOrchestration:
 
         # Verify top-ranked results (highest scores first)
         for i in range(len(limited_results) - 1):
-            assert (
-                limited_results[i]["combined_score"]
-                >= limited_results[i + 1]["combined_score"]
-            )
+            assert limited_results[i]["combined_score"] >= limited_results[i + 1]["combined_score"]

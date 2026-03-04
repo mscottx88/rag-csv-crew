@@ -1,5 +1,5 @@
 /**
- * Global CSS Styles
+ * Global CSS Styles — Dark Neon Wireframe Theme
  */
 
 :root {
@@ -8,26 +8,67 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light;
-  color: #333;
-  background-color: #f5f5f5;
+  color-scheme: dark;
+  color: rgba(255, 255, 255, 0.88);
+  background-color: #000;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* ── Backgrounds — slight transparency lets the circuit board show through ── */
+  --bg:           #000000;
+  --bg-card:      rgba(7, 7, 7, 0.88);
+  --bg-panel:     rgba(12, 12, 12, 0.90);
+  --bg-dim:       rgba(15, 15, 15, 0.85);
+  --border:       rgba(255, 255, 255, 0.08);
+
+  /* ── Neon palette ── */
+  --pink:         #ff10f0;
+  --pink-dim:     rgba(255, 16, 240, 0.15);
+  --pink-glow:    rgba(255, 16, 240, 0.35);
+
+  --green:        #39ff14;
+  --green-dim:    rgba(57, 255, 20, 0.12);
+  --green-glow:   rgba(57, 255, 20, 0.35);
+
+  --orange:       #ff6600;
+  --orange-dim:   rgba(255, 102, 0, 0.12);
+  --orange-glow:  rgba(255, 102, 0, 0.35);
+
+  --cyan:         #00eeff;
+  --cyan-dim:     rgba(0, 238, 255, 0.12);
+  --cyan-glow:    rgba(0, 238, 255, 0.35);
+
+  --gold:         #ffd700;
+  --gold-dim:     rgba(255, 215, 0, 0.12);
+  --gold-glow:    rgba(255, 215, 0, 0.35);
+
+  /* ── Semantic ── */
+  --err:          #ff3333;
+  --err-dim:      rgba(255, 51, 51, 0.15);
+
+  /* ── Text ── */
+  --txt:          rgba(255, 255, 255, 0.88);
+  --txt-muted:    rgba(255, 255, 255, 0.45);
+  --txt-dim:      rgba(255, 255, 255, 0.25);
 }
 
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  /* Hide system cursor — the CursorSnake canvas overlay acts as the cursor */
+  cursor: none !important;
 }
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background: var(--bg);
+  color: var(--txt);
 }
 
 #root {
@@ -37,3 +78,119 @@ body {
 button {
   font-family: inherit;
 }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Page-fade-in removed — transitions handled by pageTransition utility */
+
+/*
+ * Lightning hover glow — subtle base glow via CSS.
+ * The animated bolt tracing is handled by the LightningBorder canvas component.
+ * --hover-glow-color is read by the canvas to colour the bolt per-element.
+ */
+button:not(:disabled):hover,
+a:hover,
+.nav-link:hover,
+.dataset-checkbox:hover,
+.example-button:not(:disabled):hover,
+.drop-zone:hover,
+.action-card:hover,
+.history-item:hover,
+.console-header:hover,
+input:not(:disabled):hover,
+textarea:not(:disabled):hover,
+select:not(:disabled):hover {
+  box-shadow:
+    0 0 6px color-mix(in srgb, var(--hover-glow-color, var(--pink)) 40%, transparent),
+    0 0 14px color-mix(in srgb, var(--hover-glow-color, var(--pink)) 20%, transparent);
+}
+
+/* ── Per-color overrides (match existing theme colors) ── */
+
+/* Pink — logout, login, default buttons */
+.logout-button:not(:disabled):hover,
+.login-button:not(:disabled):hover {
+  --hover-glow-color: var(--pink);
+}
+
+/* Cyan — query section buttons, inputs, checkboxes, back button */
+.query-input button:not(:disabled):hover,
+.query-input textarea:hover,
+.query-input input:hover,
+.submit-button:not(:disabled):hover,
+.select-all-button:not(:disabled):hover,
+.dataset-checkbox:hover,
+.example-button:not(:disabled):hover,
+.back-button:not(:disabled):hover {
+  --hover-glow-color: var(--cyan);
+}
+
+/* Orange — dataset list, items, twisty */
+.dataset-item:hover,
+.dataset-expand-indicator:hover {
+  --hover-glow-color: var(--orange);
+}
+
+/* Orange — dataset inspector table, back link */
+.inspector-page .back-link:hover,
+.table-controls select:hover,
+.data-table tbody tr:hover {
+  --hover-glow-color: var(--orange);
+}
+
+/* Green — upload, dialog cancel, replay (safe actions) */
+.upload-button:not(:disabled):hover,
+.drop-zone:hover,
+.dialog-cancel-button:not(:disabled):hover,
+.replay-button:not(:disabled):hover {
+  --hover-glow-color: var(--green);
+}
+
+/* Gold — history nav, history items, twisty, agent console, status badges */
+.nav-link[data-route="history"]:hover,
+.expand-indicator:hover,
+.history-item:hover,
+.console-header:hover,
+.status-badge:hover,
+.neon-select:hover {
+  --hover-glow-color: var(--gold);
+}
+
+/* Sidebar nav per-route */
+.nav-link[data-route=""]:hover        { --hover-glow-color: var(--pink); }
+.nav-link[data-route="query"]:hover   { --hover-glow-color: var(--cyan); }
+.nav-link[data-route="upload"]:hover  { --hover-glow-color: var(--green); }
+.nav-link[data-route="datasets"]:hover{ --hover-glow-color: var(--orange); }
+
+/* Dashboard action cards */
+.action-card:nth-child(1):hover { --hover-glow-color: var(--cyan); }
+.action-card:nth-child(2):hover { --hover-glow-color: var(--green); }
+.action-card:nth-child(3):hover { --hover-glow-color: var(--orange); }
+.action-card:nth-child(4):hover { --hover-glow-color: var(--gold); }
+
+/* Error — cancel, delete, destructive buttons */
+.cancel-button:not(:disabled):hover,
+.cancel-query-btn:not(:disabled):hover,
+.confirm-button:not(:disabled):hover,
+.delete-button:not(:disabled):hover {
+  --hover-glow-color: var(--err);
+}
+
+

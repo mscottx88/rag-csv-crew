@@ -228,7 +228,9 @@ def get_rate_limiter() -> RateLimiter:
 
     Per T209-POLISH: Global rate limiter for FastAPI dependency injection
     """
+    # pylint: disable=global-statement  # JUSTIFICATION: Singleton limiter pattern requires module-level global
     global _global_rate_limiter  # noqa: PLW0603
+    # pylint: enable=global-statement
 
     if _global_rate_limiter is None:
         _global_rate_limiter = RateLimiter(capacity=100, window_seconds=60)

@@ -22,6 +22,7 @@ from backend.src.services.vector_search import VectorSearchService
 class TestVectorSearchEmbeddings:
     """Unit tests for embedding generation service (T098)."""
 
+    @patch.dict("os.environ", {"GOOGLE_API_KEY": "", "OPENAI_API_KEY": "sk-fake-key-for-testing"})
     @patch("backend.src.services.vector_search.OpenAI")
     def test_generate_embedding_from_text(self, mock_openai_class: MagicMock) -> None:
         """Test embedding generation for a single text input.
@@ -56,7 +57,7 @@ class TestVectorSearchEmbeddings:
         # Verify embedding dimensions
         assert isinstance(embedding, list)
         assert len(embedding) == 1536
-        assert all(isinstance(x, (float, int)) for x in embedding)
+        assert all(isinstance(x, float | int) for x in embedding)
 
         # Verify OpenAI API was called with correct parameters
         mock_client.embeddings.create.assert_called_once()
@@ -64,6 +65,7 @@ class TestVectorSearchEmbeddings:
         assert call_kwargs["model"] == "text-embedding-3-small"
         assert call_kwargs["input"] == text
 
+    @patch.dict("os.environ", {"GOOGLE_API_KEY": "", "OPENAI_API_KEY": "sk-fake-key-for-testing"})
     @patch("backend.src.services.vector_search.OpenAI")
     def test_generate_embedding_batch(self, mock_openai_class: MagicMock) -> None:
         """Test batch embedding generation for multiple texts.
@@ -116,6 +118,7 @@ class TestVectorSearchEmbeddings:
         call_kwargs: dict[str, Any] = mock_client.embeddings.create.call_args.kwargs
         assert call_kwargs["input"] == texts
 
+    @patch.dict("os.environ", {"GOOGLE_API_KEY": "", "OPENAI_API_KEY": "sk-fake-key-for-testing"})
     @patch("backend.src.services.vector_search.OpenAI")
     def test_generate_embedding_error_handling(self, mock_openai_class: MagicMock) -> None:
         """Test error handling when OpenAI API fails.
@@ -147,6 +150,7 @@ class TestVectorSearchEmbeddings:
         assert exc_info.value is not None
         assert "rate limit" in str(exc_info.value).lower()
 
+    @patch.dict("os.environ", {"GOOGLE_API_KEY": "", "OPENAI_API_KEY": "sk-fake-key-for-testing"})
     @patch("backend.src.services.vector_search.OpenAI")
     def test_generate_embedding_normalizes_text(self, mock_openai_class: MagicMock) -> None:
         """Test text normalization before embedding generation.

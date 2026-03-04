@@ -13,7 +13,8 @@ Confidence scores based on overlap percentage and relationship characteristics.
 from typing import Any
 
 import pytest
-from src.services.cross_reference import CrossReferenceService
+
+from backend.src.services.cross_reference import CrossReferenceService
 
 
 @pytest.fixture
@@ -36,10 +37,11 @@ class TestRelationshipTypeClassification:
         target_values: list[Any] = [1, 2, 3, 4, 5, 6, 7, 8]  # Target is superset
 
         # Expected: foreign_key (source is subset of target)
-        result: dict[str, Any] = cross_ref_service.classify_relationship(
+        result: dict[str, Any] | None = cross_ref_service.classify_relationship(
             source_values, target_values
         )
 
+        assert result is not None
         assert result["relationship_type"] == "foreign_key"
         assert result["confidence_score"] >= 0.9
 
@@ -62,11 +64,12 @@ class TestRelationshipTypeClassification:
         source_values: list[str] = ["A", "B", "C", "D"]
         target_values: list[str] = ["B", "C", "E", "F"]
 
-        # Expected: shared_values (50% overlap)  # noqa: ERA001
-        result: dict[str, Any] = cross_ref_service.classify_relationship(
+        # Expects shared_values relationship type with 50 percent overlap
+        result: dict[str, Any] | None = cross_ref_service.classify_relationship(
             source_values, target_values
         )
 
+        assert result is not None
         assert result["relationship_type"] == "shared_values"
         assert 0.4 <= result["confidence_score"] <= 0.7
 
@@ -80,10 +83,11 @@ class TestRelationshipTypeClassification:
         target_values: list[str] = ["Apple", "Microsoft", "Google"]
 
         # Expected: similar_values (fuzzy match confidence)
-        result: dict[str, Any] = cross_ref_service.classify_relationship(
+        result: dict[str, Any] | None = cross_ref_service.classify_relationship(
             source_values, target_values, use_fuzzy=True
         )
 
+        assert result is not None
         assert result["relationship_type"] == "similar_values"
         assert 0.3 <= result["confidence_score"] <= 0.6
 
@@ -134,10 +138,11 @@ class TestRelationshipTypeClassification:
         target_values: list[Any] = [1, 2, 3, None]
 
         # Expected: Only compare non-null values
-        result: dict[str, Any] = cross_ref_service.classify_relationship(
+        result: dict[str, Any] | None = cross_ref_service.classify_relationship(
             source_values, target_values
         )
 
+        assert result is not None
         assert result["confidence_score"] == 1.0  # All non-null values match
 
     def test_case_insensitive_string_comparison(
@@ -149,9 +154,10 @@ class TestRelationshipTypeClassification:
         source_values: list[str] = ["Apple", "Banana", "Cherry"]
         target_values: list[str] = ["apple", "BANANA", "cherry"]
 
-        # Expected: 100% overlap (case-insensitive)  # noqa: ERA001
-        result: dict[str, Any] = cross_ref_service.classify_relationship(
+        # Expects full overlap when matching case-insensitively
+        result: dict[str, Any] | None = cross_ref_service.classify_relationship(
             source_values, target_values
         )
 
+        assert result is not None
         assert result["confidence_score"] >= 0.95

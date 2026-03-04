@@ -53,7 +53,7 @@ export const history = async (params?: PaginationParams): Promise<QueryHistory> 
     params: {
       page: params?.page || 1,
       page_size: params?.page_size || 20,
-      status: params?.status,
+      status_filter: params?.status,
     },
   });
   return response.data;

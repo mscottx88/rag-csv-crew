@@ -3,9 +3,11 @@
  * Natural language query input with example questions
  */
 
-import React, { useState, useEffect, FormEvent, ChangeEvent } from 'react';
+import React, { useState, useEffect, FormEvent, ChangeEvent, KeyboardEvent } from 'react';
 import * as queriesService from '../../services/queries';
 import * as datasetsService from '../../services/datasets';
+import { NeonScrollbar } from '../NeonScrollbar/NeonScrollbar';
+import { NeonCheckbox } from '../NeonCheckbox/NeonCheckbox';
 import type { Query, QueryExample, Dataset } from '../../types';
 import './QueryInput.css';
 
@@ -90,6 +92,16 @@ export const QueryInput: React.FC<QueryInputProps> = ({
     setError('');
   };
 
+  const handleQueryKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (e.key === 'Enter' && e.ctrlKey) {
+      e.preventDefault();
+      if (!submitting && !isProcessing && queryText.trim()) {
+        const form = e.currentTarget.closest('form');
+        form?.requestSubmit();
+      }
+    }
+  };
+
   const handleCancelClick = (): void => {
     if (onCancel) {
       onCancel();
@@ -129,6 +141,7 @@ export const QueryInput: React.FC<QueryInputProps> = ({
             id="query-text"
             value={queryText}
             onChange={handleQueryChange}
+            onKeyDown={handleQueryKeyDown}
             placeholder="e.g., Show me the top 10 customers by revenue"
             disabled={submitting || isProcessing}
             rows={4}
@@ -152,23 +165,34 @@ export const QueryInput: React.FC<QueryInputProps> = ({
               >
                 {selectedDatasetIds.length === datasets.length ? 'Deselect All' : 'Select All'}
               </button>
-              <div className="dataset-list">
-                {datasets.map((dataset: Dataset) => (
-                  <label key={dataset.id} className="dataset-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={selectedDatasetIds.includes(dataset.id)}
-                      onChange={(): void => handleDatasetToggle(dataset.id)}
-                      disabled={submitting || isProcessing}
-                      aria-label={`Select dataset ${dataset.filename}`}
-                    />
-                    <span className="dataset-name">{dataset.filename}</span>
-                    <span className="dataset-meta">
-                      ({dataset.row_count.toLocaleString()} rows)
-                    </span>
-                  </label>
-                ))}
-              </div>
+              <NeonScrollbar
+                style={{ maxHeight: '220px' }}
+                innerClassName="dataset-picker-grid"
+                innerStyle={{ overflowX: 'hidden' }}
+                color="cyan"
+              >
+                {datasets.map((dataset: Dataset) => {
+                  const isChecked: boolean = selectedDatasetIds.includes(dataset.id);
+                  return (
+                    <label
+                      key={dataset.id}
+                      className={`dataset-checkbox${isChecked ? ' selected' : ''}`}
+                    >
+                      <NeonCheckbox
+                        checked={isChecked}
+                        onChange={(): void => handleDatasetToggle(dataset.id)}
+                        disabled={submitting || isProcessing}
+                        color="cyan"
+                        ariaLabel={`Select dataset ${dataset.filename}`}
+                      />
+                      <span className="dataset-name">{dataset.filename}</span>
+                      <span className="dataset-meta">
+                        ({dataset.row_count.toLocaleString()} rows)
+                      </span>
+                    </label>
+                  );
+                })}
+              </NeonScrollbar>
             </div>
           </div>
         )}

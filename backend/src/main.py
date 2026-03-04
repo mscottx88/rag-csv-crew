@@ -31,22 +31,29 @@ load_dotenv(dotenv_path=env_path)
 
 # Import after load_dotenv() to ensure environment variables are available
 # pylint: disable=wrong-import-position
-from src.api.auth import router as auth_router  # noqa: E402
-from src.api.datasets import router as datasets_router  # noqa: E402
-from src.api.health import router as health_router  # noqa: E402
-from src.api.queries import router as queries_router  # noqa: E402
-from src.db.connection import close_global_pool, initialize_global_pool  # noqa: E402
-from src.models.config import AppConfig  # noqa: E402
-from src.utils.logging import (  # noqa: E402
+# pylint: enable=wrong-import-position
+# Setup application logging (configurable via LOG_LEVEL environment variable)
+import os  # noqa: E402
+
+# JUSTIFICATION: load_dotenv() must run before these imports to ensure env vars are available
+from backend.src.api.auth import router as auth_router  # noqa: E402
+from backend.src.api.dataset_rows import router as dataset_rows_router  # noqa: E402
+from backend.src.api.datasets import router as datasets_router  # noqa: E402
+from backend.src.api.health import router as health_router  # noqa: E402
+from backend.src.api.queries import router as queries_router  # noqa: E402
+from backend.src.db.connection import (  # noqa: E402
+    close_global_pool,
+    get_global_pool,
+    initialize_global_pool,
+)
+from backend.src.db.migrations import initialize_database  # noqa: E402
+from backend.src.models.config import AppConfig  # noqa: E402
+from backend.src.utils.logging import (  # noqa: E402
     get_structured_logger,
     log_error,
     log_event,
     setup_application_logging,
 )
-# pylint: enable=wrong-import-position
-
-# Setup application logging (configurable via LOG_LEVEL environment variable)
-import os  # noqa: E402
 
 log_level: str = os.getenv("LOG_LEVEL", "INFO")
 setup_application_logging(log_level=log_level)
@@ -266,6 +273,7 @@ Convert natural language questions into SQL queries using hybrid search
 
     # Register API routers
     fastapi_app.include_router(auth_router, prefix="", tags=["auth"])
+    fastapi_app.include_router(dataset_rows_router, prefix="", tags=["datasets"])
     fastapi_app.include_router(datasets_router, prefix="", tags=["datasets"])
     fastapi_app.include_router(queries_router, prefix="", tags=["queries"])
     fastapi_app.include_router(health_router, prefix="", tags=["health"])
@@ -273,12 +281,22 @@ Convert natural language questions into SQL queries using hybrid search
     # Startup event: Initialize database connection pool
     @fastapi_app.on_event("startup")
     def startup_event() -> None:
-        """Initialize database connection pool on application startup."""
+        """Initialize database connection pool and schema on application startup."""
         initialize_global_pool(config.db)
         log_event(
             logger=logger,
             level="info",
             event="database_pool_initialized",
+            user=None,
+            extra={"database": config.db.database},  # pylint: disable=no-member
+        )
+        pool = get_global_pool()
+        with pool.connection() as conn:
+            initialize_database(conn)
+        log_event(
+            logger=logger,
+            level="info",
+            event="database_schema_initialized",
             user=None,
             extra={"database": config.db.database},  # pylint: disable=no-member
         )

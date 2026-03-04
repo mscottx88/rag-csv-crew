@@ -16,9 +16,9 @@ import os
 import re
 from typing import Any, Literal
 
+from google import genai
 from openai import OpenAI
 from psycopg_pool import ConnectionPool
-from google import genai
 
 
 class VectorSearchService:
@@ -126,9 +126,7 @@ class VectorSearchService:
             embedding = self._pad_embedding(embedding)
         else:
             # Call OpenAI API (synchronous) - pass string directly for single input
-            response = self.client.embeddings.create(
-                model=self.model, input=normalized_text
-            )
+            response = self.client.embeddings.create(model=self.model, input=normalized_text)
             embedding = response.data[0].embedding
 
         # Validate dimensionality
@@ -278,7 +276,7 @@ class VectorSearchService:
         results: list[dict[str, Any]] = []
         for row in rows:
             column_name: str = row[0]
-            dataset_id: str = row[1]
+            dataset_id: str = str(row[1])
             description: str | None = row[2]
             distance: float = row[3]
 

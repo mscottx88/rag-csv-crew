@@ -1,8 +1,13 @@
 .query-history {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  padding: 2rem;
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  box-shadow: 0 0 16px var(--gold-dim);
+  min-height: 0;
+  flex: 1;
 }
 
 .history-header {
@@ -11,13 +16,18 @@
   align-items: center;
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border);
 }
 
 .history-header h2 {
   margin: 0;
-  font-size: 1.25rem;
-  color: #333;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--gold);
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 0 8px var(--gold-dim);
 }
 
 .filter-group {
@@ -27,70 +37,114 @@
 }
 
 .filter-group label {
-  font-size: 0.875rem;
-  color: #666;
+  font-size: 0.75rem;
+  color: var(--txt-muted);
+  font-family: 'Courier New', Courier, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
-.filter-group select {
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
 
 .history-loading,
 .history-empty,
 .history-error {
   padding: 2rem;
   text-align: center;
-  color: #666;
+  color: var(--txt-muted);
+  font-family: 'Courier New', Courier, monospace;
 }
 
 .history-error {
-  color: #f44336;
-  background-color: #fee;
-  border: 1px solid #fcc;
-  border-radius: 4px;
+  color: var(--err);
+  background: var(--err-dim);
+  border: 1px solid var(--err);
+  border-radius: 2px;
 }
 
+/* ── Items list — applied to NeonScrollbar inner div ── */
 .history-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
+/* ── History item ── */
 .history-item {
-  padding: 1rem;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--bg-panel);
+  transition: border-color 0.2s;
 }
 
 .history-item:hover {
-  border-color: #667eea;
-  background-color: #f0f4ff;
+  border-color: var(--gold);
 }
 
-.history-item:focus {
+.history-item-expanded {
+  border-color: var(--gold);
+  border-top: none; /* top border lives on the sticky row instead */
+  box-shadow: 0 0 12px var(--gold-dim);
+  display: flex;
+  flex-direction: column;
+  max-height: 60vh;
+}
+
+/* ── Clickable row (always visible) ── */
+.history-item-row {
+  flex-shrink: 0;
+  padding: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.history-item-row:hover {
+  background: var(--gold-dim);
+}
+
+.history-item-row:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  background: var(--gold-dim);
 }
 
 .history-item-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   margin-bottom: 0.5rem;
 }
 
+.expand-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-right: 0.75rem;
+  flex-shrink: 0;
+  color: var(--gold);
+  filter: drop-shadow(0 0 4px var(--gold)) drop-shadow(0 0 8px var(--gold-dim));
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.expand-indicator svg {
+  display: block;
+}
+
+.expand-indicator.expanded {
+  transform: rotate(90deg);
+  filter: drop-shadow(0 0 6px var(--gold)) drop-shadow(0 0 12px var(--gold));
+}
+
+.history-item-row:hover .expand-indicator {
+  filter: drop-shadow(0 0 6px var(--gold)) drop-shadow(0 0 14px var(--gold));
+}
+
 .history-query {
   font-weight: 500;
-  color: #333;
+  color: var(--txt);
   flex: 1;
   margin-right: 1rem;
+  font-size: 0.9rem;
+  font-family: 'Courier New', Courier, monospace;
 }
 
 .history-item-actions {
@@ -100,13 +154,16 @@
 }
 
 .rerun-button {
-  padding: 0.375rem 0.75rem;
-  background: linear-gradient(135deg, #667eea 0%, #00d4ff 100%);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  padding: 0.3rem 0.7rem;
+  background: transparent;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+  border-radius: 2px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
@@ -115,57 +172,277 @@
   gap: 0.25rem;
 }
 
+.rerun-icon {
+  filter: drop-shadow(0 0 3px var(--gold)) drop-shadow(0 0 6px var(--gold-dim));
+  transition: filter 0.2s ease;
+}
+
 .rerun-button:hover {
+  background: var(--gold-dim);
+  box-shadow: 0 0 10px var(--gold-dim);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-  background: linear-gradient(135deg, #5568d3 0%, #0099cc 100%);
+}
+
+.rerun-button:hover .rerun-icon {
+  filter: drop-shadow(0 0 5px var(--gold)) drop-shadow(0 0 12px var(--gold));
 }
 
 .rerun-button:active {
   transform: translateY(0);
 }
 
-.status-badge {
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 500;
+/* ── Replay button (green-themed) ── */
+.replay-button {
+  padding: 0.3rem 0.7rem;
+  background: transparent;
+  color: var(--green);
+  border: 1px solid var(--green);
+  border-radius: 2px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.replay-icon {
+  filter: drop-shadow(0 0 3px var(--green)) drop-shadow(0 0 6px rgba(57, 255, 20, 0.3));
+  transition: filter 0.2s ease;
+}
+
+.replay-button:hover {
+  background: var(--green-dim);
+  box-shadow: 0 0 10px rgba(57, 255, 20, 0.2);
+  transform: translateY(-1px);
+}
+
+.replay-button:hover .replay-icon {
+  filter: drop-shadow(0 0 5px var(--green)) drop-shadow(0 0 12px rgba(57, 255, 20, 0.5));
+}
+
+.replay-button:active {
+  transform: translateY(0);
+}
+
+.replay-button.replaying {
+  background: var(--green-dim);
+  animation: replay-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes replay-pulse {
+  0%, 100% {
+    box-shadow: 0 0 6px rgba(57, 255, 20, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(57, 255, 20, 0.4), 0 0 30px rgba(57, 255, 20, 0.15);
+  }
+}
+
+.replay-button.replaying .replay-icon {
+  filter: drop-shadow(0 0 5px var(--green)) drop-shadow(0 0 12px rgba(57, 255, 20, 0.5));
+}
+
+/* ── VCR transport controls (wireframe, 3D inset) ── */
+.vcr-controls {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(57, 255, 20, 0.45);
+  border-radius: 2px;
+  overflow: hidden;
+  box-shadow:
+    0 0 6px rgba(57, 255, 20, 0.12),
+    inset 0 1px 0 rgba(57, 255, 20, 0.08);
+}
+
+.vcr-btn {
+  width: 34px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-right: 1px solid rgba(57, 255, 20, 0.3);
+  color: var(--green);
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Courier New', Courier, monospace;
+  /* Raised 3D effect */
+  box-shadow:
+    inset 1px 1px 0 rgba(57, 255, 20, 0.15),
+    inset -1px -1px 0 rgba(0, 0, 0, 0.55);
+  transition: box-shadow 0.08s ease, background 0.08s ease, color 0.08s ease;
+  position: relative;
+}
+
+.vcr-btn:last-child {
+  border-right: none;
+}
+
+.vcr-btn:hover {
+  background: rgba(57, 255, 20, 0.07);
+  color: #7fff5a;
+}
+
+/* Pressed-in 3D inset when active */
+.vcr-btn-active {
+  background: rgba(57, 255, 20, 0.1);
+  color: #39ff14;
+  text-shadow: 0 0 6px #39ff14, 0 0 14px rgba(57, 255, 20, 0.5);
+  box-shadow:
+    inset 2px 2px 5px rgba(0, 0, 0, 0.85),
+    inset -1px -1px 0 rgba(57, 255, 20, 0.08);
+}
+
+.vcr-btn-active:hover {
+  background: rgba(57, 255, 20, 0.13);
+}
+
+/* Physical press feedback */
+.vcr-btn:active {
+  box-shadow:
+    inset 2px 2px 5px rgba(0, 0, 0, 0.85),
+    inset -1px -1px 0 rgba(57, 255, 20, 0.06);
+  background: rgba(57, 255, 20, 0.06);
+}
+
+/* Stop button — red-tinted */
+.vcr-btn-stop {
+  width: auto;
+  height: auto;
+  padding: 0.3rem 0.5rem;
+  gap: 0.3rem;
+  color: #ff4444;
+  border-right-color: rgba(255, 68, 68, 0.2);
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 68, 68, 0.12),
+    inset -1px -1px 0 rgba(0, 0, 0, 0.55);
+}
+
+.vcr-btn-stop:hover {
+  background: rgba(255, 68, 68, 0.07);
+  color: #ff6666;
+}
+
+.vcr-btn-stop:active {
+  box-shadow:
+    inset 2px 2px 5px rgba(0, 0, 0, 0.85),
+    inset -1px -1px 0 rgba(255, 68, 68, 0.06);
+}
+
+/* Status badges (gold-themed) */
+.status-badge {
+  padding: 0.2rem 0.7rem;
+  border-radius: 2px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: 'Courier New', Courier, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 1px solid;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  line-height: 1.4;
+}
+
+.status-check-icon {
+  display: block;
+  filter: drop-shadow(0 0 3px var(--green)) drop-shadow(0 0 6px rgba(57, 255, 20, 0.4));
 }
 
 .status-pending {
-  background-color: #fff3cd;
-  color: #856404;
+  background: var(--gold-dim);
+  color: var(--gold);
+  border-color: var(--gold);
 }
 
 .status-processing {
-  background-color: #cfe2ff;
-  color: #084298;
+  background: var(--cyan-dim);
+  color: var(--cyan);
+  border-color: var(--cyan);
 }
 
 .status-completed {
-  background-color: #d1e7dd;
-  color: #0f5132;
+  background: var(--green-dim);
+  color: var(--green);
+  border-color: var(--green);
 }
 
 .status-failed {
-  background-color: #f8d7da;
-  color: #842029;
+  background: var(--err-dim);
+  color: var(--err);
+  border-color: var(--err);
 }
 
 .status-cancelled {
-  background-color: #e2e3e5;
-  color: #41464b;
+  background: rgba(255,255,255,0.04);
+  color: var(--txt-muted);
+  border-color: var(--border);
 }
 
 .history-item-meta {
   display: flex;
   gap: 1rem;
-  font-size: 0.75rem;
-  color: #999;
+  font-size: 0.72rem;
+  color: var(--txt-dim);
+  font-family: 'Courier New', Courier, monospace;
+  padding-left: 2.25rem;
 }
 
+/* ── Sticky header row inside expanded item ── */
+.history-item-expanded .history-item-row {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg-panel);
+  border-top: 1px solid var(--gold); /* owns the top gold border */
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Expanded detail area — NeonScrollbar outer ── */
+.history-item-detail {
+  flex: 1;
+  min-height: clamp(250px, 35vh, 500px);
+  border-top: 1px solid var(--border);
+  background: var(--bg-dim);
+}
+
+/* Make NeonScrollbar inner a flex column so ResultDisplay stretches to fill */
+.history-detail-inner {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ResultDisplay: grow to fill during replay, but never shrink below content
+   so the agent-console bottom border stays visible and the parent scrolls. */
+.history-detail-inner > .result-display {
+  flex: 1 0 auto;
+}
+
+.history-item-detail .result-display {
+  margin-top: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.history-detail-loading {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--txt-muted);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85rem;
+}
+
+/* Pagination */
 .pagination {
   display: flex;
   justify-content: center;
@@ -173,30 +450,34 @@
   gap: 1rem;
   margin-top: 1.5rem;
   padding-top: 1rem;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border);
 }
 
 .pagination-button {
-  padding: 0.5rem 1rem;
-  background-color: #667eea;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 0.875rem;
+  padding: 0.4rem 0.875rem;
+  background: transparent;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+  border-radius: 2px;
+  font-size: 0.75rem;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.06em;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
 
 .pagination-button:hover:not(:disabled) {
-  background-color: #5568d3;
+  background: var(--gold-dim);
+  box-shadow: 0 0 8px var(--gold-dim);
 }
 
 .pagination-button:disabled {
-  background-color: #ccc;
+  opacity: 0.3;
   cursor: not-allowed;
 }
 
 .pagination-info {
-  font-size: 0.875rem;
-  color: #666;
+  font-size: 0.8rem;
+  color: var(--txt-muted);
+  font-family: 'Courier New', Courier, monospace;
 }
