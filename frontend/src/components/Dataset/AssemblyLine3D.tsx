@@ -69,6 +69,67 @@ function phaseTargetX(phase: AnimPhase): number {
   }
 }
 
+/* ── Stroke font for station nameplates ── */
+const STROKE_FONT: Record<string, number[][]> = {
+  A: [[0,0,0.45,1],[0.45,1,0.9,0],[0.12,0.44,0.78,0.44]],
+  B: [[0,0,0,1],[0,1,0.68,1],[0.68,1,0.9,0.78],[0.9,0.78,0.68,0.52],[0,0.52,0.68,0.52],[0.68,0.52,0.9,0.26],[0.9,0.26,0.68,0],[0.68,0,0,0]],
+  C: [[0.9,0.82,0.55,1],[0.55,1,0.1,0.85],[0.1,0.85,0,0.65],[0,0.65,0,0.35],[0,0.35,0.1,0.15],[0.1,0.15,0.55,0],[0.55,0,0.9,0.18]],
+  D: [[0,0,0,1],[0,1,0.55,1],[0.55,1,0.9,0.75],[0.9,0.75,0.9,0.25],[0.9,0.25,0.55,0],[0.55,0,0,0]],
+  E: [[0,0,0,1],[0,1,1,1],[0,0.5,0.78,0.5],[0,0,1,0]],
+  L: [[0,1,0,0],[0,0,1,0]],
+  M: [[0,0,0,1],[0,1,0.45,0.38],[0.45,0.38,0.9,1],[0.9,1,0.9,0]],
+  O: [[0,0.15,0,0.85],[0,0.85,0.15,1],[0.15,1,0.75,1],[0.75,1,0.9,0.85],[0.9,0.85,0.9,0.15],[0.9,0.15,0.75,0],[0.75,0,0.15,0],[0.15,0,0,0.15]],
+  P: [[0,0,0,1],[0,1,0.68,1],[0.68,1,0.9,0.78],[0.9,0.78,0.68,0.52],[0.68,0.52,0,0.52]],
+  R: [[0,0,0,1],[0,1,0.68,1],[0.68,1,0.9,0.78],[0.9,0.78,0.68,0.52],[0.68,0.52,0,0.52],[0.42,0.52,0.9,0]],
+  S: [[0.9,0.82,0.5,1],[0.5,1,0,0.72],[0,0.72,0,0.55],[0,0.55,0.9,0.45],[0.9,0.45,0.9,0.28],[0.9,0.28,0.4,0],[0.4,0,0,0.18]],
+  T: [[0,1,1,1],[0.5,1,0.5,0]],
+  U: [[0,1,0,0.15],[0,0.15,0.15,0],[0.15,0,0.75,0],[0.75,0,0.9,0.15],[0.9,0.15,0.9,1]],
+};
+
+const LABEL_CW = 0.090;   // character cell width  (~10% wider than before)
+const LABEL_CH = 0.106;   // character cell height
+const LABEL_SP = 0.016;   // inter-character spacing
+const LABEL_TR = 0.0040;  // tube stroke radius — parallel offset for each stroke side
+
+// Builds neon-tube letter geometry: 3 parallel strokes per path segment (left, center,
+// right offset) plus perpendicular end-caps at each terminal, simulating glass tubing.
+function buildStationLabel(text: string): THREE.BufferGeometry {
+  const chars = [...text.toUpperCase()];
+  const n = chars.length;
+  const totalW = n * LABEL_CW + (n > 1 ? (n - 1) * LABEL_SP : 0);
+  const v: number[] = [];
+  chars.forEach((ch, i) => {
+    const strokes = STROKE_FONT[ch];
+    if (!strokes) return;
+    const ox = -totalW / 2 + i * (LABEL_CW + LABEL_SP);
+    const oy = -LABEL_CH / 2;
+    for (const seg of strokes) {
+      const [x1 = 0, y1 = 0, x2 = 0, y2 = 0] = seg;
+      const ax = ox + x1 * LABEL_CW;
+      const ay = oy + y1 * LABEL_CH;
+      const bx = ox + x2 * LABEL_CW;
+      const by = oy + y2 * LABEL_CH;
+      const dx = bx - ax;
+      const dy = by - ay;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len < 0.0001) continue;
+      // Perpendicular unit vector scaled to tube radius
+      const px = (-dy / len) * LABEL_TR;
+      const py = (dx / len) * LABEL_TR;
+      // Three parallel strokes (tube body)
+      v.push(ax,      ay,      0, bx,      by,      0);
+      v.push(ax + px, ay + py, 0, bx + px, by + py, 0);
+      v.push(ax - px, ay - py, 0, bx - px, by - py, 0);
+      // Perpendicular end-caps at each terminal (rounded neon tube ends)
+      v.push(ax + px, ay + py, 0, ax - px, ay - py, 0);
+      v.push(bx + px, by + py, 0, bx - px, by - py, 0);
+    }
+  });
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+  return geo;
+}
+
 /* ════════════════════════════════════════════════
    Inner scene component (must be inside Canvas)
    ════════════════════════════════════════════════ */
@@ -93,6 +154,8 @@ function AssemblyLineScene({ phase, progress }: { phase: AnimPhase; progress: nu
   const progressBarRef = useRef<THREE.Mesh>(null);
   const laserArm1Ref = useRef<THREE.Group>(null);
   const laserArm2Ref = useRef<THREE.Group>(null);
+  const laserArm1ElbowRef = useRef<THREE.Group>(null);
+  const laserArm2ElbowRef = useRef<THREE.Group>(null);
   const laserBeam1Ref = useRef<THREE.LineSegments>(null);
   const laserBeam2Ref = useRef<THREE.LineSegments>(null);
   const vacuumNozzleRef = useRef<THREE.Group>(null);
@@ -102,6 +165,20 @@ function AssemblyLineScene({ phase, progress }: { phase: AnimPhase; progress: nu
   const led2Ref = useRef<THREE.Mesh>(null);
   const led3Ref = useRef<THREE.Mesh>(null);
   const led4Ref = useRef<THREE.Mesh>(null);
+
+  // Nameplate neon sign refs
+  const sign1Ref = useRef<THREE.LineSegments>(null);
+  const sign2Ref = useRef<THREE.LineSegments>(null);
+  const sign3Ref = useRef<THREE.LineSegments>(null);
+  const sign4Ref = useRef<THREE.LineSegments>(null);
+  const glow1Ref = useRef<THREE.LineSegments>(null);
+  const glow2Ref = useRef<THREE.LineSegments>(null);
+  const glow3Ref = useRef<THREE.LineSegments>(null);
+  const glow4Ref = useRef<THREE.LineSegments>(null);
+  const plate1EdgesRef = useRef<THREE.LineSegments>(null);
+  const plate2EdgesRef = useRef<THREE.LineSegments>(null);
+  const plate3EdgesRef = useRef<THREE.LineSegments>(null);
+  const plate4EdgesRef = useRef<THREE.LineSegments>(null);
 
   // Particle refs
   const particlesS2Ref = useRef<THREE.Group>(null);     // shreds from shredder
@@ -278,8 +355,9 @@ function AssemblyLineScene({ phase, progress }: { phase: AnimPhase; progress: nu
   const laserPylonEdges = useMemo(() => new THREE.EdgesGeometry(
     new THREE.BoxGeometry(0.1, 1.4, 0.1),
   ), []);
+  // Upper arm segment — thicker, length 0.7, angled 30° down toward belt
   const laserArmBarEdges = useMemo(() => new THREE.EdgesGeometry(
-    new THREE.BoxGeometry(0.06, 0.06, 0.6),
+    new THREE.BoxGeometry(0.09, 0.09, 0.70),
   ), []);
   const laserBaseEdges = useMemo(() => new THREE.EdgesGeometry(
     new THREE.BoxGeometry(0.2, 0.05, 0.2),
@@ -301,9 +379,21 @@ function AssemblyLineScene({ phase, progress }: { phase: AnimPhase; progress: nu
     new THREE.CylinderGeometry(0.006, 0.006, 0.11, 4),
   ), []);
 
-  // Laser beam geometry — vertical line from emitter tip down to belt
+  // Articulating robotic arm joints and segments
+  const armElbowEdges = useMemo(() => new THREE.EdgesGeometry(
+    new THREE.SphereGeometry(0.05, 8, 6),
+  ), []);
+  // Forearm segment — length 0.4, angled 60° down toward belt
+  const armForearmEdges = useMemo(() => new THREE.EdgesGeometry(
+    new THREE.BoxGeometry(0.08, 0.08, 0.40),
+  ), []);
+  const armWristEdges = useMemo(() => new THREE.EdgesGeometry(
+    new THREE.SphereGeometry(0.038, 8, 6),
+  ), []);
+
+  // Laser beam geometry — fires downward from gun emitter, length tuned to pass through pile
   const laserBeamGeo = useMemo(() => {
-    const v: number[] = [0, 0, 0, 0, -0.88, 0];
+    const v: number[] = [0, 0, 0, 0, -0.50, 0];
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
     return geo;
@@ -382,6 +472,20 @@ function AssemblyLineScene({ phase, progress }: { phase: AnimPhase; progress: nu
   const vacuumBaseEdges = useMemo(() => new THREE.EdgesGeometry(
     new THREE.BoxGeometry(0.2, 0.05, 0.2),
   ), []);
+
+  /* ══════════════════════════════════════════
+     Geometry memos — Station nameplates
+     ══════════════════════════════════════════ */
+  const namePlateOuterEdges = useMemo(() => new THREE.EdgesGeometry(
+    new THREE.BoxGeometry(1.05, 0.22, 0.05),
+  ), []);
+  const namePlateInnerEdges = useMemo(() => new THREE.EdgesGeometry(
+    new THREE.BoxGeometry(0.92, 0.14, 0.018),
+  ), []);
+  const labelGeoS1 = useMemo(() => buildStationLabel('UPLOAD'),   []);
+  const labelGeoS2 = useMemo(() => buildStationLabel('PROCESS'),  []);
+  const labelGeoS3 = useMemo(() => buildStationLabel('EMBED'),    []);
+  const labelGeoS4 = useMemo(() => buildStationLabel('COMPLETE'), []);
 
   /* ══════════════════════════════════════════
      useFrame: master animation loop
@@ -473,24 +577,37 @@ function AssemblyLineScene({ phase, progress }: { phase: AnimPhase; progress: nu
     if (roller1Ref.current) roller1Ref.current.rotation.z += delta * rollerSpeed;
     if (roller2Ref.current) roller2Ref.current.rotation.z -= delta * rollerSpeed;
 
-    // Laser arms (S3) — oscillate when embedding
+    // Laser arms (S3) — shoulder joints sweep Y precisely over the pile
     if (laserArm1Ref.current) {
-      const armTarget = phase === 'embedding' ? Math.sin(t * 1.5) * 0.12 : 0;
-      laserArm1Ref.current.rotation.y += (armTarget - laserArm1Ref.current.rotation.y) * Math.min(1, delta * 5);
+      // Arm 1: deliberate slow scan, tight sweep
+      const armTarget = phase === 'embedding' ? Math.sin(t * 1.5) * 0.06 : 0;
+      laserArm1Ref.current.rotation.y += (armTarget - laserArm1Ref.current.rotation.y) * Math.min(1, delta * 6);
     }
     if (laserArm2Ref.current) {
-      const armTarget = phase === 'embedding' ? Math.sin(t * 1.5 + Math.PI) * 0.12 : 0;
-      laserArm2Ref.current.rotation.y += (armTarget - laserArm2Ref.current.rotation.y) * Math.min(1, delta * 5);
+      // Arm 2: faster precision targeting, different scan rhythm
+      const armTarget = phase === 'embedding' ? Math.sin(t * 2.8 + 1.2) * 0.05 : 0;
+      laserArm2Ref.current.rotation.y += (armTarget - laserArm2Ref.current.rotation.y) * Math.min(1, delta * 6);
+    }
+    // Elbow joints — very subtle flex, just enough to look alive
+    if (laserArm1ElbowRef.current) {
+      const elbowTarget = phase === 'embedding' ? Math.sin(t * 1.1) * 0.02 : 0;
+      laserArm1ElbowRef.current.rotation.x += (elbowTarget - laserArm1ElbowRef.current.rotation.x) * Math.min(1, delta * 4);
+    }
+    if (laserArm2ElbowRef.current) {
+      const elbowTarget = phase === 'embedding' ? Math.sin(t * 2.1 + 0.7) * 0.015 : 0;
+      laserArm2ElbowRef.current.rotation.x += (elbowTarget - laserArm2ElbowRef.current.rotation.x) * Math.min(1, delta * 4);
     }
 
-    // Laser beams (S3) — pulse bright during embedding
+    // Laser beams (S3) — arm 1: bright primary, arm 2: dimmer secondary with different pattern
     if (laserBeam1Ref.current) {
       const mat = laserBeam1Ref.current.material as THREE.LineBasicMaterial;
-      mat.opacity = phase === 'embedding' ? 0.4 + Math.sin(t * 8) * 0.35 : 0.05;
+      // Primary beam: high intensity with sharp pulse
+      mat.opacity = phase === 'embedding' ? 0.75 + Math.sin(t * 7.0) * 0.22 : 0.04;
     }
     if (laserBeam2Ref.current) {
       const mat = laserBeam2Ref.current.material as THREE.LineBasicMaterial;
-      mat.opacity = phase === 'embedding' ? 0.4 + Math.sin(t * 8 + 1) * 0.35 : 0.05;
+      // Secondary beam: lower base, flickering abs-sine for distinct character
+      mat.opacity = phase === 'embedding' ? 0.38 + Math.abs(Math.sin(t * 4.5 + 1.5)) * 0.42 : 0.03;
     }
 
     // Vacuum nozzle (S4) — descends during complete
@@ -516,6 +633,39 @@ function AssemblyLineScene({ phase, progress }: { phase: AnimPhase; progress: nu
       const mat = led4Ref.current.material as THREE.MeshBasicMaterial;
       mat.opacity = phase === 'complete' ? 0.9 : (Math.sin(t * 1.5) > 0 ? 0.5 : 0.15);
     }
+
+    // Neon sign nameplates — active station blazes, past stations glow, future stations dim
+    const signRefs = [sign1Ref, sign2Ref, sign3Ref, sign4Ref];
+    const glowRefs  = [glow1Ref, glow2Ref, glow3Ref, glow4Ref];
+    const plateEdgeRefs = [plate1EdgesRef, plate2EdgesRef, plate3EdgesRef, plate4EdgesRef];
+    signRefs.forEach((ref, si) => {
+      const plateRef = plateEdgeRefs[si];
+      const glowRef  = glowRefs[si];
+      if (!ref.current || !plateRef || !plateRef.current) return;
+      const smat = ref.current.material as THREE.LineBasicMaterial;
+      const pmat = plateRef.current.material as THREE.LineBasicMaterial;
+      if (pi < 0) {
+        smat.opacity = 0.14;
+        pmat.opacity = 0.11;
+      } else if (si === pi) {
+        // Electric flicker: abs(sin) gives sharp bright pulses
+        smat.opacity = Math.min(1, 0.94 + Math.abs(Math.sin(t * 5.2 + si * 1.1)) * 0.06);
+        pmat.opacity = 0.75 + Math.sin(t * 2.4 + si * 1.2) * 0.10;
+      } else if (si < pi) {
+        smat.opacity = 0.52;
+        pmat.opacity = 0.36;
+      } else {
+        smat.opacity = 0.20;
+        pmat.opacity = 0.16;
+      }
+      // Outer glow halo — only visible on active station, slow pulse for warm bloom spread
+      if (glowRef?.current) {
+        const gmat = glowRef.current.material as THREE.LineBasicMaterial;
+        gmat.opacity = (si === pi && pi >= 0)
+          ? 0.42 + Math.sin(t * 1.6 + si) * 0.10
+          : 0.0;
+      }
+    });
 
     // S2 — Paper shreds flying out of shredder
     if (particlesS2Ref.current) {
@@ -759,13 +909,17 @@ function AssemblyLineScene({ phase, progress }: { phase: AnimPhase; progress: nu
         <lineSegments geometry={hopperDetailGeo}>
           <lineBasicMaterial color={GREEN} transparent opacity={0.35} />
         </lineSegments>
-      </group>
 
-      {/* Upload LED */}
-      <mesh ref={led1Ref} position={[S1_X + 0.25, BELT_Y + 0.18, 0.52]}>
-        <sphereGeometry args={[0.035, 8, 8]} />
-        <meshBasicMaterial color={GREEN} transparent opacity={0.1} toneMapped={false} />
-      </mesh>
+        {/* Status LED — inset in operator panel on hopper front face */}
+        <mesh position={[0.1, -0.48, 0.503]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.028, 0.028, 0.006, 10]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.22} toneMapped={false} />
+        </mesh>
+        <mesh ref={led1Ref} position={[0.1, -0.48, 0.509]}>
+          <sphereGeometry args={[0.022, 8, 8]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.1} toneMapped={false} />
+        </mesh>
+      </group>
 
       {/* Progress bar */}
       <lineSegments geometry={progressBarBgGeo}>
@@ -837,6 +991,15 @@ function AssemblyLineScene({ phase, progress }: { phase: AnimPhase; progress: nu
         <lineSegments geometry={pressControlEdges}>
           <lineBasicMaterial color={GREEN} transparent opacity={0.5} />
         </lineSegments>
+        {/* Status LED — on control box front face */}
+        <mesh position={[0.04, 0.06, 0.078]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.024, 0.024, 0.006, 10]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.22} toneMapped={false} />
+        </mesh>
+        <mesh ref={led2Ref} position={[0.04, 0.06, 0.084]}>
+          <sphereGeometry args={[0.018, 8, 8]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.1} toneMapped={false} />
+        </mesh>
       </group>
 
       {/* Base plates under each side panel */}
@@ -857,12 +1020,6 @@ function AssemblyLineScene({ phase, progress }: { phase: AnimPhase; progress: nu
         <lineBasicMaterial color={GREEN} transparent opacity={0.25} />
       </lineSegments>
 
-      {/* Process LED */}
-      <mesh ref={led2Ref} position={[S2_X - 0.4, BELT_Y + 1.06, BELT_W / 2 + 0.28]}>
-        <sphereGeometry args={[0.035, 8, 8]} />
-        <meshBasicMaterial color={GREEN} transparent opacity={0.1} toneMapped={false} />
-      </mesh>
-
       {/* Paper shreds from shredder */}
       <group ref={particlesS2Ref} position={[S2_X, BELT_Y, 0]}>
         {Array.from({ length: 12 }).map((_, i) => (
@@ -875,107 +1032,268 @@ function AssemblyLineScene({ phase, progress }: { phase: AnimPhase; progress: nu
 
       {/* ══════════════════════════════════════════
           STATION 3 — Embed / Laser Digitizer Arms
+          Both arms on far rail (z<0), angled 37° and 43° to belt.
+          Upper arm: rotation.x=+30° angles it 30° below horizontal.
+          Forearm: rotation.x=+60° angles it 60° below horizontal.
+          Arm 1 Y-rot=+37°: local +Z maps to world [+0.602,0,+0.799].
+            Total Z-extent = 0.806 → X-drift = +0.485. Base at S3_X-0.485 → gun world-x≈1.0.
+          Arm 2 Y-rot=-43°: local +Z maps to world [-0.682,0,+0.731].
+            Total Z-extent = 0.806 → X-drift = -0.550. Base at S3_X+0.550 → gun world-x≈1.0.
+          Arms cross above pile like scissors, beams angled for visual interest.
           ══════════════════════════════════════════ */}
 
-      {/* Two laser arms, one on each side of belt */}
-      {([-1, 1] as const).map((zSign, armIdx) => (
-        <group key={`laser-arm-${zSign}`} position={[S3_X, BELT_Y, zSign * (BELT_W / 2 + 0.15)]}>
-          {/* Pylon — solid box + edges */}
-          <mesh position={[0, 0.7, 0]}>
-            <boxGeometry args={[0.1, 1.4, 0.1]} />
+      {/* Arm 1 — far rail left-of-pile, Y-rot=+37°; gun world-x ≈ 1.0 */}
+      <group position={[S3_X - 0.485, BELT_Y, -(BELT_W / 2 + 0.06)]} rotation={[0, Math.PI * 37 / 180, 0]}>
+        {/* Pylon */}
+        <mesh position={[0, 0.7, 0]}>
+          <boxGeometry args={[0.1, 1.4, 0.1]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.3} toneMapped={false} side={THREE.DoubleSide} />
+        </mesh>
+        <lineSegments geometry={laserPylonEdges} position={[0, 0.7, 0]}>
+          <lineBasicMaterial color={GREEN} transparent opacity={0.7} />
+        </lineSegments>
+        <mesh position={[0, 0.025, 0]}>
+          <boxGeometry args={[0.2, 0.05, 0.2]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.25} toneMapped={false} side={THREE.DoubleSide} />
+        </mesh>
+        <lineSegments geometry={laserBaseEdges} position={[0, 0.025, 0]}>
+          <lineBasicMaterial color={GREEN} transparent opacity={0.6} />
+        </lineSegments>
+
+        {/* Status LED — on pylon face (face angles toward viewer with arm's Y-rotation) */}
+        <mesh position={[0, 0.45, 0.055]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.024, 0.024, 0.006, 10]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.22} toneMapped={false} />
+        </mesh>
+        <mesh ref={led3Ref} position={[0, 0.45, 0.061]}>
+          <sphereGeometry args={[0.018, 8, 8]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.1} toneMapped={false} />
+        </mesh>
+
+        {/* Shoulder sphere (static pivot indicator) */}
+        <mesh position={[0, 1.35, 0]}>
+          <sphereGeometry args={[0.06, 8, 6]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.4} toneMapped={false} side={THREE.DoubleSide} />
+        </mesh>
+        <lineSegments geometry={armElbowEdges} position={[0, 1.35, 0]}>
+          <lineBasicMaterial color={GREEN} transparent opacity={0.8} />
+        </lineSegments>
+
+        {/* Shoulder joint — tight Y sweep over pile (±3.4°) */}
+        <group ref={laserArm1Ref} position={[0, 1.35, 0]}>
+          {/* Upper arm: 30° below horizontal, length 0.7
+              rotation.x=+π/6 connects shoulder [0,0,0] → elbow [0,-0.35,0.606]
+              midpoint at [0, -0.175, 0.303] in shoulder space */}
+          <mesh position={[0, -0.175, 0.303]} rotation={[Math.PI / 6, 0, 0]}>
+            <boxGeometry args={[0.09, 0.09, 0.70]} />
             <meshBasicMaterial color={GREEN} transparent opacity={0.3} toneMapped={false} side={THREE.DoubleSide} />
           </mesh>
-          <lineSegments geometry={laserPylonEdges} position={[0, 0.7, 0]}>
-            <lineBasicMaterial color={GREEN} transparent opacity={0.7} />
+          <lineSegments geometry={laserArmBarEdges} position={[0, -0.175, 0.303]} rotation={[Math.PI / 6, 0, 0]}>
+            <lineBasicMaterial color={GREEN} transparent opacity={0.75} />
           </lineSegments>
 
-          {/* Base foot plate */}
-          <mesh position={[0, 0.025, 0]}>
-            <boxGeometry args={[0.2, 0.05, 0.2]} />
-            <meshBasicMaterial color={GREEN} transparent opacity={0.25} toneMapped={false} side={THREE.DoubleSide} />
+          {/* Elbow sphere at end of upper arm [0, -0.35, 0.606] */}
+          <mesh position={[0, -0.35, 0.606]}>
+            <sphereGeometry args={[0.055, 8, 6]} />
+            <meshBasicMaterial color={GREEN} transparent opacity={0.4} toneMapped={false} side={THREE.DoubleSide} />
           </mesh>
-          <lineSegments geometry={laserBaseEdges} position={[0, 0.025, 0]}>
-            <lineBasicMaterial color={GREEN} transparent opacity={0.6} />
+          <lineSegments geometry={armElbowEdges} position={[0, -0.35, 0.606]}>
+            <lineBasicMaterial color={GREEN} transparent opacity={0.8} />
           </lineSegments>
 
-          {/* Oscillating arm group (rotates at pylon top) */}
-          <group ref={armIdx === 0 ? laserArm1Ref : laserArm2Ref} position={[0, 1.35, 0]}>
-            {/* Horizontal arm bar extending inward over belt */}
-            <mesh position={[0, 0, -zSign * 0.3]}>
-              <boxGeometry args={[0.06, 0.06, 0.6]} />
+          {/* Elbow joint — subtle X flex */}
+          <group ref={laserArm1ElbowRef} position={[0, -0.35, 0.606]}>
+            {/* Forearm: 60° below horizontal, length 0.4
+                rotation.x=+π/3 connects elbow [0,0,0] → wrist [0,-0.346,0.2]
+                midpoint at [0, -0.173, 0.1] in elbow space */}
+            <mesh position={[0, -0.173, 0.1]} rotation={[Math.PI / 3, 0, 0]}>
+              <boxGeometry args={[0.08, 0.08, 0.40]} />
               <meshBasicMaterial color={GREEN} transparent opacity={0.3} toneMapped={false} side={THREE.DoubleSide} />
             </mesh>
-            <lineSegments geometry={laserArmBarEdges} position={[0, 0, -zSign * 0.3]}>
-              <lineBasicMaterial color={GREEN} transparent opacity={0.7} />
+            <lineSegments geometry={armForearmEdges} position={[0, -0.173, 0.1]} rotation={[Math.PI / 3, 0, 0]}>
+              <lineBasicMaterial color={GREEN} transparent opacity={0.75} />
             </lineSegments>
 
-            {/* ── Sci-fi ray gun head (Planet 51 style) ── */}
-            {/* Antenna pointing up from gun body */}
-            <mesh position={[0, -0.01, -zSign * 0.57]}>
-              <cylinderGeometry args={[0.006, 0.006, 0.11, 4]} />
+            {/* Wrist sphere at end of forearm [0, -0.346, 0.2] */}
+            <mesh position={[0, -0.346, 0.2]}>
+              <sphereGeometry args={[0.045, 8, 6]} />
               <meshBasicMaterial color={GREEN} transparent opacity={0.4} toneMapped={false} side={THREE.DoubleSide} />
             </mesh>
-            <lineSegments geometry={gunAntennaEdges} position={[0, -0.01, -zSign * 0.57]}>
+            <lineSegments geometry={armWristEdges} position={[0, -0.346, 0.2]}>
               <lineBasicMaterial color={GREEN} transparent opacity={0.8} />
             </lineSegments>
 
-            {/* Round body sphere */}
-            <mesh position={[0, -0.1, -zSign * 0.57]}>
-              <sphereGeometry args={[0.065, 8, 6]} />
-              <meshBasicMaterial color={GREEN} transparent opacity={0.35} toneMapped={false} side={THREE.DoubleSide} />
-            </mesh>
-            <lineSegments geometry={gunBodyEdges} position={[0, -0.1, -zSign * 0.57]}>
-              <lineBasicMaterial color={GREEN} transparent opacity={0.8} />
-            </lineSegments>
-
-            {/* Side fins on body */}
-            {([-1, 1] as const).map((fSign) => (
-              <group key={`fin-${fSign}`} position={[fSign * 0.075, -0.1, -zSign * 0.57]}>
-                <mesh>
-                  <boxGeometry args={[0.045, 0.01, 0.13]} />
-                  <meshBasicMaterial color={GREEN} transparent opacity={0.3} toneMapped={false} side={THREE.DoubleSide} />
-                </mesh>
-                <lineSegments geometry={gunFinEdges}>
-                  <lineBasicMaterial color={GREEN} transparent opacity={0.75} />
-                </lineSegments>
-              </group>
-            ))}
-
-            {/* Long thin barrel pointing down */}
-            <mesh position={[0, -0.27, -zSign * 0.57]}>
-              <cylinderGeometry args={[0.01, 0.016, 0.32, 6]} />
-              <meshBasicMaterial color={GREEN} transparent opacity={0.4} toneMapped={false} side={THREE.DoubleSide} />
-            </mesh>
-            <lineSegments geometry={gunBarrelEdges} position={[0, -0.27, -zSign * 0.57]}>
-              <lineBasicMaterial color={GREEN} transparent opacity={0.85} />
-            </lineSegments>
-
-            {/* Glowing emitter tip at barrel end */}
-            <mesh position={[0, -0.44, -zSign * 0.57]}>
-              <sphereGeometry args={[0.022, 6, 5]} />
-              <meshBasicMaterial color={GREEN} transparent opacity={0.5} toneMapped={false} />
-            </mesh>
-            <lineSegments geometry={gunEmitterEdges} position={[0, -0.44, -zSign * 0.57]}>
-              <lineBasicMaterial color={GREEN} transparent opacity={0.9} />
-            </lineSegments>
-
-            {/* Laser beam — line from emitter tip to belt */}
-            <lineSegments
-              ref={armIdx === 0 ? laserBeam1Ref : laserBeam2Ref}
-              geometry={laserBeamGeo}
-              position={[0, -0.47, -zSign * 0.57]}
-            >
-              <lineBasicMaterial color={GREEN} transparent opacity={0.05} />
-            </lineSegments>
+            {/* Gun head at wrist — rotation.z=0.35 angles beam toward pile */}
+            <group position={[0, -0.346, 0.2]} rotation={[0, 0, 0.35]}>
+              {/* Antenna up from body */}
+              <mesh position={[0, 0.08, 0]}>
+                <cylinderGeometry args={[0.006, 0.006, 0.11, 4]} />
+                <meshBasicMaterial color={GREEN} transparent opacity={0.4} toneMapped={false} side={THREE.DoubleSide} />
+              </mesh>
+              <lineSegments geometry={gunAntennaEdges} position={[0, 0.08, 0]}>
+                <lineBasicMaterial color={GREEN} transparent opacity={0.8} />
+              </lineSegments>
+              {/* Sphere body */}
+              <mesh position={[0, 0, 0]}>
+                <sphereGeometry args={[0.065, 8, 6]} />
+                <meshBasicMaterial color={GREEN} transparent opacity={0.35} toneMapped={false} side={THREE.DoubleSide} />
+              </mesh>
+              <lineSegments geometry={gunBodyEdges} position={[0, 0, 0]}>
+                <lineBasicMaterial color={GREEN} transparent opacity={0.8} />
+              </lineSegments>
+              {/* Side fins */}
+              {([-1, 1] as const).map((fSign) => (
+                <group key={`fin1b-${fSign}`} position={[fSign * 0.075, 0, 0]}>
+                  <mesh>
+                    <boxGeometry args={[0.045, 0.01, 0.10]} />
+                    <meshBasicMaterial color={GREEN} transparent opacity={0.3} toneMapped={false} side={THREE.DoubleSide} />
+                  </mesh>
+                  <lineSegments geometry={gunFinEdges}>
+                    <lineBasicMaterial color={GREEN} transparent opacity={0.75} />
+                  </lineSegments>
+                </group>
+              ))}
+              {/* Barrel pointing down */}
+              <mesh position={[0, -0.16, 0]}>
+                <cylinderGeometry args={[0.01, 0.016, 0.32, 6]} />
+                <meshBasicMaterial color={GREEN} transparent opacity={0.4} toneMapped={false} side={THREE.DoubleSide} />
+              </mesh>
+              <lineSegments geometry={gunBarrelEdges} position={[0, -0.16, 0]}>
+                <lineBasicMaterial color={GREEN} transparent opacity={0.85} />
+              </lineSegments>
+              {/* Glowing emitter */}
+              <mesh position={[0, -0.32, 0]}>
+                <sphereGeometry args={[0.022, 6, 5]} />
+                <meshBasicMaterial color={GREEN} transparent opacity={0.5} toneMapped={false} />
+              </mesh>
+              <lineSegments geometry={gunEmitterEdges} position={[0, -0.32, 0]}>
+                <lineBasicMaterial color={GREEN} transparent opacity={0.9} />
+              </lineSegments>
+              {/* Laser beam — straight down from emitter into pile */}
+              <lineSegments ref={laserBeam1Ref} geometry={laserBeamGeo} position={[0, -0.35, 0]}>
+                <lineBasicMaterial color={GREEN} transparent opacity={0.04} />
+              </lineSegments>
+            </group>
           </group>
         </group>
-      ))}
+      </group>
 
-      {/* Embed LED */}
-      <mesh ref={led3Ref} position={[S3_X, BELT_Y + 1.52, BELT_W / 2 + 0.22]}>
-        <sphereGeometry args={[0.035, 8, 8]} />
-        <meshBasicMaterial color={GREEN} transparent opacity={0.1} toneMapped={false} />
-      </mesh>
+      {/* Arm 2 — far rail right-of-pile, Y-rot=-43°; gun world-x ≈ 1.0 */}
+      <group position={[S3_X + 0.550, BELT_Y, -(BELT_W / 2 + 0.06)]} rotation={[0, -Math.PI * 43 / 180, 0]}>
+        {/* Pylon */}
+        <mesh position={[0, 0.7, 0]}>
+          <boxGeometry args={[0.1, 1.4, 0.1]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.3} toneMapped={false} side={THREE.DoubleSide} />
+        </mesh>
+        <lineSegments geometry={laserPylonEdges} position={[0, 0.7, 0]}>
+          <lineBasicMaterial color={GREEN} transparent opacity={0.7} />
+        </lineSegments>
+        <mesh position={[0, 0.025, 0]}>
+          <boxGeometry args={[0.2, 0.05, 0.2]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.25} toneMapped={false} side={THREE.DoubleSide} />
+        </mesh>
+        <lineSegments geometry={laserBaseEdges} position={[0, 0.025, 0]}>
+          <lineBasicMaterial color={GREEN} transparent opacity={0.6} />
+        </lineSegments>
+
+        {/* Shoulder sphere */}
+        <mesh position={[0, 1.35, 0]}>
+          <sphereGeometry args={[0.06, 8, 6]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.4} toneMapped={false} side={THREE.DoubleSide} />
+        </mesh>
+        <lineSegments geometry={armElbowEdges} position={[0, 1.35, 0]}>
+          <lineBasicMaterial color={GREEN} transparent opacity={0.8} />
+        </lineSegments>
+
+        {/* Shoulder joint — tight Y sweep, different rhythm */}
+        <group ref={laserArm2Ref} position={[0, 1.35, 0]}>
+          {/* Upper arm: rotation.x=+π/6 connects shoulder [0,0,0] → elbow [0,-0.35,0.606] */}
+          <mesh position={[0, -0.175, 0.303]} rotation={[Math.PI / 6, 0, 0]}>
+            <boxGeometry args={[0.09, 0.09, 0.70]} />
+            <meshBasicMaterial color={GREEN} transparent opacity={0.3} toneMapped={false} side={THREE.DoubleSide} />
+          </mesh>
+          <lineSegments geometry={laserArmBarEdges} position={[0, -0.175, 0.303]} rotation={[Math.PI / 6, 0, 0]}>
+            <lineBasicMaterial color={GREEN} transparent opacity={0.75} />
+          </lineSegments>
+
+          {/* Elbow sphere */}
+          <mesh position={[0, -0.35, 0.606]}>
+            <sphereGeometry args={[0.055, 8, 6]} />
+            <meshBasicMaterial color={GREEN} transparent opacity={0.4} toneMapped={false} side={THREE.DoubleSide} />
+          </mesh>
+          <lineSegments geometry={armElbowEdges} position={[0, -0.35, 0.606]}>
+            <lineBasicMaterial color={GREEN} transparent opacity={0.8} />
+          </lineSegments>
+
+          {/* Elbow joint */}
+          <group ref={laserArm2ElbowRef} position={[0, -0.35, 0.606]}>
+            {/* Forearm: rotation.x=+π/3 connects elbow [0,0,0] → wrist [0,-0.346,0.2] */}
+            <mesh position={[0, -0.173, 0.1]} rotation={[Math.PI / 3, 0, 0]}>
+              <boxGeometry args={[0.08, 0.08, 0.40]} />
+              <meshBasicMaterial color={GREEN} transparent opacity={0.3} toneMapped={false} side={THREE.DoubleSide} />
+            </mesh>
+            <lineSegments geometry={armForearmEdges} position={[0, -0.173, 0.1]} rotation={[Math.PI / 3, 0, 0]}>
+              <lineBasicMaterial color={GREEN} transparent opacity={0.75} />
+            </lineSegments>
+
+            {/* Wrist sphere */}
+            <mesh position={[0, -0.346, 0.2]}>
+              <sphereGeometry args={[0.045, 8, 6]} />
+              <meshBasicMaterial color={GREEN} transparent opacity={0.4} toneMapped={false} side={THREE.DoubleSide} />
+            </mesh>
+            <lineSegments geometry={armWristEdges} position={[0, -0.346, 0.2]}>
+              <lineBasicMaterial color={GREEN} transparent opacity={0.8} />
+            </lineSegments>
+
+            {/* Gun head at wrist — rotation.z=-0.45 angles beam toward pile from other side */}
+            <group position={[0, -0.346, 0.2]} rotation={[0, 0, -0.45]}>
+              <mesh position={[0, 0.08, 0]}>
+                <cylinderGeometry args={[0.006, 0.006, 0.11, 4]} />
+                <meshBasicMaterial color={GREEN} transparent opacity={0.4} toneMapped={false} side={THREE.DoubleSide} />
+              </mesh>
+              <lineSegments geometry={gunAntennaEdges} position={[0, 0.08, 0]}>
+                <lineBasicMaterial color={GREEN} transparent opacity={0.8} />
+              </lineSegments>
+              <mesh position={[0, 0, 0]}>
+                <sphereGeometry args={[0.065, 8, 6]} />
+                <meshBasicMaterial color={GREEN} transparent opacity={0.35} toneMapped={false} side={THREE.DoubleSide} />
+              </mesh>
+              <lineSegments geometry={gunBodyEdges} position={[0, 0, 0]}>
+                <lineBasicMaterial color={GREEN} transparent opacity={0.8} />
+              </lineSegments>
+              {([-1, 1] as const).map((fSign) => (
+                <group key={`fin2b-${fSign}`} position={[fSign * 0.075, 0, 0]}>
+                  <mesh>
+                    <boxGeometry args={[0.045, 0.01, 0.10]} />
+                    <meshBasicMaterial color={GREEN} transparent opacity={0.3} toneMapped={false} side={THREE.DoubleSide} />
+                  </mesh>
+                  <lineSegments geometry={gunFinEdges}>
+                    <lineBasicMaterial color={GREEN} transparent opacity={0.75} />
+                  </lineSegments>
+                </group>
+              ))}
+              <mesh position={[0, -0.16, 0]}>
+                <cylinderGeometry args={[0.01, 0.016, 0.32, 6]} />
+                <meshBasicMaterial color={GREEN} transparent opacity={0.4} toneMapped={false} side={THREE.DoubleSide} />
+              </mesh>
+              <lineSegments geometry={gunBarrelEdges} position={[0, -0.16, 0]}>
+                <lineBasicMaterial color={GREEN} transparent opacity={0.85} />
+              </lineSegments>
+              <mesh position={[0, -0.32, 0]}>
+                <sphereGeometry args={[0.022, 6, 5]} />
+                <meshBasicMaterial color={GREEN} transparent opacity={0.5} toneMapped={false} />
+              </mesh>
+              <lineSegments geometry={gunEmitterEdges} position={[0, -0.32, 0]}>
+                <lineBasicMaterial color={GREEN} transparent opacity={0.9} />
+              </lineSegments>
+              {/* Secondary beam — dimmer, flickering */}
+              <lineSegments ref={laserBeam2Ref} geometry={laserBeamGeo} position={[0, -0.35, 0]}>
+                <lineBasicMaterial color={GREEN} transparent opacity={0.03} />
+              </lineSegments>
+            </group>
+          </group>
+        </group>
+      </group>
 
       {/* Paper shreds traveling from S2 and piling up at laser site */}
       <group ref={particlesS3InRef} position={[S3_X, BELT_Y, 0]}>
@@ -1030,6 +1348,15 @@ function AssemblyLineScene({ phase, progress }: { phase: AnimPhase; progress: nu
         <lineSegments geometry={vacuumMotorEdges} position={[0, 1.3, 0]}>
           <lineBasicMaterial color={GREEN} transparent opacity={0.7} />
         </lineSegments>
+        {/* Status LED — on motor housing front face (+Z toward viewer) */}
+        <mesh position={[0.06, 1.32, 0.158]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.024, 0.024, 0.006, 10]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.22} toneMapped={false} />
+        </mesh>
+        <mesh ref={led4Ref} position={[0.06, 1.32, 0.164]}>
+          <sphereGeometry args={[0.018, 8, 8]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.1} toneMapped={false} />
+        </mesh>
 
         {/* Base foot plates under posts */}
         {([-1, 1] as const).map((zSign) => (
@@ -1070,12 +1397,6 @@ function AssemblyLineScene({ phase, progress }: { phase: AnimPhase; progress: nu
         </group>
       </group>
 
-      {/* Complete LED */}
-      <mesh ref={led4Ref} position={[S4_X, BELT_Y + 1.47, BELT_W / 2 + 0.22]}>
-        <sphereGeometry args={[0.035, 8, 8]} />
-        <meshBasicMaterial color={GREEN} transparent opacity={0.1} toneMapped={false} />
-      </mesh>
-
       {/* Digital 1s and 0s accumulating on belt then vacuumed up */}
       <group ref={particlesS4Ref} position={[S4_X, BELT_Y, 0]}>
         {Array.from({ length: 10 }).map((_, i) => (
@@ -1083,6 +1404,115 @@ function AssemblyLineScene({ phase, progress }: { phase: AnimPhase; progress: nu
             <lineBasicMaterial color={GREEN} transparent opacity={0} />
           </lineSegments>
         ))}
+      </group>
+
+      {/* ══════════════════════════════════════════
+          STATION NAMEPLATES — Neon signs
+          ══════════════════════════════════════════ */}
+      {/* UPLOAD */}
+      <group position={[S1_X, BELT_Y - 0.22, BELT_W / 2 + 0.24]}>
+        <mesh>
+          <boxGeometry args={[1.05, 0.22, 0.05]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.10} toneMapped={false} />
+        </mesh>
+        <lineSegments ref={plate1EdgesRef} geometry={namePlateOuterEdges}>
+          <lineBasicMaterial color={GREEN} transparent opacity={0.35} />
+        </lineSegments>
+        <mesh position={[0, 0, -0.008]}>
+          <boxGeometry args={[0.92, 0.14, 0.018]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.05} toneMapped={false} />
+        </mesh>
+        <lineSegments geometry={namePlateInnerEdges} position={[0, 0, -0.008]}>
+          <lineBasicMaterial color={GREEN} transparent opacity={0.25} />
+        </lineSegments>
+        {/* Outer glow halo — slightly scaled up, animates for bloom spread */}
+        <group scale={[1.14, 1.14, 1]}>
+          <lineSegments ref={glow1Ref} geometry={labelGeoS1} position={[0, 0, -0.009]}>
+            <lineBasicMaterial color={GREEN} transparent opacity={0.0} />
+          </lineSegments>
+        </group>
+        {/* Bright core text */}
+        <lineSegments ref={sign1Ref} geometry={labelGeoS1} position={[0, 0, -0.012]}>
+          <lineBasicMaterial color={GREEN} transparent opacity={0.22} />
+        </lineSegments>
+      </group>
+
+      {/* PROCESS */}
+      <group position={[S2_X, BELT_Y - 0.22, BELT_W / 2 + 0.24]}>
+        <mesh>
+          <boxGeometry args={[1.05, 0.22, 0.05]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.10} toneMapped={false} />
+        </mesh>
+        <lineSegments ref={plate2EdgesRef} geometry={namePlateOuterEdges}>
+          <lineBasicMaterial color={GREEN} transparent opacity={0.35} />
+        </lineSegments>
+        <mesh position={[0, 0, -0.008]}>
+          <boxGeometry args={[0.92, 0.14, 0.018]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.05} toneMapped={false} />
+        </mesh>
+        <lineSegments geometry={namePlateInnerEdges} position={[0, 0, -0.008]}>
+          <lineBasicMaterial color={GREEN} transparent opacity={0.25} />
+        </lineSegments>
+        <group scale={[1.14, 1.14, 1]}>
+          <lineSegments ref={glow2Ref} geometry={labelGeoS2} position={[0, 0, -0.009]}>
+            <lineBasicMaterial color={GREEN} transparent opacity={0.0} />
+          </lineSegments>
+        </group>
+        <lineSegments ref={sign2Ref} geometry={labelGeoS2} position={[0, 0, -0.012]}>
+          <lineBasicMaterial color={GREEN} transparent opacity={0.22} />
+        </lineSegments>
+      </group>
+
+      {/* EMBED */}
+      <group position={[S3_X, BELT_Y - 0.22, BELT_W / 2 + 0.24]}>
+        <mesh>
+          <boxGeometry args={[1.05, 0.22, 0.05]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.10} toneMapped={false} />
+        </mesh>
+        <lineSegments ref={plate3EdgesRef} geometry={namePlateOuterEdges}>
+          <lineBasicMaterial color={GREEN} transparent opacity={0.35} />
+        </lineSegments>
+        <mesh position={[0, 0, -0.008]}>
+          <boxGeometry args={[0.92, 0.14, 0.018]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.05} toneMapped={false} />
+        </mesh>
+        <lineSegments geometry={namePlateInnerEdges} position={[0, 0, -0.008]}>
+          <lineBasicMaterial color={GREEN} transparent opacity={0.25} />
+        </lineSegments>
+        <group scale={[1.14, 1.14, 1]}>
+          <lineSegments ref={glow3Ref} geometry={labelGeoS3} position={[0, 0, -0.009]}>
+            <lineBasicMaterial color={GREEN} transparent opacity={0.0} />
+          </lineSegments>
+        </group>
+        <lineSegments ref={sign3Ref} geometry={labelGeoS3} position={[0, 0, -0.012]}>
+          <lineBasicMaterial color={GREEN} transparent opacity={0.22} />
+        </lineSegments>
+      </group>
+
+      {/* COMPLETE */}
+      <group position={[S4_X, BELT_Y - 0.22, BELT_W / 2 + 0.24]}>
+        <mesh>
+          <boxGeometry args={[1.05, 0.22, 0.05]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.10} toneMapped={false} />
+        </mesh>
+        <lineSegments ref={plate4EdgesRef} geometry={namePlateOuterEdges}>
+          <lineBasicMaterial color={GREEN} transparent opacity={0.35} />
+        </lineSegments>
+        <mesh position={[0, 0, -0.008]}>
+          <boxGeometry args={[0.92, 0.14, 0.018]} />
+          <meshBasicMaterial color={GREEN} transparent opacity={0.05} toneMapped={false} />
+        </mesh>
+        <lineSegments geometry={namePlateInnerEdges} position={[0, 0, -0.008]}>
+          <lineBasicMaterial color={GREEN} transparent opacity={0.25} />
+        </lineSegments>
+        <group scale={[1.14, 1.14, 1]}>
+          <lineSegments ref={glow4Ref} geometry={labelGeoS4} position={[0, 0, -0.009]}>
+            <lineBasicMaterial color={GREEN} transparent opacity={0.0} />
+          </lineSegments>
+        </group>
+        <lineSegments ref={sign4Ref} geometry={labelGeoS4} position={[0, 0, -0.012]}>
+          <lineBasicMaterial color={GREEN} transparent opacity={0.22} />
+        </lineSegments>
       </group>
     </group>
   );
