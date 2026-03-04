@@ -1,7 +1,8 @@
 """HTML response generator service using CrewAI.
 
 Generates readable HTML5 responses from SQL query results using CrewAI
-Result Analyst agent per FR-008.
+Result Analyst agent per FR-008. Supports multi-strategy attribution
+for 004-parallel-query-fusion.
 
 Constitutional Requirements:
 - Thread-based operations only (no async/await)
@@ -18,6 +19,14 @@ from crewai import Crew
 
 from backend.src.crew.agents import create_result_analyst_agent
 from backend.src.crew.tasks import create_html_formatting_task
+from backend.src.models.fusion import FusedResult, StrategyType
+
+# Human-readable strategy names for attribution (FR-014)
+_STRATEGY_DISPLAY_NAMES: dict[StrategyType, str] = {
+    StrategyType.STRUCTURED: "structured query",
+    StrategyType.FULLTEXT: "full-text search",
+    StrategyType.VECTOR: "semantic search",
+}
 
 
 class ResponseGenerator:
@@ -225,25 +234,39 @@ class ResponseGenerator:
             "suggestions": suggestions,
         }
 
+    # pylint: disable=too-many-return-statements
+    # JUSTIFICATION: Method handles 3 distinct result-type branches (hybrid search,
+    # fused multi-strategy, SQL results) each requiring early returns for different
+    # conditions (low confidence, zero results, multi-strategy attribution).
+    # Splitting into separate methods would fragment the response generation flow.
     def generate_html_response(
         self,
         query_text: str,
         query_results: dict[str, Any],
         _query_id: UUID | str,
         confidence_threshold: float = 0.6,
+        *,
+        fused_result: FusedResult | None = None,
     ) -> dict[str, Any]:
         """Generate HTML response from SQL query results or hybrid search results.
+
+        When fused_result is provided (multi-strategy path):
+        - The CrewAI Result Analyst receives fused rows with attribution metadata.
+        - If fused_result.is_multi_strategy, prompt includes attribution summary (FR-014).
+        - If single strategy contributed, no attribution shown (FR-015).
+
+        When fused_result is None (single-strategy path / fallback):
+        - Existing behavior preserved exactly as before this feature.
 
         Args:
             query_text: Original user question
             query_results: Either SQL query results OR hybrid search results with fused_results
             confidence_threshold: Confidence threshold for clarification (default: 0.6)
+            fused_result: Optional FusedResult for multi-strategy responses
 
         Returns:
             Dictionary with html_content, plain_text, confidence_score
             OR clarification request if confidence is low
-
-        Note: _query_id parameter is reserved for future use but currently unused.
 
         Constitutional Compliance:
         - Uses CrewAI synchronously (not async)
@@ -277,6 +300,14 @@ class ResponseGenerator:
                 "clarification_needed": False,
             }
 
+        # Multi-strategy fused result path (004-parallel-query-fusion)
+        if fused_result is not None:
+            return self._generate_fused_response(
+                query_text=query_text,
+                query_results=query_results,
+                fused_result=fused_result,
+            )
+
         # This is SQL query results (existing behavior)
         # Create Result Analyst agent
         analyst_agent: Any = create_result_analyst_agent()
@@ -306,6 +337,114 @@ class ResponseGenerator:
             "plain_text": plain_text_str,
             "confidence_score": confidence_score_sql,
         }
+
+    # pylint: enable=too-many-return-statements
+
+    def _generate_fused_response(
+        self,
+        query_text: str,
+        query_results: dict[str, Any],
+        fused_result: FusedResult,
+    ) -> dict[str, Any]:
+        """Generate HTML response from fused multi-strategy results.
+
+        Delegates to CrewAI Result Analyst with optional attribution
+        metadata when multiple strategies contributed (FR-014).
+
+        Args:
+            query_text: Original user question.
+            query_results: Dict with rows, columns, row_count from fused data.
+            fused_result: FusedResult with attribution metadata.
+
+        Returns:
+            Dictionary with html_content, plain_text, confidence_score.
+        """
+        # Zero results — use existing zero-results behavior (US3 AS3)
+        row_count: int = query_results.get("row_count", 0)
+        if row_count == 0:
+            return {
+                "html_content": (
+                    "<article><p>No results found. " "Try refining your query.</p></article>"
+                ),
+                "plain_text": "No results found. Try refining your query.",
+                "confidence_score": 0.6,
+            }
+
+        # Build attribution text if multi-strategy (FR-014)
+        attribution_text: str | None = None
+        if fused_result.is_multi_strategy:
+            attribution_text = self._build_attribution_text(fused_result)
+
+        # Create Result Analyst agent
+        analyst_agent: Any = create_result_analyst_agent()
+
+        # Augment query_text with attribution for the CrewAI prompt (FR-014)
+        prompt_query: str = query_text
+        if attribution_text is not None:
+            prompt_query = (
+                f"{query_text}\n\n"
+                f"STRATEGY ATTRIBUTION (include this note above the "
+                f"data table):\n{attribution_text}"
+            )
+
+        # Create HTML formatting task
+        task: Any = create_html_formatting_task(
+            agent=analyst_agent,
+            query_text=prompt_query,
+            query_results=query_results,
+        )
+
+        # Create crew and execute
+        crew: Crew = Crew(agents=[analyst_agent], tasks=[task], verbose=False)
+        result: Any = crew.kickoff()
+
+        # Extract HTML content from result
+        html_content_str: str = str(result.raw) if hasattr(result, "raw") else str(result)
+
+        # Generate plain text version
+        plain_text_str: str = self._html_to_plain_text(html_content_str)
+
+        # Confidence based on result count
+        confidence_score: float = self._calculate_confidence(query_results)
+
+        return {
+            "html_content": html_content_str,
+            "plain_text": plain_text_str,
+            "confidence_score": confidence_score,
+        }
+
+    @staticmethod
+    def _build_attribution_text(fused_result: FusedResult) -> str:
+        """Build human-readable strategy attribution text (FR-014).
+
+        Format: "Results from structured query (N rows), full-text search
+        (N rows), and semantic search (N rows)."
+
+        Args:
+            fused_result: FusedResult with strategy attributions.
+
+        Returns:
+            Attribution string for inclusion in CrewAI prompt.
+        """
+        parts: list[str] = []
+        for attr in fused_result.attributions:
+            if not attr.succeeded:
+                continue
+            display_name: str = _STRATEGY_DISPLAY_NAMES.get(
+                attr.strategy_type, attr.strategy_type.value
+            )
+            parts.append(f"{display_name} ({attr.row_count} rows)")
+
+        if len(parts) == 0:
+            return ""
+        if len(parts) == 1:
+            return f"Results from {parts[0]}."
+        if len(parts) == 2:
+            return f"Results from {parts[0]} and {parts[1]}."
+
+        # 3+ strategies: comma-separated with Oxford comma
+        joined: str = ", ".join(parts[:-1]) + f", and {parts[-1]}"
+        return f"Results from {joined}."
 
     def _html_to_plain_text(self, html: str) -> str:
         """Convert HTML to plain text.

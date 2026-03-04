@@ -27,7 +27,10 @@ from backend.src.services.hybrid_search import HybridSearchService
 from backend.src.services.query_execution import QueryExecutionService
 from backend.src.services.query_history import QueryHistoryService
 from backend.src.services.response_generator import ResponseGenerator
+from backend.src.services.result_fusion import ResultFusionService
+from backend.src.services.strategy_dispatcher import StrategyDispatcherService
 from backend.src.services.text_to_sql import TextToSQLService
+from backend.src.utils.logging import log_event
 from backend.src.utils.progress_tracker import ProgressTracker
 
 # Configure logger
@@ -101,7 +104,7 @@ def _handle_clarification_response(
     return Query(**query_obj)
 
 
-# pylint: disable=too-many-arguments
+# pylint: disable=too-many-arguments,too-many-positional-arguments
 # JUSTIFICATION: Orchestration function needs to pass context (query data, services, user)
 # to maintain clean separation of concerns. Reducing arguments would require over-engineering
 # (wrapper objects) or tight coupling (accessing global state).
@@ -120,6 +123,10 @@ def _execute_sql_query(
 ) -> None:
     """Execute high-confidence SQL query and store response.
 
+    Routes to multi-strategy or single-strategy path based on
+    available indexes (FR-021). Multi-strategy uses parallel dispatch,
+    RRF fusion, and attribution. Single-strategy preserves existing behavior.
+
     Args:
         query_id: Query UUID
         query_text: Original query text
@@ -134,6 +141,96 @@ def _execute_sql_query(
     """
     sql_service: TextToSQLService = TextToSQLService(pool)
 
+    # Strategy dispatch: determine multi-strategy vs single-strategy (FR-021)
+    dispatcher: StrategyDispatcherService = StrategyDispatcherService(pool)
+    is_aggregation: bool = StrategyDispatcherService.detect_aggregation_intent(query_text)
+    dispatch_plan: Any = dispatcher.plan_strategies(
+        username=username,
+        dataset_ids=dataset_ids,
+        is_aggregation=is_aggregation,
+    )
+
+    log_event(
+        logger,
+        "info",
+        "strategy_dispatch",
+        None,
+        {
+            "query_id": str(query_id),
+            "strategies": [s.value for s in dispatch_plan.strategies],
+            "is_aggregation": is_aggregation,
+            "strategy_count": len(dispatch_plan.strategies),
+        },
+    )
+
+    # Single-strategy bypass (FR-021): len==1 → existing path
+    if len(dispatch_plan.strategies) <= 1:
+        _execute_single_strategy_path(
+            query_id=query_id,
+            query_text=query_text,
+            dataset_ids=dataset_ids,
+            search_results=search_results,
+            start_time=start_time,
+            pool=pool,
+            sql_service=sql_service,
+            history_service=history_service,
+            response_generator=response_generator,
+            tracker=tracker,
+            username=username,
+        )
+        return
+
+    # Multi-strategy path
+    _execute_multi_strategy_path(
+        query_id=query_id,
+        query_text=query_text,
+        dataset_ids=dataset_ids,
+        search_results=search_results,
+        start_time=start_time,
+        pool=pool,
+        sql_service=sql_service,
+        dispatch_plan=dispatch_plan,
+        history_service=history_service,
+        response_generator=response_generator,
+        tracker=tracker,
+        username=username,
+    )
+
+
+# pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
+# JUSTIFICATION: Extracted from _execute_sql_query to separate single-strategy
+# path. Needs same context (query data, services, user) plus sql_service.
+# Locals inherited from original function for SQL gen, execution, and response.
+def _execute_single_strategy_path(
+    query_id: UUID,
+    query_text: str,
+    dataset_ids: list[UUID] | None,
+    search_results: dict[str, Any],
+    start_time: float,
+    pool: Any,
+    sql_service: TextToSQLService,
+    *,
+    history_service: QueryHistoryService,
+    response_generator: ResponseGenerator,
+    tracker: ProgressTracker,
+    username: str,
+) -> None:
+    """Execute single-strategy SQL query (existing behavior).
+
+    Args:
+        query_id: Query UUID
+        query_text: Original query text
+        dataset_ids: Optional dataset UUIDs to query
+        search_results: Column search results from hybrid search
+        start_time: Query processing start timestamp
+        pool: Database connection pool
+        sql_service: Text-to-SQL service instance
+        history_service: Query history service instance
+        response_generator: Response generator instance
+        tracker: Progress timeline tracker
+        username: Current username
+    """
+
     # Create progress callback for SQL generation
     def sql_generation_progress(message: str) -> None:
         """Progress callback for SQL generation service."""
@@ -144,7 +241,7 @@ def _execute_sql_query(
         dataset_ids=dataset_ids,
         username=username,
         search_results=search_results,
-        use_schema_inspection=True,  # Enable Schema Inspector Agent
+        use_schema_inspection=True,
         progress_callback=sql_generation_progress,
     )
 
@@ -156,14 +253,16 @@ def _execute_sql_query(
         query_sql=sql_result["sql"],
         params=sql_result["params"],
         username=username,
-        timeout_seconds=300,  # 5 minutes timeout per user request
+        timeout_seconds=300,
     )
 
     tracker.update(f"Query completed, processing {query_results['row_count']} rows...")
 
     tracker.update("Result Analyst Agent formatting results as HTML...")
     response_data: dict[str, Any] = response_generator.generate_html_response(
-        query_text=query_text, query_results=query_results, _query_id=query_id
+        query_text=query_text,
+        query_results=query_results,
+        _query_id=query_id,
     )
 
     execution_time_ms: int = int((time.time() - start_time) * 1000)
@@ -176,8 +275,154 @@ def _execute_sql_query(
         query_params=sql_result["params"],
         result_count=query_results["row_count"],
         execution_time_ms=execution_time_ms,
-        progress_message="Completed successfully",  # Keep final message visible
+        progress_message="Completed successfully",
         agent_logs=sql_result.get("agent_logs"),
+        progress_timeline=tracker.get_timeline_json(),
+    )
+
+    history_service.store_response(
+        query_id=query_id,
+        username=username,
+        html_content=response_data["html_content"],
+        plain_text=response_data["plain_text"],
+        confidence_score=response_data.get("confidence_score"),
+    )
+
+
+# pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
+# JUSTIFICATION: Multi-strategy orchestration requires: dispatch plan,
+# SQL generation, parallel execution, fusion, and response assembly.
+# Each step needs its own context variables. Splitting would fragment
+# the pipeline without reducing complexity.
+def _execute_multi_strategy_path(
+    query_id: UUID,
+    query_text: str,
+    dataset_ids: list[UUID] | None,
+    search_results: dict[str, Any],
+    start_time: float,
+    pool: Any,
+    sql_service: TextToSQLService,
+    dispatch_plan: Any,
+    *,
+    history_service: QueryHistoryService,
+    response_generator: ResponseGenerator,
+    tracker: ProgressTracker,
+    username: str,
+) -> None:
+    """Execute multi-strategy query pipeline.
+
+    Pipeline: dispatch → SQL generation → parallel execution →
+    RRF fusion → HTML response with attribution.
+
+    Args:
+        query_id: Query UUID
+        query_text: Original query text
+        dataset_ids: Optional dataset UUIDs to query
+        search_results: Column search results from hybrid search
+        start_time: Query processing start timestamp
+        pool: Database connection pool
+        sql_service: Text-to-SQL service instance
+        dispatch_plan: StrategyDispatchPlan from dispatcher
+        history_service: Query history service instance
+        response_generator: Response generator instance
+        tracker: Progress timeline tracker
+        username: Current username
+    """
+    strategy_count: int = len(dispatch_plan.strategies)
+
+    # Step 1: Generate multi-strategy SQL (FR-023)
+    tracker.update("Generating multi-strategy SQL...")
+
+    def sql_progress(message: str) -> None:
+        """Progress callback for multi-strategy SQL generation."""
+        tracker.update(message)
+
+    strategy_sqls: list[Any] = sql_service.generate_multi_strategy_sql(
+        query_text=query_text,
+        username=username,
+        dataset_ids=dataset_ids,
+        search_results=search_results,
+        strategy_dispatch=dispatch_plan,
+        progress_callback=sql_progress,
+    )
+
+    # Build combined SQL string for storage (FR-022)
+    combined_sql: str = "\n\n".join(
+        f"-- Strategy: {s.strategy_type.value}\n{s.sql}" for s in strategy_sqls
+    )
+
+    # Step 2: Parallel execution (FR-023)
+    tracker.update(f"Executing {strategy_count} strategies in parallel...")
+    execution_service: QueryExecutionService = QueryExecutionService(pool)
+    strategy_results: list[Any] = execution_service.execute_strategies_parallel(
+        strategies=strategy_sqls,
+        username=username,
+        timeout_seconds=30,
+    )
+
+    log_event(
+        logger,
+        "info",
+        "strategy_execution_complete",
+        None,
+        {
+            "query_id": str(query_id),
+            "results": [
+                {
+                    "strategy": r.strategy_type.value,
+                    "row_count": r.row_count,
+                    "error": r.error,
+                    "execution_time_ms": r.execution_time_ms,
+                }
+                for r in strategy_results
+            ],
+        },
+    )
+
+    # Step 3: Fuse results (FR-023)
+    tracker.update(f"Fusing results from {strategy_count} strategies...")
+    fusion_service: ResultFusionService = ResultFusionService()
+    fused_result: Any = fusion_service.fuse(strategy_results)
+
+    log_event(
+        logger,
+        "info",
+        "fusion_complete",
+        None,
+        {
+            "query_id": str(query_id),
+            "total_rows": fused_result.total_row_count,
+            "strategy_count": fused_result.strategy_count,
+            "is_multi_strategy": fused_result.is_multi_strategy,
+        },
+    )
+
+    # Build query_results dict for response generator
+    query_results: dict[str, Any] = {
+        "rows": [row.data for row in fused_result.rows],
+        "columns": fused_result.columns,
+        "row_count": fused_result.total_row_count,
+    }
+
+    # Step 4: Generate response (FR-023)
+    tracker.update("Generating response...")
+    response_data: dict[str, Any] = response_generator.generate_html_response(
+        query_text=query_text,
+        query_results=query_results,
+        _query_id=query_id,
+        fused_result=fused_result,
+    )
+
+    execution_time_ms: int = int((time.time() - start_time) * 1000)
+
+    history_service.update_query_status(
+        query_id,
+        username,
+        "completed",
+        generated_sql=combined_sql,
+        result_count=fused_result.total_row_count,
+        execution_time_ms=execution_time_ms,
+        progress_message="Completed successfully",
         progress_timeline=tracker.get_timeline_json(),
     )
 
@@ -515,7 +760,8 @@ def submit_query(
     worker_thread.start()
 
     logger.info(
-        f"Query {query_id} submitted and background processing started in thread {worker_thread.name}"
+        f"Query {query_id} submitted and background processing "
+        f"started in thread {worker_thread.name}"
     )
 
     # Return pending query immediately for client to poll
